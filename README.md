@@ -145,7 +145,24 @@ viewlens tui
 viewlens tui --headless --template LoginForm
 ```
 
-### 6. `viewlens mcp`
+### 6. `viewlens hook` (Pre-Commit & CI Quality Gates)
+Executes automated quality gates enforcing Apple HIG, Touch Targets (≥44pt), Dynamic Type reflow, and Dark Mode:
+
+```bash
+# Fast pre-commit audit on staged views (<1s)
+viewlens hook pre-commit
+
+# Strict CI / PR check generating GitHub Markdown step summaries
+viewlens hook pull-request --output-markdown reports/pr_summary.md
+
+# Install git pre-commit hook in local repository
+viewlens install-hook --type pre-commit
+
+# Generate starter .viewlens.json configuration
+viewlens init-config
+```
+
+### 7. `viewlens mcp`
 Launches the 100% pure Swift Model Context Protocol (MCP) server over standard I/O (`stdio`):
 
 ```bash

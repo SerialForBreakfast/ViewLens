@@ -14,11 +14,12 @@ This document provides the master task breakdown, milestone roadmap, user storie
 | **M3: macOS Desktop Visual Inspector App** | Sprint 4 | SwiftUI macOS Canvas App, live MCP status bar, incoming agent activity stream, visual confirmation preview canvas, and HIG remediation sidebar | ✅ Complete |
 | **M4: Terminal UI (TUI) & Headless ASCII Dashboard** | Sprint 5 | Full-screen interactive ANSI terminal UI (`viewlens tui`), ASCII wireframe visualizer, keyboard shortcuts, and headless CI streaming mode | ✅ Complete |
 | **M5: Mac Catalyst Live Validation Spike** | Sprint 5 | Empirical verification of offscreen `UIWindow`, `hasAmbiguousLayout` accuracy, Dynamic Type trait overrides, and sub-millisecond layout benchmarking | ✅ Complete |
-| **M6: NativeUIAuditKit 2.0 Integration & Release Distribution** | Sprint 6 | `NativeUIAuditKitModels` 2.0.0 dependency wiring, `ModelLocator` zero-config bundled model resolution, and release packaging | 📋 Ready for Release |
+| **M6: Git Hooks & CI/CD Quality Gate Engine** | Sprint 6 | Declarative `.viewlens.yml` / `.viewlens.json` config, `viewlens hook pre-commit/pre-push/ci`, git diff auto-detection, and GitHub PR markdown report generator | ✅ Complete |
+| **M7: NativeUIAuditKit 2.0 Integration & Release Distribution** | Sprint 7 | `NativeUIAuditKitModels` 2.0.0 dependency wiring, `ModelLocator` zero-config bundled model resolution, and release packaging | 📋 Ready for Model Release |
 
 ---
 
-## Completed Tasks (Milestones 0–5)
+## Completed Tasks (Milestones 0–6)
 
 ### ✅ Milestone 0: Foundation & Core Setup
 - **Task 0.1**: Created [Package.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Package.swift) defining `ViewLensKit`, `viewlens` CLI, and test targets.
@@ -53,3 +54,10 @@ This document provides the master task breakdown, milestone roadmap, user storie
 
 ### ✅ Milestone 5: Mac Catalyst Live Validation Spike
 - **Task 5.1 & 5.2**: Implemented [CatalystSpikeHarness.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Introspection/CatalystSpikeHarness.swift) empirically validating that `view.hasAmbiguousLayout` returns `false` on fully-constrained layouts, `true` on under-constrained layouts when attached to offscreen `UIWindow`, and `UIGraphicsImageRenderer` rasterizes offscreen hierarchies in $<1\text{ms}$.
+
+### ✅ Milestone 6: Git Hooks & CI/CD Quality Gate Engine
+- **Task 6.1**: Implemented [ViewLensConfig.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Config/ViewLensConfig.swift) with declarative quality gate schemas and purpose filters (`touch_targets`, `clipping`, `accessibility`, `dark_mode`, `autolayout`).
+- **Task 6.2**: Implemented [GitDiffAnalyzer.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Git/GitDiffAnalyzer.swift) parsing `git diff --cached` for modified view detection.
+- **Task 6.3**: Implemented [QualityGateEvaluator.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/QualityGate/QualityGateEvaluator.swift) with configurable `fail_on` thresholds.
+- **Task 6.4**: Implemented [PRSummaryGenerator.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/QualityGate/PRSummaryGenerator.swift) formatting GitHub PR comments and `$GITHUB_STEP_SUMMARY` markdown.
+- **Task 6.5**: Implemented [HookCommand.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensCLI/Commands/HookCommand.swift), [InstallHookCommand.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensCLI/Commands/InstallHookCommand.swift), and [InitConfigCommand.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensCLI/Commands/InitConfigCommand.swift).
