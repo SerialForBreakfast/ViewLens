@@ -166,3 +166,55 @@ struct ReviewStoreTests {
         return context?.makeImage()
     }
 }
+
+@MainActor
+struct CurrentStatusStoreTests {
+    @Test func filtersIncompleteAndSearchesSourceName() {
+        let store = CurrentStatusStore()
+        let complete = ReviewRecord(
+            source: .template(name: "LoginForm"),
+            status: .completed,
+            environment: ReviewEnvironment(),
+            score: ReviewScore(value: 96, evaluatedCriteria: 8, totalCriteria: 8)
+        )
+        let incomplete = ReviewRecord(
+            source: .image(url: URL(fileURLWithPath: "/tmp/Checkout.png")),
+            status: .incomplete(reason: "Semantic tree unavailable"),
+            environment: ReviewEnvironment(),
+            score: ReviewScore(value: 100, evaluatedCriteria: 4, totalCriteria: 8)
+        )
+
+        store.filter = .incomplete
+        #expect(store.visibleReviews(from: [complete, incomplete]).map(\.id) == [incomplete.id])
+
+        store.filter = .all
+        store.searchText = "login"
+        #expect(store.visibleReviews(from: [complete, incomplete]).map(\.id) == [complete.id])
+    }
+
+    @Test func passRateExcludesPartialReviewsAndSortsByScore() {
+        let store = CurrentStatusStore()
+        let high = ReviewRecord(
+            source: .template(name: "High"),
+            status: .completed,
+            environment: ReviewEnvironment(),
+            score: ReviewScore(value: 96, evaluatedCriteria: 8, totalCriteria: 8)
+        )
+        let low = ReviewRecord(
+            source: .template(name: "Low"),
+            status: .completed,
+            environment: ReviewEnvironment(),
+            score: ReviewScore(value: 72, evaluatedCriteria: 8, totalCriteria: 8)
+        )
+        let partial = ReviewRecord(
+            source: .image(url: URL(fileURLWithPath: "/tmp/Partial.png")),
+            status: .incomplete(reason: "Limited coverage"),
+            environment: ReviewEnvironment(),
+            score: ReviewScore(value: 100, evaluatedCriteria: 4, totalCriteria: 8)
+        )
+
+        #expect(store.passRate(for: [high, low, partial]) == 50)
+        store.sort = .scoreHigh
+        #expect(store.visibleReviews(from: [low, high, partial]).map(\.id) == [partial.id, high.id, low.id])
+    }
+}

@@ -66,6 +66,80 @@ final class HistoryStore {
     }
 }
 
+enum DashboardReviewFilter: String, CaseIterable, Identifiable {
+    case all = "All"
+    case passed = "Passed"
+    case issues = "Has Issues"
+    case incomplete = "Incomplete"
+
+    var id: String { rawValue }
+}
+
+enum DashboardReviewSort: String, CaseIterable, Identifiable {
+    case newest = "Newest"
+    case oldest = "Oldest"
+    case scoreHigh = "Highest Score"
+    case scoreLow = "Lowest Score"
+    case name = "Name"
+
+    var id: String { rawValue }
+}
+
+@MainActor
+@Observable
+final class CurrentStatusStore {
+    var searchText = ""
+    var filter: DashboardReviewFilter = .all
+    var sort: DashboardReviewSort = .newest
+    var selectedReviewID: UUID?
+    var isDropTargeted = false
+    var showsDiagnostics = false
+
+    func visibleReviews(from reviews: [ReviewRecord]) -> [ReviewRecord] {
+        reviews
+            .filter(matches)
+            .sorted(by: precedes)
+    }
+
+    func passRate(for reviews: [ReviewRecord]) -> Int? {
+        let complete = reviews.filter { $0.score?.isComplete == true }
+        guard !complete.isEmpty else { return nil }
+        let passing = complete.filter { ($0.score?.value ?? 0) >= 90 }.count
+        return Int((Double(passing) / Double(complete.count) * 100).rounded())
+    }
+
+    private func matches(_ review: ReviewRecord) -> Bool {
+        if !searchText.isEmpty,
+           !review.source.displayName.localizedStandardContains(searchText),
+           !review.source.sourceType.localizedStandardContains(searchText) {
+            return false
+        }
+
+        switch filter {
+        case .all:
+            return true
+        case .passed:
+            return review.status == .completed && (review.score?.value ?? 0) >= 90
+        case .issues:
+            return !review.findings.isEmpty
+        case .incomplete:
+            if case .incomplete = review.status { return true }
+            if case .stale = review.status { return true }
+            return false
+        }
+    }
+
+    private func precedes(_ lhs: ReviewRecord, _ rhs: ReviewRecord) -> Bool {
+        switch sort {
+        case .newest: return lhs.startedAt > rhs.startedAt
+        case .oldest: return lhs.startedAt < rhs.startedAt
+        case .scoreHigh: return (lhs.score?.value ?? -1) > (rhs.score?.value ?? -1)
+        case .scoreLow: return (lhs.score?.value ?? 101) < (rhs.score?.value ?? 101)
+        case .name: return lhs.source.displayName.localizedStandardCompare(rhs.source.displayName) == .orderedAscending
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class PreferenceStore {

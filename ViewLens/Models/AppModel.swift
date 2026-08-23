@@ -14,6 +14,7 @@ public final class AppModel {
     public let playgroundStore: PlaygroundStore
     let navigationStore: NavigationStore
     let historyStore: HistoryStore
+    let currentStatusStore: CurrentStatusStore
     let preferenceStore: PreferenceStore
 
     private var reviewTask: Task<Void, Never>?
@@ -42,6 +43,7 @@ public final class AppModel {
         self.playgroundStore = playgroundStore
         self.navigationStore = NavigationStore()
         self.historyStore = HistoryStore()
+        self.currentStatusStore = CurrentStatusStore()
         self.preferenceStore = PreferenceStore()
         runDoctorCheck()
         if loadsInitialSample { loadInitialSample() }
@@ -388,6 +390,13 @@ public final class AppModel {
         if let image = activity.previewImage, let report = activity.auditReport {
             canvasStore.update(image: image, elements: report.elements, issues: report.issues)
         }
+    }
+
+    public func openReview(reviewID: UUID) {
+        reviewStore.load(reviewID: reviewID)
+        guard let review = reviewStore.activeReview else { return }
+        canvasStore.load(review: review)
+        reviewStore.activeActivity = reviewStore.activityHistory.first { $0.reviewID == reviewID }
     }
 
     private func cancelRunningReviewIfNeeded() {
