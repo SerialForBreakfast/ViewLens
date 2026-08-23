@@ -17,7 +17,7 @@ This document provides the master task breakdown, milestone roadmap, user storie
 | **M6: Git Hooks & CI/CD Quality Gate Engine** | Sprint 6 | Declarative `.viewlens.yml` / `.viewlens.json` config, `viewlens hook pre-commit/pre-push/ci`, git diff auto-detection, and GitHub PR markdown report generator | ✅ Complete |
 | **M7: NativeUIAuditKit 2.0 Integration & Model Bundling** | Sprint 7 | Resolved `NativeUIAuditKit` 2.0.0 SPM dependency, wired `NativeUIModelAsset.defaultModelURL` and `metadata`, verified zero-config `viewlens doctor` and `xcodebuild` | ✅ Complete |
 | **M8: Desktop Design System & Navigation Shell** | UI Sprint 1 | Semantic tokens, reusable components, native split navigation, toolbar, commands, adaptive appearance | 🟨 In Progress |
-| **M9: Review Domain & State Architecture** | UI Sprint 1–2 | Review lifecycle, focused stores, cancellable orchestration, errors, partial/stale results | ⬜ Planned |
+| **M9: Review Domain & State Architecture** | UI Sprint 1–2 | Review lifecycle, focused stores, cancellable orchestration, errors, partial/stale results | ✅ Complete |
 | **M10: Current Status Dashboard** | UI Sprint 2 | Health cards, recent reviews, quality trend, activity, quick import | 🟨 In Progress |
 | **M11: AI Review Workbench** | UI Sprint 3–4 | Review progress, inspection canvas, findings, activity, remediation, export | 🟨 In Progress |
 | **M12: Playground, History & Settings** | UI Sprint 4–5 | Manual/template audit setup, durable reviews, comparison, preferences and diagnostics | 🟨 In Progress |

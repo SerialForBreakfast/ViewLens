@@ -607,12 +607,12 @@ This redesign becomes Milestones 8–13 after the completed foundation work in `
 
 ### Milestone 9 — State and Review Domain
 
-- [ ] **UI-9.1** Split `AppModel` into navigation, health, review, canvas, playground, history, and preference stores.
-- [ ] **UI-9.2** Define review lifecycle, source, environment, score/completeness, event, and persistence models.
-- [ ] **UI-9.3** Convert rendering, screenshot auditing, accessibility auditing, and doctor checks to cancellable async orchestration.
-- [ ] **UI-9.4** Add stable review/finding identifiers and bidirectional issue-element selection.
-- [ ] **UI-9.5** Add structured error, partial-result, stale-result, and cancellation handling.
-- [ ] **UI-9.6** Add review repository protocol and in-memory implementation for previews/tests.
+- [x] **UI-9.1** Split `AppModel` into navigation, health, review, canvas, playground, history, and preference stores.
+- [x] **UI-9.2** Define review lifecycle, source, environment, score/completeness, event, and persistence models.
+- [x] **UI-9.3** Convert rendering, screenshot auditing, accessibility auditing, and doctor checks to cancellable async orchestration.
+- [x] **UI-9.4** Add stable review/finding identifiers and bidirectional issue-element selection.
+- [x] **UI-9.5** Add structured error, partial-result, stale-result, and cancellation handling.
+- [x] **UI-9.6** Add review repository protocol and in-memory implementation for previews/tests.
 
 **Acceptance:** Review state transitions are deterministic and unit tested; cancelling one review cannot corrupt a prior result; incomplete audits never appear fully passing.
 

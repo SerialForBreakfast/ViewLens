@@ -242,14 +242,7 @@ struct CurrentStatusView: View {
     }
 
     private func load(_ activity: MCPAgentActivity) {
-        model.activeActivity = activity
-        model.currentImage = activity.previewImage ?? model.currentImage
-        if let report = activity.auditReport {
-            model.currentElements = report.elements
-            model.currentIssues = report.issues
-            model.selectedIssue = nil
-            model.selectedElementIndex = nil
-        }
+        model.openActivity(activity)
     }
 }
 

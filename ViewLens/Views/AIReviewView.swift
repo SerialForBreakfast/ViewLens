@@ -9,12 +9,14 @@ struct AIReviewView: View {
     private var errorCount: Int { model.currentIssues.filter { $0.severity == .error }.count }
     private var warningCount: Int { model.currentIssues.filter { $0.severity == .warning }.count }
     private var infoCount: Int { model.currentIssues.filter { $0.severity == .info }.count }
-    private var score: Int { max(0, 100 - (errorCount * 12) - (warningCount * 5) - infoCount) }
-    private var hasResult: Bool { model.currentImage != nil && model.activeActivity != nil }
+    private var score: Int { model.reviewStore.activeReview?.score?.value ?? max(0, 100 - (errorCount * 12) - (warningCount * 5) - infoCount) }
+    private var hasResult: Bool { model.currentImage != nil }
+    private var reviewStatus: ReviewStatus { model.reviewStore.activeReview?.status ?? .idle }
 
     var body: some View {
         VStack(spacing: 0) {
             reviewHeader
+            reviewStateBanner
             Divider()
 
             if hasResult {
@@ -29,12 +31,16 @@ struct AIReviewView: View {
                 }
             } else {
                 ContentUnavailableView {
-                    Label("No AI Review Selected", systemImage: "sparkles.rectangle.stack")
+                    Label(reviewStatus.isRunning ? "Review in Progress" : "No AI Review Selected", systemImage: reviewStatus.isRunning ? "sparkles" : "sparkles.rectangle.stack")
                 } description: {
-                    Text("Import a screenshot or run a Playground template to begin an accessibility review.")
+                    Text(reviewStatus.isRunning ? reviewStatus.displayName : "Import a screenshot or run a Playground template to begin an accessibility review.")
                 } actions: {
-                    Button("Import & Validate", action: onImport)
-                        .buttonStyle(.borderedProminent)
+                    if reviewStatus.isRunning {
+                        Button("Cancel Review", role: .cancel) { model.cancelActiveReview() }
+                    } else {
+                        Button("Import & Validate", action: onImport)
+                            .buttonStyle(.borderedProminent)
+                    }
                 }
             }
         }
@@ -56,6 +62,13 @@ struct AIReviewView: View {
 
                 Spacer()
 
+                if reviewStatus.isRunning {
+                    Button("Cancel", role: .cancel) {
+                        model.cancelActiveReview()
+                    }
+                    .help("Cancel the active review and preserve the previous completed result")
+                }
+
                 if hasResult {
                     VStack(alignment: .trailing, spacing: 2) {
                         HStack(alignment: .firstTextBaseline, spacing: 5) {
@@ -66,18 +79,18 @@ struct AIReviewView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        Text("\(model.currentIssues.count) findings · WCAG 2.2 AA")
+                        Text("\(model.currentIssues.count) findings · \(model.reviewStore.activeReview?.score?.completenessText ?? "Coverage unavailable")")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("Accessibility score")
-                    .accessibilityValue("\(score) out of 100, \(model.currentIssues.count) findings, WCAG 2.2 level AA")
+                    .accessibilityValue("\(score) out of 100, \(model.currentIssues.count) findings, \(model.reviewStore.activeReview?.score?.completenessText ?? "coverage unavailable")")
                 }
             }
 
             HStack(spacing: 18) {
-                ReviewPhaseTimeline(isRunning: model.isRenderingPlayground, hasResult: hasResult && !model.isRenderingPlayground)
+                ReviewPhaseTimeline(status: reviewStatus)
                     .frame(maxWidth: 620)
 
                 Spacer()
@@ -92,6 +105,61 @@ struct AIReviewView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
         .background(ViewLensTheme.elevatedBackground)
+    }
+
+    @ViewBuilder
+    private var reviewStateBanner: some View {
+        switch reviewStatus {
+        case .incomplete(let reason):
+            ReviewStateBanner(
+                title: "Review completed with limited coverage",
+                message: reason,
+                symbol: "exclamationmark.triangle.fill",
+                color: .orange
+            )
+        case .failed(let failure):
+            ReviewStateBanner(
+                title: failure.title,
+                message: [failure.message, failure.recoverySuggestion].compactMap { $0 }.joined(separator: " "),
+                symbol: "xmark.octagon.fill",
+                color: .red
+            )
+        case .cancelled:
+            ReviewStateBanner(
+                title: "Review cancelled",
+                message: "The previous completed result remains available on the canvas.",
+                symbol: "stop.circle.fill",
+                color: .secondary
+            )
+        case .stale(let reason):
+            ReviewStateBanner(title: "Results are stale", message: reason, symbol: "clock.badge.exclamationmark", color: .orange)
+        default:
+            EmptyView()
+        }
+    }
+}
+
+private struct ReviewStateBanner: View {
+    let title: String
+    let message: String
+    let symbol: String
+    let color: Color
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: symbol)
+                .foregroundStyle(color)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.subheadline.weight(.semibold))
+                Text(message).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .background(color.opacity(0.10))
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -133,7 +201,7 @@ private struct AIReviewInspector: View {
             case .findings:
                 findings
             case .activity:
-                ActivityLogView(model: model)
+                reviewActivity
             case .details:
                 details
             }
@@ -216,6 +284,8 @@ private struct AIReviewInspector: View {
                 LabeledContent("Tool", value: model.activeActivity?.toolName ?? "—")
                 LabeledContent("Duration", value: String(format: "%.0f ms", (model.activeActivity?.duration ?? 0) * 1000))
                 LabeledContent("Result", value: model.activeActivity?.passed == true ? "Passed" : "Findings detected")
+                LabeledContent("Lifecycle", value: model.reviewStore.activeReview?.status.displayName ?? "Not started")
+                LabeledContent("Coverage", value: model.reviewStore.activeReview?.score?.completenessText ?? "Unavailable")
             }
             Section("Environment") {
                 LabeledContent("Device", value: model.selectedDevice.name)
@@ -225,5 +295,35 @@ private struct AIReviewInspector: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    private var reviewActivity: some View {
+        Group {
+            if model.reviewStore.events.isEmpty {
+                ContentUnavailableView("No Review Activity", systemImage: "waveform.path.ecg")
+            } else {
+                List(model.reviewStore.events) { event in
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: event.isError ? "xmark.octagon.fill" : "checkmark.circle")
+                            .foregroundStyle(event.isError ? .red : ViewLensTheme.brand)
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(event.message)
+                                .font(.subheadline)
+                            HStack {
+                                if let phase = event.phase {
+                                    Text(phase.rawValue)
+                                }
+                                Text(event.timestamp, style: .time)
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+                .listStyle(.plain)
+            }
+        }
     }
 }

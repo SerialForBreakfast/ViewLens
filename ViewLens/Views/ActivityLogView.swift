@@ -42,14 +42,7 @@ public struct ActivityLogView: View {
             } else {
                 List(model.activityHistory) { activity in
                     ActivityRowView(activity: activity, isSelected: model.activeActivity?.id == activity.id) {
-                        model.activeActivity = activity
-                        if let img = activity.previewImage {
-                            model.currentImage = img
-                        }
-                        if let report = activity.auditReport {
-                            model.currentElements = report.elements
-                            model.currentIssues = report.issues
-                        }
+                        model.openActivity(activity)
                     }
                 }
                 .listStyle(.plain)

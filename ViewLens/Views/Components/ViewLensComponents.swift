@@ -108,8 +108,7 @@ struct SeverityCount: View {
 }
 
 struct ReviewPhaseTimeline: View {
-    let isRunning: Bool
-    let hasResult: Bool
+    let status: ReviewStatus
 
     private let phases = ["Import", "Detect", "Evaluate", "AI Review", "Complete"]
 
@@ -151,20 +150,45 @@ struct ReviewPhaseTimeline: View {
     }
 
     private var completedPhaseCount: Int {
-        if hasResult { return phases.count - 1 }
-        if isRunning { return 2 }
-        return 0
+        switch status {
+        case .completed, .incomplete, .stale: return phases.count - 1
+        case .running(let phase): return max(0, activeIndex(for: phase))
+        default: return 0
+        }
     }
 
     private func state(for index: Int) -> (color: Color, symbol: String, label: String, isActive: Bool) {
-        if hasResult {
+        switch status {
+        case .completed:
             return (.green, "checkmark", "Complete", index == phases.count - 1)
-        }
-        if isRunning {
-            if index < 2 { return (.green, "checkmark", "Complete", false) }
-            if index == 2 { return (ViewLensTheme.focus, "ellipsis", "In progress", true) }
+        case .incomplete:
+            return (index == phases.count - 1 ? .orange : .green, index == phases.count - 1 ? "exclamationmark" : "checkmark", index == phases.count - 1 ? "Complete with limited coverage" : "Complete", index == phases.count - 1)
+        case .stale:
+            return (index == phases.count - 1 ? .orange : .green, index == phases.count - 1 ? "clock" : "checkmark", index == phases.count - 1 ? "Stale" : "Complete", index == phases.count - 1)
+        case .running(let phase):
+            let activeIndex = activeIndex(for: phase)
+            if index < activeIndex { return (.green, "checkmark", "Complete", false) }
+            if index == activeIndex { return (ViewLensTheme.focus, "ellipsis", "In progress", true) }
+        case .failed:
+            return (index == completedPhaseCount ? .red : .secondary, index == completedPhaseCount ? "xmark" : "circle", index == completedPhaseCount ? "Failed" : "Pending", index == completedPhaseCount)
+        case .cancelled:
+            return (.secondary, index == completedPhaseCount ? "stop.fill" : "circle", index == completedPhaseCount ? "Cancelled" : "Pending", index == completedPhaseCount)
+        case .preparing, .queued:
+            if index == 0 { return (ViewLensTheme.focus, "ellipsis", status.displayName, true) }
+        case .idle:
+            break
         }
         return (.secondary, "circle", "Pending", false)
+    }
+
+    private func activeIndex(for phase: ReviewPhase) -> Int {
+        switch phase {
+        case .preparing, .rendering: return 0
+        case .detecting: return 1
+        case .evaluating: return 2
+        case .reviewing: return 3
+        case .complete: return 4
+        }
     }
 }
 

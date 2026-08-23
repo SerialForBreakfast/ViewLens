@@ -3,34 +3,35 @@ import ViewLensKit
 
 struct ViewLensSettingsView: View {
     @Bindable var model: AppModel
-    @AppStorage("viewlens.appearance") private var appearance = "System"
-    @AppStorage("viewlens.defaultWCAGLevel") private var wcagLevel = "AA"
-    @AppStorage("viewlens.confirmCancellation") private var confirmCancellation = true
-    @AppStorage("viewlens.autoRunPlayground") private var autoRunPlayground = false
-    @AppStorage("viewlens.historyRetention") private var historyRetention = "30 days"
+    @Bindable var preferences: PreferenceStore
+
+    init(model: AppModel) {
+        self.model = model
+        self.preferences = model.preferenceStore
+    }
 
     var body: some View {
         Form {
             Section("General") {
-                Picker("Appearance", selection: $appearance) {
+                Picker("Appearance", selection: $preferences.appearance) {
                     Text("System").tag("System")
                     Text("Light").tag("Light")
                     Text("Dark").tag("Dark")
                 }
-                Toggle("Confirm before cancelling active reviews", isOn: $confirmCancellation)
+                Toggle("Confirm before cancelling active reviews", isOn: $preferences.confirmCancellation)
             }
 
             Section("Audit Policy") {
-                Picker("Default WCAG target", selection: $wcagLevel) {
+                Picker("Default WCAG target", selection: $preferences.wcagLevel) {
                     Text("Level A").tag("A")
                     Text("Level AA").tag("AA")
                     Text("Level AAA").tag("AAA")
                 }
-                Toggle("Auto-run Playground when configuration changes", isOn: $autoRunPlayground)
+                Toggle("Auto-run Playground when configuration changes", isOn: $preferences.autoRunPlayground)
             }
 
             Section("Storage") {
-                Picker("Review history retention", selection: $historyRetention) {
+                Picker("Review history retention", selection: $preferences.historyRetention) {
                     Text("7 days").tag("7 days")
                     Text("30 days").tag("30 days")
                     Text("90 days").tag("90 days")

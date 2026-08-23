@@ -3,16 +3,17 @@ import ViewLensKit
 
 struct ReviewHistoryView: View {
     @Bindable var model: AppModel
+    @Bindable var historyStore: HistoryStore
     let onOpenReview: () -> Void
-    @State private var searchText = ""
+
+    init(model: AppModel, onOpenReview: @escaping () -> Void) {
+        self.model = model
+        self.historyStore = model.historyStore
+        self.onOpenReview = onOpenReview
+    }
 
     private var filteredActivities: [MCPAgentActivity] {
-        guard !searchText.isEmpty else { return model.activityHistory }
-        return model.activityHistory.filter {
-            $0.toolName.localizedStandardContains(searchText) ||
-            $0.summary.localizedStandardContains(searchText) ||
-            $0.argumentsDescription.localizedStandardContains(searchText)
-        }
+        historyStore.filteredActivities(from: model.activityHistory)
     }
 
     var body: some View {
@@ -25,7 +26,7 @@ struct ReviewHistoryView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                TextField("Search history", text: $searchText)
+                TextField("Search history", text: $historyStore.searchText)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 240)
             }
@@ -35,9 +36,9 @@ struct ReviewHistoryView: View {
 
             if filteredActivities.isEmpty {
                 ContentUnavailableView {
-                    Label(searchText.isEmpty ? "No Review History" : "No Matching Reviews", systemImage: "clock.arrow.circlepath")
+                    Label(historyStore.searchText.isEmpty ? "No Review History" : "No Matching Reviews", systemImage: "clock.arrow.circlepath")
                 } description: {
-                    Text(searchText.isEmpty ? "Completed audits will appear here." : "Try a different search term.")
+                    Text(historyStore.searchText.isEmpty ? "Completed audits will appear here." : "Try a different search term.")
                 }
             } else {
                 Table(filteredActivities) {
@@ -80,14 +81,7 @@ struct ReviewHistoryView: View {
     }
 
     private func open(_ activity: MCPAgentActivity) {
-        model.activeActivity = activity
-        model.currentImage = activity.previewImage ?? model.currentImage
-        if let report = activity.auditReport {
-            model.currentElements = report.elements
-            model.currentIssues = report.issues
-        }
-        model.selectedIssue = nil
-        model.selectedElementIndex = nil
+        model.openActivity(activity)
         onOpenReview()
     }
 }
