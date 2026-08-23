@@ -27,6 +27,10 @@ public enum YOLODetectorError: Error, LocalizedError, Sendable {
     }
 }
 
+#if canImport(NativeUIAuditKitModels)
+import NativeUIAuditKitModels
+#endif
+
 /// Actor managing YOLO11n CoreML inference on Apple Neural Engine and GPU.
 public actor YOLODetector {
     private let model: MLModel
@@ -34,13 +38,19 @@ public actor YOLODetector {
     public let inputWidth: Int = 640
     public let inputHeight: Int = 640
 
-    public static let defaultClassNames: [String] = [
-        "navigationBar",
-        "primaryButton",
-        "tabBar",
-        "textField",
-        "toggle"
-    ]
+    public static var defaultClassNames: [String] {
+        #if canImport(NativeUIAuditKitModels)
+        return NativeUIModelAsset.metadata.classLabels
+        #else
+        return [
+            "navigationBar",
+            "primaryButton",
+            "tabBar",
+            "textField",
+            "toggle"
+        ]
+        #endif
+    }
 
     /// Initializes a YOLODetector from a model URL (either .mlmodelc or .mlpackage).
     public init(

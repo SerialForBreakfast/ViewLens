@@ -15,11 +15,11 @@ This document provides the master task breakdown, milestone roadmap, user storie
 | **M4: Terminal UI (TUI) & Headless ASCII Dashboard** | Sprint 5 | Full-screen interactive ANSI terminal UI (`viewlens tui`), ASCII wireframe visualizer, keyboard shortcuts, and headless CI streaming mode | ✅ Complete |
 | **M5: Mac Catalyst Live Validation Spike** | Sprint 5 | Empirical verification of offscreen `UIWindow`, `hasAmbiguousLayout` accuracy, Dynamic Type trait overrides, and sub-millisecond layout benchmarking | ✅ Complete |
 | **M6: Git Hooks & CI/CD Quality Gate Engine** | Sprint 6 | Declarative `.viewlens.yml` / `.viewlens.json` config, `viewlens hook pre-commit/pre-push/ci`, git diff auto-detection, and GitHub PR markdown report generator | ✅ Complete |
-| **M7: NativeUIAuditKit 2.0 Integration & Release Distribution** | Sprint 7 | `NativeUIAuditKitModels` 2.0.0 dependency wiring, `ModelLocator` zero-config bundled model resolution, and release packaging | 📋 Ready for Model Release |
+| **M7: NativeUIAuditKit 2.0 Integration & Model Bundling** | Sprint 7 | Resolved `NativeUIAuditKit` 2.0.0 SPM dependency, wired `NativeUIModelAsset.defaultModelURL` and `metadata`, verified zero-config `viewlens doctor` and `xcodebuild` | ✅ Complete |
 
 ---
 
-## Completed Tasks (Milestones 0–6)
+## Completed Tasks (Milestones 0–7)
 
 ### ✅ Milestone 0: Foundation & Core Setup
 - **Task 0.1**: Created [Package.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Package.swift) defining `ViewLensKit`, `viewlens` CLI, and test targets.
@@ -61,3 +61,9 @@ This document provides the master task breakdown, milestone roadmap, user storie
 - **Task 6.3**: Implemented [QualityGateEvaluator.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/QualityGate/QualityGateEvaluator.swift) with configurable `fail_on` thresholds.
 - **Task 6.4**: Implemented [PRSummaryGenerator.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/QualityGate/PRSummaryGenerator.swift) formatting GitHub PR comments and `$GITHUB_STEP_SUMMARY` markdown.
 - **Task 6.5**: Implemented [HookCommand.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensCLI/Commands/HookCommand.swift), [InstallHookCommand.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensCLI/Commands/InstallHookCommand.swift), and [InitConfigCommand.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensCLI/Commands/InitConfigCommand.swift).
+
+### ✅ Milestone 7: NativeUIAuditKit 2.0 Integration & Model Bundling
+- **Task 7.1**: Integrated `NativeUIAuditKit` 2.0.0 via SPM in [Package.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Package.swift).
+- **Task 7.2**: Wired `NativeUIModelAsset.defaultModelURL` in [ModelLocator.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Detector/ModelLocator.swift) for zero-config discovery.
+- **Task 7.3**: Integrated `NativeUIModelAsset.metadata` for single-source-of-truth class labels and tensor dimensions in [YOLODetector.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Detector/YOLODetector.swift).
+- **Task 7.4**: Verified `viewlens doctor` zero-config load in $0.66\text{s}$ and successful Xcode Mac App build.

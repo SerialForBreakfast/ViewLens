@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(NativeUIAuditKitModels)
+import NativeUIAuditKitModels
+#endif
 
 public enum ModelLocatorError: Error, LocalizedError, Sendable {
     case notFound(searchedPaths: [String])
@@ -31,6 +34,15 @@ public struct ModelLocator: Sendable {
                 return validate(url: url)
             }
         }
+
+        // 2. Bundled SPM Model from NativeUIAuditKitModels (Zero-config out of the box)
+        #if canImport(NativeUIAuditKitModels)
+        let spmURL = NativeUIModelAsset.defaultModelURL
+        searchedPaths.append(spmURL.path)
+        if FileManager.default.fileExists(atPath: spmURL.path) {
+            return validate(url: spmURL)
+        }
+        #endif
 
         // 2. VIEWLENS_MODEL_PATH environment variable
         if let envPath = ProcessInfo.processInfo.environment["VIEWLENS_MODEL_PATH"], !envPath.isEmpty {

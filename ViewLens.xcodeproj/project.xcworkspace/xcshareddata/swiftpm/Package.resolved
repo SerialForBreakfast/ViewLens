@@ -2,6 +2,15 @@
   "originHash" : "7f667bcbd21015236dff91bf2963f64e3c8ac1a1075074d84ef9a3b937098fbd",
   "pins" : [
     {
+      "identity" : "nativeuiauditkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SerialForBreakfast/NativeUIAuditKit.git",
+      "state" : {
+        "revision" : "17a883bf90c49f1c4f75682f2ed3e4f579874026",
+        "version" : "2.0.0"
+      }
+    },
+    {
       "identity" : "swift-argument-parser",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-argument-parser.git",

@@ -20,12 +20,15 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0")
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
+        .package(url: "https://github.com/SerialForBreakfast/NativeUIAuditKit.git", from: "2.0.0")
     ],
     targets: [
         .target(
             name: "ViewLensKit",
-            dependencies: [],
+            dependencies: [
+                .product(name: "NativeUIAuditKitModels", package: "NativeUIAuditKit")
+            ],
             path: "Sources/ViewLensKit",
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency")
