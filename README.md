@@ -162,7 +162,22 @@ viewlens install-hook --type pre-commit
 viewlens init-config
 ```
 
-### 7. `viewlens mcp`
+### 7. `viewlens accessibility`
+Runs a level-aware WCAG 2.2 audit. Template audits evaluate programmatic semantics, 24pt AA or 44pt AAA target sizing, Light/Dark contrast, AX1/AX3/AX5 reflow, and portrait/landscape rendering. UIKit semantics come from live hierarchy introspection; headless SwiftUI templates use registered semantic snapshots. Screenshot-only and unregistered-template audits explicitly mark checks that cannot be established as not evaluated.
+
+```bash
+viewlens accessibility --template LoginForm --level AA
+viewlens accessibility --image ./screenshots/Login.png --level AAA --json
+```
+
+### 8. `viewlens design-diff`
+Compares a rendered template with a Figma or baseline reference using SSIM and an optional visual heatmap, with accessibility verification enabled by default.
+
+```bash
+viewlens design-diff --reference ./designs/Login.png --template LoginForm --heatmap ./reports/Login_diff.png
+```
+
+### 9. `viewlens mcp`
 Launches the 100% pure Swift Model Context Protocol (MCP) server over standard I/O (`stdio`):
 
 ```bash
@@ -216,6 +231,8 @@ Or run the automated setup script:
 | `viewlens_doctor` | `model_path?: string` | Verifies model existence, load times, and environment health. |
 | `viewlens_audit_screenshot` | `image_path: string`, `min_confidence?: float`, `scale?: float`, `overlay_path?: string`, `model_path?: string` | Runs YOLO detection and HIG issue classification on a screenshot (`sourceMode: "screenshot"`). |
 | `viewlens_audit_view` *(M2)* | `template: string`, `devices?: string[]`, `dynamic_type_sizes?: string[]`, `color_schemes?: string[]` | Renders a SwiftUI/UIKit matrix and performs full visual + structural audit (`sourceMode: "rendered"`). |
+| `viewlens_accessibility_audit` | Exactly one of `template` or `image_path`; `wcag_level?: "A" | "AA" | "AAA"` | Produces completeness-aware WCAG criteria and category scores with remediation. |
+| `viewlens_design_diff` | `reference_image: string`, `template: string`, optional device, threshold, heatmap, and accessibility flag | Runs SSIM design verification and optional accessibility auditing. |
 
 ---
 

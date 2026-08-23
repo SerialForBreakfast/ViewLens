@@ -181,6 +181,11 @@ public enum JSONValue: Codable, Sendable, Equatable {
         return nil
     }
 
+    public var boolValue: Bool? {
+        if case .bool(let b) = self { return b }
+        return nil
+    }
+
     public var objectValue: [String: JSONValue]? {
         if case .object(let o) = self { return o }
         return nil

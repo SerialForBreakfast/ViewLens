@@ -33,6 +33,8 @@ public struct VirtualDeviceContainer<Content: View>: View {
             colorScheme == .dark ? Color.black : Color.white
 
             content
+                .dynamicTypeSize(dynamicTypeSize)
+                .environment(\.dynamicTypeSize, dynamicTypeSize)
                 .padding(.top, profile.safeAreaInsets.top)
                 .padding(.bottom, profile.safeAreaInsets.bottom)
                 .padding(.leading, profile.safeAreaInsets.leading)
@@ -40,6 +42,7 @@ public struct VirtualDeviceContainer<Content: View>: View {
         }
         .frame(width: profile.pointWidth, height: profile.pointHeight)
         .clipped()
+        .dynamicTypeSize(dynamicTypeSize)
         .environment(\.dynamicTypeSize, dynamicTypeSize)
         .environment(\.colorScheme, colorScheme)
         .environment(\.layoutDirection, layoutDirection)

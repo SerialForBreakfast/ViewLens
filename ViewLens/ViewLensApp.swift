@@ -13,5 +13,8 @@ struct ViewLensApp: App {
         WindowGroup {
             ContentView()
         }
+        .commands {
+            ViewLensCommands()
+        }
     }
 }

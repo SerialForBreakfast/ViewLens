@@ -51,7 +51,7 @@ public final class MCPServer: Sendable {
         }
     }
 
-    private func handleRequest(_ request: JSONRPCRequest) async -> Data? {
+    func handleRequest(_ request: JSONRPCRequest) async -> Data? {
         switch request.method {
         case "initialize":
             let result = MCPInitializeResult()
@@ -83,7 +83,7 @@ public final class MCPServer: Sendable {
         }
     }
 
-    private func defineTools() -> [MCPTool] {
+    func defineTools() -> [MCPTool] {
         let doctorSchema: JSONValue = .object([
             "type": .string("object"),
             "properties": .object([
@@ -144,6 +144,56 @@ public final class MCPServer: Sendable {
             "required": .array([.string("template")])
         ])
 
+        let a11ySchema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "template": .object([
+                    "type": .string("string"),
+                    "description": .string("Name of the registered SwiftUI/UIKit template to audit (e.g. 'LoginForm', 'CheckoutView').")
+                ]),
+                "image_path": .object([
+                    "type": .string("string"),
+                    "description": .string("Optional path to screenshot image if auditing an existing file instead of template.")
+                ]),
+                "wcag_level": .object([
+                    "type": .string("string"),
+                    "description": .string("Target WCAG compliance level ('A', 'AA', or 'AAA'; default 'AA')."),
+                    "enum": .array([.string("A"), .string("AA"), .string("AAA")])
+                ])
+            ])
+        ])
+
+        let designDiffSchema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "reference_image": .object([
+                    "type": .string("string"),
+                    "description": .string("Path to the reference design image file (from Figma or baseline design).")
+                ]),
+                "template": .object([
+                    "type": .string("string"),
+                    "description": .string("Name of the registered SwiftUI/UIKit template to verify.")
+                ]),
+                "device": .object([
+                    "type": .string("string"),
+                    "description": .string("Target device profile (default 'iPhone16Pro').")
+                ]),
+                "ssim_threshold": .object([
+                    "type": .string("number"),
+                    "description": .string("Minimum Structural Similarity Index (SSIM) to pass (default 0.98).")
+                ]),
+                "heatmap_path": .object([
+                    "type": .string("string"),
+                    "description": .string("Optional path to output an annotated visual diff heatmap image.")
+                ]),
+                "check_accessibility": .object([
+                    "type": .string("boolean"),
+                    "description": .string("Whether to run WCAG accessibility checks concurrently (default true).")
+                ])
+            ]),
+            "required": .array([.string("reference_image"), .string("template")])
+        ])
+
         return [
             MCPTool(
                 name: "viewlens_doctor",
@@ -159,6 +209,16 @@ public final class MCPServer: Sendable {
                 name: "viewlens_audit_view",
                 description: "Renders and audits a registered SwiftUI/UIKit view template across a matrix of device profiles and accessibility traits (Milestone 2).",
                 inputSchema: viewSchema
+            ),
+            MCPTool(
+                name: "viewlens_accessibility_audit",
+                description: "Performs WCAG 2.2 mobile accessibility auditing across programmatic Name/Role/Value (4.1.2), level-aware Target Size (2.5.8 AA / 2.5.5 AAA), Light/Dark contrast, AX1/AX3/AX5 reflow, and portrait/landscape orientation. Reports unavailable checks as not evaluated.",
+                inputSchema: a11ySchema
+            ),
+            MCPTool(
+                name: "viewlens_design_diff",
+                description: "Performs Design-to-Code verification comparing a Figma reference design image against a rendered native SwiftUI view using SSIM perceptual diffing and WCAG checks.",
+                inputSchema: designDiffSchema
             )
         ]
     }
@@ -244,6 +304,83 @@ public final class MCPServer: Sendable {
             )
 
             let result = MCPToolCallResult(text: auditResult.jsonText, isError: !auditResult.passed)
+            let response = JSONRPCResponse(id: request.id, result: result)
+            return try? JSONEncoder().encode(response)
+
+        case "viewlens_accessibility_audit":
+            let templateName = arguments["template"]?.stringValue
+            let imagePath = arguments["image_path"]?.stringValue
+            let targetLevel = arguments["wcag_level"]?.stringValue ?? "AA"
+
+            guard WCAGConformanceLevel(input: targetLevel) != nil else {
+                let result = MCPToolCallResult(text: JSONFormatter.errorJSON(message: "Invalid 'wcag_level'. Expected A, AA, or AAA"), isError: true)
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+
+            guard (templateName == nil) != (imagePath == nil) else {
+                let result = MCPToolCallResult(text: JSONFormatter.errorJSON(message: "Specify exactly one of 'template' or 'image_path'"), isError: true)
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+
+            if let templateName = templateName {
+                let report = await AccessibilityAuditor.auditTemplate(named: templateName, targetLevel: targetLevel)
+                let jsonText = JSONFormatter.encode(report)
+                let result = MCPToolCallResult(text: jsonText, isError: !report.passed)
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            } else if let imagePath = imagePath {
+                guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: imagePath) as CFURL, nil),
+                      let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+                    let result = MCPToolCallResult(text: JSONFormatter.errorJSON(message: "Failed to load image at \(imagePath)"), isError: true)
+                    let response = JSONRPCResponse(id: request.id, result: result)
+                    return try? JSONEncoder().encode(response)
+                }
+                let report = await AccessibilityAuditor.auditScreenshot(image: image, imageName: (imagePath as NSString).lastPathComponent, targetLevel: targetLevel)
+                let jsonText = JSONFormatter.encode(report)
+                let result = MCPToolCallResult(text: jsonText, isError: !report.passed)
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            } else {
+                let result = MCPToolCallResult(text: JSONFormatter.errorJSON(message: "Either 'template' or 'image_path' must be specified for accessibility audit"), isError: true)
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+
+        case "viewlens_design_diff":
+            guard let refPath = arguments["reference_image"]?.stringValue,
+                  let templateName = arguments["template"]?.stringValue else {
+                let result = MCPToolCallResult(text: JSONFormatter.errorJSON(message: "Missing required 'reference_image' or 'template' parameter"), isError: true)
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+
+            guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: refPath) as CFURL, nil),
+                  let refImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+                let result = MCPToolCallResult(text: JSONFormatter.errorJSON(message: "Failed to load reference image at \(refPath)"), isError: true)
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+
+            let deviceName = arguments["device"]?.stringValue ?? "iPhone16Pro"
+            let profile = DeviceProfile.named(deviceName) ?? .iPhone16Pro
+            let ssimThresh = arguments["ssim_threshold"]?.doubleValue ?? 0.98
+            let heatmapPath = arguments["heatmap_path"]?.stringValue
+            let checkA11y = arguments["check_accessibility"]?.boolValue ?? true
+
+            let report = await DesignVerifier.verify(
+                referenceImage: refImage,
+                referenceSource: (refPath as NSString).lastPathComponent,
+                templateName: templateName,
+                device: profile,
+                thresholdSSIM: ssimThresh,
+                includeAccessibility: checkA11y,
+                heatmapOutputPath: heatmapPath
+            )
+
+            let jsonText = JSONFormatter.encode(report)
+            let result = MCPToolCallResult(text: jsonText, isError: !report.passed)
             let response = JSONRPCResponse(id: request.id, result: result)
             return try? JSONEncoder().encode(response)
 

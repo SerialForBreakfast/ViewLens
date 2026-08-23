@@ -1,11 +1,11 @@
 ---
 name: viewlens
-description: Visual UI layout auditor, Apple HIG compliance validator, and multi-device matrix linter for SwiftUI and UIKit. Performs token-free CoreML element detection, touch target measurement, Dynamic Type reflow checking, and automated pre-commit / PR quality gating.
+description: Visual UI layout auditor, Apple HIG compliance validator, W3C WCAG 2.2 accessibility auditor, Figma design verification engine, and multi-device matrix linter for SwiftUI and UIKit. Performs token-free CoreML element detection, touch target measurement, Dynamic Type reflow checking, color contrast analysis, SSIM perceptual diffing, and automated pre-commit / PR quality gating.
 ---
 
 # ViewLens — Agent Skill Playbook & Tool Reference
 
-**ViewLens** is an Apple UI visual layout auditor, Human Interface Guidelines (HIG) compliance validator, and headless matrix rendering engine for native iOS and macOS applications.
+**ViewLens** is an Apple UI visual layout auditor, Human Interface Guidelines (HIG) compliance validator, W3C WCAG 2.2 accessibility checker, and headless matrix rendering engine for native iOS and macOS applications.
 
 It provides AI agents with deep visual layout intelligence **without bloating the agent's LLM context window with raw image tokens**.
 
@@ -19,13 +19,15 @@ flowchart LR
     MCP["⚡ ViewLens Pure Swift MCP Server"]
     Vision["🧠 CoreML YOLO11n (Apple Neural Engine)"]
     Canvas["📐 In-Process Virtual Canvas (ImageRenderer)"]
-    HIG["📏 Apple HIG Deterministic Rules Engine"]
+    HIG["📏 Apple HIG & WCAG 2.2 Rules Engine"]
+    Diff["🎨 Visual SSIM & Design Diff Engine"]
     Gate["🛡️ Git Hook & CI Quality Gate"]
 
     Agent -->|stdio JSON-RPC| MCP
     MCP --> Canvas
     MCP --> Vision
     MCP --> HIG
+    MCP --> Diff
     MCP --> Gate
 ```
 
@@ -36,41 +38,59 @@ flowchart LR
 - `textField`
 - `toggle`
 
-### Deterministic HIG & Layout Rules:
-- `tappableTargetTooSmall`: Interactive elements with touch area $< 44 \times 44\text{pt}$ (Apple HIG requirement).
-- `clippedElement`: Controls placed $< 3\text{pt}$ from viewport/safe-area borders without margins.
-- `overlappingElements`: Elements colliding with $\text{IoU} > 0.30$.
-- `offScreen`: Elements positioned $> 50\%$ outside the visible viewport.
+### Deterministic HIG, WCAG 2.2, & Design Diff Rules:
+- `tappableTargetTooSmall` (**WCAG 2.5.8 AA / 2.5.5 AAA**): Applies the 24×24pt AA minimum with its spacing exception, or the enhanced 44×44pt AAA target policy.
+- `contrastRisk` (**WCAG 1.4.3 AA / 1.4.11 AA**): Text/icon luminance contrast ratio $< 4.5:1$ (normal) or $< 3.0:1$ (large text/icons) in Light or Dark Mode.
+- `clippedElement` / `offScreen` (**Apple HIG mobile safe-area check**): Controls placed $< 3\text{pt}$ from viewport/safe-area borders without margins.
+- `dynamicTypeOverflow` / `overlappingElements` (**WCAG 1.4.10 AA / 1.4.4 AA**): Loss of content, collision, or clipping at AX1, AX3, and AX5.
+- Portrait/landscape rendering (**WCAG 1.3.4 AA**): Verifies the UI is not restricted to one display orientation.
 - `ambiguousAutoLayout`: Under-constrained UIKit view hierarchies.
-- `missingAccessibilityLabel`: Missing accessibility identifiers.
+- `missingAccessibilityLabel` / `missingAccessibilityTrait` (**WCAG 4.1.2 A**): Missing programmatic name, role, state, or required value. UIKit uses live hierarchy introspection; SwiftUI templates use registered semantic snapshots because `ImageRenderer` does not expose an accessibility tree. Screenshot-only and unregistered-template audits report this criterion as not evaluated.
 
 ---
 
 ## 2. Pure Swift MCP Tools Reference
 
-ViewLens exposes 3 standard JSON-RPC tools over `stdio`:
+ViewLens exposes 5 standard JSON-RPC tools over `stdio`:
 
 ### 1. `viewlens_doctor`
 Probes environment, Apple Neural Engine readiness, and CoreML model status.
 - **Arguments**: `{}`
 - **When to use**: Call once at session start to verify detector availability.
 
-### 2. `viewlens_audit_screenshot`
-Audits static image files (simulator screenshots, test artifacts, mocks).
+### 2. `viewlens_design_diff`
+Performs Design-to-Code verification comparing a Figma reference design image against a rendered native SwiftUI view.
 - **Arguments**:
-  - `image_path` (string, required): Absolute or relative path to PNG/JPEG image.
-  - `scale` (number, optional): Explicit display scale (@2x, @3x). Automatically inferred if omitted.
-  - `min_confidence` (number, optional): Minimum detection confidence (default `0.25`).
-- **Response Mode**: `sourceMode: "screenshot"`
+  - `reference_image` (string, required): Path to reference PNG (from Figma or design baseline).
+  - `template` (string, required): Registered SwiftUI view template name.
+  - `device` (string, optional): Target device profile (default `"iPhone16Pro"`).
+  - `ssim_threshold` (number, optional): Minimum Structural Similarity Index (SSIM) score (default `0.98`).
+  - `heatmap_path` (string, optional): Path to write annotated visual diff heatmap PNG.
+  - `check_accessibility` (boolean, optional): Whether to run WCAG accessibility audits concurrently (default `true`).
 
-### 3. `viewlens_audit_view`
+### 3. `viewlens_accessibility_audit`
+Performs a full W3C WAI & WCAG 2.2 mobile accessibility audit on a SwiftUI template or screenshot image.
+- **Arguments**:
+  - `template` (string, optional): Registered SwiftUI template name (e.g. `LoginForm`, `CheckoutView`, `SocialFeedView`).
+  - `image_path` (string, optional): Path to screenshot image.
+  - `wcag_level` (string, optional): Target level (`"A"`, `"AA"`, or `"AAA"`; default `"AA"`). Specify exactly one of `template` and `image_path`.
+- **Returns**: Structured compliance and completeness, category scores, programmatic semantics, level-aware target size, Light/Dark contrast, AX1/AX3/AX5 reflow, portrait/landscape orientation, mobile safe-area findings, and remediation snippets.
+
+### 4. `viewlens_audit_view`
 Renders a SwiftUI view template across a multi-device matrix entirely in-memory in $<0.5\text{s}$.
 - **Arguments**:
-  - `template` (string, required): Registered SwiftUI template name (e.g. `LoginForm`, `ProfileCard`, `SettingsList`).
+  - `template` (string, required): Registered SwiftUI template name.
   - `devices` (array of strings, optional): `["iPhoneSE", "iPhone16Pro", "iPadPro11"]`.
   - `dynamic_type_sizes` (array of strings, optional): `["large", "accessibility3", "accessibility5"]`.
   - `color_schemes` (array of strings, optional): `["light", "dark"]`.
 - **Response Mode**: `sourceMode: "rendered"` with synthesized worst-case issue matrix.
+
+### 5. `viewlens_audit_screenshot`
+Audits static image files (simulator screenshots, test artifacts, mocks).
+- **Arguments**:
+  - `image_path` (string, required): Path to PNG/JPEG image.
+  - `scale` (number, optional): Explicit display scale (@2x, @3x).
+  - `min_confidence` (number, optional): Minimum detection confidence (default `0.15`).
 
 ---
 
@@ -80,7 +100,9 @@ When executing commands in the terminal, use the `viewlens` CLI binary:
 
 | Command | Purpose | Example |
 |---|---|---|
-| `viewlens doctor` | Model readiness and system check | `viewlens doctor --format json` |
+| `viewlens design-diff` | Figma design-to-code visual & structural verification | `viewlens design-diff --reference figma.png --template LoginForm` |
+| `viewlens accessibility` | Comprehensive W3C / WCAG 2.2 accessibility audit | `viewlens accessibility --template LoginForm --level AA` |
+| `viewlens doctor` | Model readiness and system check | `viewlens doctor --json` |
 | `viewlens scan <image>` | Single/multi-image screenshot audit | `viewlens scan ./screenshot.png --strict` |
 | `viewlens batch <dir>` | Recursive folder screenshot audit | `viewlens batch ./DerivedData/Screenshots` |
 | `viewlens render` | Headless multi-device template matrix audit | `viewlens render --template LoginForm --devices iPhoneSE,iPhone16Pro` |
@@ -93,61 +115,18 @@ When executing commands in the terminal, use the `viewlens` CLI binary:
 
 ---
 
-## 4. Agentic Workflow: Auditing & Fixing SwiftUI Code
+## 4. Agentic Workflow: Autonomous Figma-to-Code Implementation
 
-When asked to audit or improve a SwiftUI view, follow this loop:
+When asked to build or match a Figma design in SwiftUI:
 
-1. **Render Matrix**: Audit the view across devices and Dynamic Type sizes:
+1. **Fetch Design Reference**: Obtain reference frame PNG via Figma MCP or local asset.
+2. **Generate SwiftUI**: Write initial SwiftUI view and register in `TemplateRegistry`.
+3. **Run Design Diff & Accessibility Audit**:
    ```bash
-   viewlens render --template <ViewName> --devices iPhoneSE,iPhone16Pro --dt large,accessibility3
+   viewlens design-diff --reference ./figma_card.png --template MyCardView --heatmap ./diff.png
    ```
-2. **Analyze Issues**:
-   - If `tappableTargetTooSmall` is detected on a button:
-     ```swift
-     // Fix: Add 44pt minimum touch target
-     Button("Submit") { ... }
-         .frame(minWidth: 44, minHeight: 44)
-         .contentShape(Rectangle())
-     ```
-   - If `clippedElement` or Dynamic Type truncation occurs:
-     ```swift
-     // Fix: Use flexible layout containers with scroll fallbacks
-     ViewThatFits(in: .vertical) {
-         VStack { ... }
-         ScrollView { VStack { ... } }
-     }
-     ```
-3. **Re-Verify Quality Gate**:
-   ```bash
-   viewlens hook pre-commit --template <ViewName> --fail-on error
-   ```
-   Ensure exit code is `0` before presenting the final code to the user.
-
----
-
-## 5. Declarative Quality Gate Policy (`.viewlens.json`)
-
-```json
-{
-  "version": 1,
-  "gates": {
-    "pre-commit": {
-      "failOn": "error",
-      "purposes": ["touch_targets", "clipping", "accessibility"],
-      "devices": ["iPhoneSE", "iPhone16Pro"],
-      "dynamicTypeSizes": ["large", "accessibility3"],
-      "colorSchemes": ["light", "dark"],
-      "autoDetectStagedViews": true
-    },
-    "pull-request": {
-      "failOn": "warning",
-      "purposes": ["touch_targets", "clipping", "accessibility", "autolayout"],
-      "devices": ["iPhoneSE", "iPhone16Pro", "iPadPro11"],
-      "dynamicTypeSizes": ["large", "accessibility3"],
-      "colorSchemes": ["light", "dark"],
-      "outputMarkdown": "reports/viewlens_pr_summary.md",
-      "strict": true
-    }
-  }
-}
-```
+4. **Analyze Deliberate Feedback**:
+   - If **SSIM $< 0.98$**: Check `./diff.png` heatmap to identify misaligned padding or wrong corner radius.
+   - If **WCAG 2.5.5 Fails**: Add `.frame(minWidth: 44, minHeight: 44)` to interactive touch targets.
+   - If **WCAG 1.4.3 Fails**: Update text to adaptive semantic `Color.primary` for dark mode contrast.
+5. **Re-Verify Quality Gate**: Ensure exit code is `0` before finalizing the code for the user.

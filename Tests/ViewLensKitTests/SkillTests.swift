@@ -15,6 +15,10 @@ struct SkillTests {
         #expect(md.contains("viewlens hook pre-commit"))
         #expect(md.contains("viewlens render"))
         #expect(md.contains("tappableTargetTooSmall"))
-        #expect(md.contains("44 \\times 44\\text{pt}"))
+        #expect(md.contains("24×24pt AA"))
+        #expect(md.contains("44×44pt AAA"))
+        #expect(md.contains("AX1/AX3/AX5"))
+        #expect(md.contains("WCAG 4.1.2 A"))
+        #expect(md.contains("viewlens doctor --json"))
     }
 }

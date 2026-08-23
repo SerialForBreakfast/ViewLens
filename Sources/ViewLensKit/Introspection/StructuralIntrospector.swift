@@ -10,6 +10,9 @@ public struct StructuralIntrospector: Sendable {
         public let identifier: String?
         public let isAmbiguous: Bool
         public let hasAccessibilityLabel: Bool
+        public let hasAccessibilityRole: Bool
+        public let hasAccessibilityValue: Bool
+        public let requiresAccessibilityValue: Bool
         public let frame: CGRect
 
         public init(
@@ -17,12 +20,18 @@ public struct StructuralIntrospector: Sendable {
             identifier: String?,
             isAmbiguous: Bool,
             hasAccessibilityLabel: Bool,
+            hasAccessibilityRole: Bool = true,
+            hasAccessibilityValue: Bool = true,
+            requiresAccessibilityValue: Bool = false,
             frame: CGRect
         ) {
             self.viewClass = viewClass
             self.identifier = identifier
             self.isAmbiguous = isAmbiguous
             self.hasAccessibilityLabel = hasAccessibilityLabel
+            self.hasAccessibilityRole = hasAccessibilityRole
+            self.hasAccessibilityValue = hasAccessibilityValue
+            self.requiresAccessibilityValue = requiresAccessibilityValue
             self.frame = frame
         }
     }
@@ -41,13 +50,20 @@ public struct StructuralIntrospector: Sendable {
         let isAmbiguous = view.hasAmbiguousLayout
         let label = view.accessibilityLabel
         let hasA11y = label != nil && !label!.isEmpty
+        let hasRole = !view.accessibilityTraits.isEmpty || view is UIControl
+        let requiresValue = view is UISwitch || view is UISlider || view is UIStepper || view is UITextField
+        let value = view.accessibilityValue
+        let hasValue = value?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
 
-        if isAmbiguous || (!hasA11y && view.isUserInteractionEnabled) {
+        if isAmbiguous || (view.isUserInteractionEnabled && (!hasA11y || !hasRole || (requiresValue && !hasValue))) {
             results.append(IntrospectionFinding(
                 viewClass: String(describing: type(of: view)),
                 identifier: view.accessibilityIdentifier,
                 isAmbiguous: isAmbiguous,
                 hasAccessibilityLabel: hasA11y,
+                hasAccessibilityRole: hasRole,
+                hasAccessibilityValue: hasValue,
+                requiresAccessibilityValue: requiresValue,
                 frame: view.frame
             ))
         }
@@ -83,9 +99,43 @@ public struct StructuralIntrospector: Sendable {
                     severity: .warning,
                     description: "Interactive view \(finding.viewClass)\(idText) lacks an accessibility label for VoiceOver.",
                     identifier: finding.identifier,
+                    wcagCriterion: "WCAG 4.1.2",
+                    wcagLevel: "A",
                     remediation: RemediationAdvice(
                         description: "Provide an accessible description.",
                         codeSnippet: "view.accessibilityLabel = \"Description\""
+                    )
+                ))
+            }
+
+            if !finding.hasAccessibilityRole {
+                let idText = finding.identifier.map { " (id: '\($0)')" } ?? ""
+                issues.append(ViewLensIssue(
+                    kind: .missingAccessibilityTrait,
+                    severity: .error,
+                    description: "Interactive view \(finding.viewClass)\(idText) lacks a programmatically determinable accessibility role.",
+                    identifier: finding.identifier,
+                    wcagCriterion: "WCAG 4.1.2",
+                    wcagLevel: "A",
+                    remediation: RemediationAdvice(
+                        description: "Expose the control's semantic role.",
+                        codeSnippet: "view.accessibilityTraits.insert(.button)"
+                    )
+                ))
+            }
+
+            if finding.requiresAccessibilityValue && !finding.hasAccessibilityValue {
+                let idText = finding.identifier.map { " (id: '\($0)')" } ?? ""
+                issues.append(ViewLensIssue(
+                    kind: .missingAccessibilityTrait,
+                    severity: .error,
+                    description: "Stateful view \(finding.viewClass)\(idText) lacks a programmatically determinable accessibility value.",
+                    identifier: finding.identifier,
+                    wcagCriterion: "WCAG 4.1.2",
+                    wcagLevel: "A",
+                    remediation: RemediationAdvice(
+                        description: "Expose the current state or value.",
+                        codeSnippet: "view.accessibilityValue = \"Current value\""
                     )
                 ))
             }

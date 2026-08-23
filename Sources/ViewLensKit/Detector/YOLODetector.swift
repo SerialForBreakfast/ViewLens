@@ -31,6 +31,10 @@ public enum YOLODetectorError: Error, LocalizedError, Sendable {
 import NativeUIAuditKitModels
 #endif
 
+#if canImport(NativeUIAuditKit)
+import NativeUIAuditKit
+#endif
+
 /// Actor managing YOLO11n CoreML inference on Apple Neural Engine and GPU.
 public actor YOLODetector {
     private let model: MLModel
@@ -83,10 +87,34 @@ public actor YOLODetector {
         image: CGImage,
         minConfidence: Float = 0.10,
         iouThreshold: Double = 0.30
-    ) throws -> [DetectedElement] {
+    ) async throws -> [DetectedElement] {
+        #if canImport(NativeUIAuditKit)
+        let config = NativeUIDetectionConfiguration(
+            minimumConfidence: Double(minConfidence),
+            includesTextRecognition: false
+        )
+        let request = NativeUIDetectionRequest(configuration: config)
+        let observations = try await request.perform(on: image)
+        let imgW = Double(image.width)
+        let imgH = Double(image.height)
+
+        return observations.map { obs in
+            let px = obs.boundingBoxPixels
+            let normX = imgW > 0 ? px.x / imgW : 0
+            let normY = imgH > 0 ? px.y / imgH : 0
+            let normW = imgW > 0 ? px.width / imgW : 0
+            let normH = imgH > 0 ? px.height / imgH : 0
+            return DetectedElement(
+                type: obs.elementType.rawValue,
+                confidence: Float(obs.confidence),
+                boundingBox: BoundingBox(x: normX, y: normY, width: normW, height: normH)
+            )
+        }
+        #else
         let (pixelBuffer, scale, padX, padY) = try preprocess(image: image)
         let rawElements = try runInference(pixelBuffer: pixelBuffer, originalWidth: Double(image.width), originalHeight: Double(image.height), scale: scale, padX: padX, padY: padY, minConfidence: minConfidence)
         return NonMaximumSuppression.suppress(elements: rawElements, iouThreshold: iouThreshold)
+        #endif
     }
 
     /// Performs batch inference across multiple CGImages using the pre-loaded MLModel instance.
@@ -94,19 +122,19 @@ public actor YOLODetector {
         images: [CGImage],
         minConfidence: Float = 0.10,
         iouThreshold: Double = 0.30
-    ) throws -> [[DetectedElement]] {
+    ) async throws -> [[DetectedElement]] {
         var batchResults: [[DetectedElement]] = []
         batchResults.reserveCapacity(images.count)
 
         for image in images {
-            let elements = try detect(image: image, minConfidence: minConfidence, iouThreshold: iouThreshold)
+            let elements = try await detect(image: image, minConfidence: minConfidence, iouThreshold: iouThreshold)
             batchResults.append(elements)
         }
 
         return batchResults
     }
 
-    // MARK: - Preprocessing & Letterboxing
+    // MARK: - Fallback Preprocessing & Letterboxing
     private func preprocess(image: CGImage) throws -> (pixelBuffer: CVPixelBuffer, scale: Double, padX: Double, padY: Double) {
         let origW = Double(image.width)
         let origH = Double(image.height)
@@ -139,36 +167,41 @@ public actor YOLODetector {
         )
 
         guard status == kCVReturnSuccess, let pixelBuffer = pixelBufferOut else {
-            throw YOLODetectorError.imageProcessingFailed("CVPixelBufferCreate failed with code \(status)")
+            throw YOLODetectorError.imageProcessingFailed("Failed to create CVPixelBuffer (status: \(status))")
         }
 
         CVPixelBufferLockBaseAddress(pixelBuffer, [])
         defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, []) }
 
-        guard let context = CGContext(
-            data: CVPixelBufferGetBaseAddress(pixelBuffer),
-            width: inputWidth,
-            height: inputHeight,
-            bitsPerComponent: 8,
-            bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer),
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-        ) else {
-            throw YOLODetectorError.imageProcessingFailed("Failed to create CGContext for pixel buffer")
+        guard let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) else {
+            throw YOLODetectorError.imageProcessingFailed("Failed to lock pixel buffer base address")
         }
 
-        // Fill background with neutral gray padding (114/255)
-        context.setFillColor(red: 114.0/255.0, green: 114.0/255.0, blue: 114.0/255.0, alpha: 1.0)
+        let bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer)
+        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                data: baseAddress,
+                width: inputWidth,
+                height: inputHeight,
+                bitsPerComponent: 8,
+                bytesPerRow: bytesPerRow,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
+              ) else {
+            throw YOLODetectorError.imageProcessingFailed("Failed to create CGContext for letterboxing")
+        }
+
+        // Fill with YOLO letterbox standard gray (114/255)
+        context.setFillColor(CGColor(srgbRed: 114.0/255.0, green: 114.0/255.0, blue: 114.0/255.0, alpha: 1.0))
         context.fill(CGRect(x: 0, y: 0, width: inputWidth, height: inputHeight))
 
-        // Draw resized image centered within the 640x640 canvas
+        // Draw centered and scaled
         let drawRect = CGRect(x: padX, y: padY, width: newW, height: newH)
         context.draw(image, in: drawRect)
 
         return (pixelBuffer, scale, padX, padY)
     }
 
-    // MARK: - Inference & Output MultiArray Parsing
     private func runInference(
         pixelBuffer: CVPixelBuffer,
         originalWidth: Double,
@@ -178,16 +211,32 @@ public actor YOLODetector {
         padY: Double,
         minConfidence: Float
     ) throws -> [DetectedElement] {
-        // Resolve input feature name
-        let inputFeatureName = model.modelDescription.inputDescriptionsByName.keys.first ?? "image"
-        let inputFeatureValue = MLFeatureValue(pixelBuffer: pixelBuffer)
-        let provider = try MLDictionaryFeatureProvider(dictionary: [inputFeatureName: inputFeatureValue])
+        let inputFeatureName: String
+        if let firstInput = model.modelDescription.inputDescriptionsByName.keys.first {
+            inputFeatureName = firstInput
+        } else {
+            inputFeatureName = "image"
+        }
 
-        let prediction = try model.prediction(from: provider)
+        let featureProvider: MLFeatureProvider
+        do {
+            let featureValue = MLFeatureValue(pixelBuffer: pixelBuffer)
+            featureProvider = try MLDictionaryFeatureProvider(dictionary: [inputFeatureName: featureValue])
+        } catch {
+            throw YOLODetectorError.imageProcessingFailed("Failed to create MLFeatureProvider: \(error.localizedDescription)")
+        }
+
+        let prediction: MLFeatureProvider
+        do {
+            prediction = try model.prediction(from: featureProvider)
+        } catch {
+            throw YOLODetectorError.modelLoadFailed("Prediction failed: \(error.localizedDescription)")
+        }
+
         guard let outputFeatureName = model.modelDescription.outputDescriptionsByName.keys.first,
               let outputValue = prediction.featureValue(for: outputFeatureName),
               let multiArray = outputValue.multiArrayValue else {
-            throw YOLODetectorError.outputParsingFailed("Missing or invalid MLMultiArray in prediction output")
+            throw YOLODetectorError.outputParsingFailed("Failed to extract output MLMultiArray from model prediction")
         }
 
         return try parseYOLOOutput(
@@ -210,7 +259,6 @@ public actor YOLODetector {
         padY: Double,
         minConfidence: Float
     ) throws -> [DetectedElement] {
-        // YOLO11 tensor format: [1, 4 + num_classes, num_proposals (e.g. 8400)]
         let shape = multiArray.shape.map { $0.intValue }
         guard shape.count >= 2 else {
             throw YOLODetectorError.unsupportedModelOutput("MultiArray shape \(shape) is unsupported")
@@ -250,7 +298,6 @@ public actor YOLODetector {
         for p in 0..<numProposals {
             let offsetP = p * proposalStride
 
-            // Find best class score for proposal p
             var bestScore: Float = 0.0
             var bestClassIdx: Int = 0
 
@@ -270,13 +317,11 @@ public actor YOLODetector {
             let w = Double(ptr[2 * channelStride + offsetP])
             let h = Double(ptr[3 * channelStride + offsetP])
 
-            // Un-letterbox: map 640x640 letterbox coordinates back to original unpadded image
             let origCx = (cx - padX) / scale
             let origCy = (cy - padY) / scale
             let origW = w / scale
             let origH = h / scale
 
-            // Normalize to [0.0, 1.0] relative to original image size
             let normCx = origCx / originalWidth
             let normCy = origCy / originalHeight
             let normW = origW / originalWidth

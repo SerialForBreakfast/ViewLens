@@ -16,6 +16,12 @@ This document provides the master task breakdown, milestone roadmap, user storie
 | **M5: Mac Catalyst Live Validation Spike** | Sprint 5 | Empirical verification of offscreen `UIWindow`, `hasAmbiguousLayout` accuracy, Dynamic Type trait overrides, and sub-millisecond layout benchmarking | ✅ Complete |
 | **M6: Git Hooks & CI/CD Quality Gate Engine** | Sprint 6 | Declarative `.viewlens.yml` / `.viewlens.json` config, `viewlens hook pre-commit/pre-push/ci`, git diff auto-detection, and GitHub PR markdown report generator | ✅ Complete |
 | **M7: NativeUIAuditKit 2.0 Integration & Model Bundling** | Sprint 7 | Resolved `NativeUIAuditKit` 2.0.0 SPM dependency, wired `NativeUIModelAsset.defaultModelURL` and `metadata`, verified zero-config `viewlens doctor` and `xcodebuild` | ✅ Complete |
+| **M8: Desktop Design System & Navigation Shell** | UI Sprint 1 | Semantic tokens, reusable components, native split navigation, toolbar, commands, adaptive appearance | 🟨 In Progress |
+| **M9: Review Domain & State Architecture** | UI Sprint 1–2 | Review lifecycle, focused stores, cancellable orchestration, errors, partial/stale results | ⬜ Planned |
+| **M10: Current Status Dashboard** | UI Sprint 2 | Health cards, recent reviews, quality trend, activity, quick import | 🟨 In Progress |
+| **M11: AI Review Workbench** | UI Sprint 3–4 | Review progress, inspection canvas, findings, activity, remediation, export | 🟨 In Progress |
+| **M12: Playground, History & Settings** | UI Sprint 4–5 | Manual/template audit setup, durable reviews, comparison, preferences and diagnostics | 🟨 In Progress |
+| **M13: Desktop Accessibility & Release Verification** | UI Sprint 6 | Keyboard/VoiceOver coverage, self-audits, visual baselines, UI/build tests | ⬜ Planned |
 
 ---
 
@@ -67,3 +73,11 @@ This document provides the master task breakdown, milestone roadmap, user storie
 - **Task 7.2**: Wired `NativeUIModelAsset.defaultModelURL` in [ModelLocator.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Detector/ModelLocator.swift) for zero-config discovery.
 - **Task 7.3**: Integrated `NativeUIModelAsset.metadata` for single-source-of-truth class labels and tensor dimensions in [YOLODetector.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Detector/YOLODetector.swift).
 - **Task 7.4**: Verified `viewlens doctor` zero-config load in $0.66\text{s}$ and successful Xcode Mac App build.
+
+---
+
+## Planned Modernized Desktop UI (Milestones 8–13)
+
+The detailed screen definitions, component states, style tokens, interaction rules, acceptance criteria, and task-level work breakdown are maintained in [ViewLens Desktop UI Design Specification](Docs/ViewLens-Desktop-UI-Design-Specification.md).
+
+Implementation should begin with **M8 Design System & Shell**, followed by **M9 Review Domain & State Architecture**. The AI Review workbench and Current Status dashboard must share that domain model rather than maintaining separate transient representations of a review.

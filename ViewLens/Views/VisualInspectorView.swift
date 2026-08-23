@@ -43,7 +43,7 @@ public struct VisualInspectorView: View {
                 ZStack {
                     // Dark checkered background for alpha contrast
                     Rectangle()
-                        .fill(Color.black.opacity(0.85))
+                        .fill(Color(NSColor.underPageBackgroundColor))
                         .ignoresSafeArea()
 
                     if let cgImage = model.currentImage {
@@ -56,48 +56,68 @@ public struct VisualInspectorView: View {
                         let displayHeight = imgSize.height * fitScale
 
                         ZStack(alignment: .topLeading) {
-                            // Base Rendered / Screenshot Image
+                            // 1. Base Rendered / Screenshot Image
                             Image(decorative: cgImage, scale: 1.0)
                                 .resizable()
                                 .aspectRatio(contentMode: .fit)
                                 .frame(width: displayWidth, height: displayHeight)
                                 .cornerRadius(model.selectedDevice.cornerRadius * fitScale)
-                                .shadow(color: .black.opacity(0.4), radius: 16, x: 0, y: 8)
+                                .shadow(color: .black.opacity(0.35), radius: 16, x: 0, y: 8)
 
-                            // Safe Area Visual Guides
+                            // 2. Safe Area Visual Guides (Clean Top & Bottom Banners)
                             if model.showSafeAreaGuides {
-                                let topPadding = model.selectedDevice.safeAreaInsets.top * model.selectedDevice.scale * fitScale
-                                let bottomPadding = model.selectedDevice.safeAreaInsets.bottom * model.selectedDevice.scale * fitScale
+                                let topPt = model.selectedDevice.safeAreaInsets.top
+                                let bottomPt = model.selectedDevice.safeAreaInsets.bottom
+                                let topPadding = topPt * model.selectedDevice.scale * fitScale
+                                let bottomPadding = bottomPt * model.selectedDevice.scale * fitScale
 
-                                if topPadding > 0 {
-                                    Rectangle()
-                                        .fill(Color.cyan.opacity(0.12))
+                                VStack(spacing: 0) {
+                                    if topPadding > 0 {
+                                        VStack(alignment: .leading, spacing: 0) {
+                                            HStack {
+                                                Text("Top Safe Area (\(Int(topPt))pt)")
+                                                    .font(.system(size: 9, weight: .bold))
+                                                    .foregroundStyle(.cyan)
+                                                Spacer()
+                                            }
+                                            .padding(.horizontal, 8)
+                                            .padding(.top, 4)
+                                            Spacer()
+                                            // Dashed boundary divider
+                                            Rectangle()
+                                                .fill(Color.cyan.opacity(0.6))
+                                                .frame(height: 1)
+                                        }
                                         .frame(width: displayWidth, height: topPadding)
-                                        .overlay(
-                                            Text("Top Safe Area (\(Int(model.selectedDevice.safeAreaInsets.top))pt)")
-                                                .font(.system(size: 9, weight: .bold))
-                                                .foregroundStyle(.cyan)
-                                                .padding(2),
-                                            alignment: .bottomLeading
-                                        )
-                                }
+                                        .background(Color.cyan.opacity(0.08))
+                                    }
 
-                                if bottomPadding > 0 {
-                                    Rectangle()
-                                        .fill(Color.cyan.opacity(0.12))
+                                    Spacer()
+
+                                    if bottomPadding > 0 {
+                                        VStack(alignment: .leading, spacing: 0) {
+                                            Rectangle()
+                                                .fill(Color.cyan.opacity(0.6))
+                                                .frame(height: 1)
+                                            Spacer()
+                                            HStack {
+                                                Text("Bottom Safe Area (\(Int(bottomPt))pt)")
+                                                    .font(.system(size: 9, weight: .bold))
+                                                    .foregroundStyle(.cyan)
+                                                Spacer()
+                                            }
+                                            .padding(.horizontal, 8)
+                                            .padding(.bottom, 4)
+                                        }
                                         .frame(width: displayWidth, height: bottomPadding)
-                                        .offset(y: displayHeight - bottomPadding)
-                                        .overlay(
-                                            Text("Bottom Safe Area (\(Int(model.selectedDevice.safeAreaInsets.bottom))pt)")
-                                                .font(.system(size: 9, weight: .bold))
-                                                .foregroundStyle(.cyan)
-                                                .padding(2),
-                                            alignment: .topLeading
-                                        )
+                                        .background(Color.cyan.opacity(0.08))
+                                    }
                                 }
+                                .frame(width: displayWidth, height: displayHeight)
+                                .allowsHitTesting(false)
                             }
 
-                            // Interactive Bounding Box Overlays
+                            // 3. Interactive Bounding Box Overlays
                             if model.showOverlays {
                                 ForEach(Array(model.currentElements.enumerated()), id: \.offset) { index, element in
                                     let box = element.boundingBox
@@ -105,6 +125,9 @@ public struct VisualInspectorView: View {
                                     let boxY = box.y * displayHeight
                                     let boxW = box.width * displayWidth
                                     let boxH = box.height * displayHeight
+
+                                    let ptWidth = Int((box.width * imgSize.width) / model.selectedDevice.scale)
+                                    let ptHeight = Int((box.height * imgSize.height) / model.selectedDevice.scale)
 
                                     let issues = model.currentIssues.filter { $0.elementIndex == index }
                                     let hasError = issues.contains { $0.severity == .error }
@@ -117,34 +140,42 @@ public struct VisualInspectorView: View {
                                     ZStack(alignment: .topLeading) {
                                         // Fill & Stroke
                                         Rectangle()
-                                            .fill(boxColor.opacity(isSelected || isHovered ? 0.25 : 0.10))
+                                            .fill(boxColor.opacity(isSelected || isHovered ? 0.22 : 0.08))
                                             .border(boxColor, width: isSelected ? 3.0 : (hasError ? 2.5 : 1.5))
 
-                                        // Label Chip
+                                        // Enhanced Label Badge
                                         if model.showElementLabels || isHovered || isSelected {
                                             HStack(spacing: 4) {
                                                 if hasError {
                                                     Image(systemName: "exclamationmark.triangle.fill")
                                                         .font(.system(size: 9))
                                                 }
-                                                Text("\(element.type) \(Int(element.confidence * 100))%")
-                                                    .font(.system(size: 9, weight: .bold))
+                                                Text("\(element.type)")
+                                                    .fontWeight(.bold)
+                                                Text("• \(ptWidth)×\(ptHeight)pt")
+                                                    .opacity(0.85)
+                                                Text("• \(Int(element.confidence * 100))%")
+                                                    .opacity(0.75)
                                             }
-                                            .padding(.horizontal, 4)
-                                            .padding(.vertical, 2)
+                                            .font(.system(size: 9))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 3)
                                             .background(boxColor)
                                             .foregroundColor(.white)
-                                            .cornerRadius(3)
-                                            .offset(y: -16)
+                                            .cornerRadius(4)
+                                            .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
+                                            // Place badge inside if near the top edge, otherwise place above
+                                            .offset(y: boxY < 24 ? 4 : -20)
+                                            .offset(x: boxY < 24 ? 4 : 0)
                                         }
                                     }
-                                    .frame(width: boxW, height: boxH)
-                                    .offset(x: boxX, y: boxY)
-                                    .onHover { hovering in
-                                        hoveredElementIndex = hovering ? index : nil
+                                    .frame(width: max(4, boxW), height: max(4, boxH))
+                                    .position(x: boxX + boxW / 2, y: boxY + boxH / 2)
+                                    .onHover { isHovered in
+                                        hoveredElementIndex = isHovered ? index : nil
                                     }
                                     .onTapGesture {
-                                        model.selectedElementIndex = index
+                                        model.selectedElementIndex = (model.selectedElementIndex == index) ? nil : index
                                         model.selectedIssue = issues.first
                                     }
                                 }
@@ -152,27 +183,30 @@ public struct VisualInspectorView: View {
                         }
                         .frame(width: displayWidth, height: displayHeight)
                     } else {
-                        VStack(spacing: 12) {
+                        // Empty Canvas Dropzone Placeholder
+                        VStack(spacing: 16) {
                             Image(systemName: "photo.on.rectangle.angled")
-                                .font(.system(size: 48))
+                                .font(.system(size: 54))
                                 .foregroundStyle(.secondary)
-                            Text("No Active Image or Rendered View")
+
+                            Text("No UI Rendered")
                                 .font(.headline)
-                                .foregroundStyle(.secondary)
-                            Text("Drop a screenshot here or select a template in the playground to begin visual audit.")
+
+                            Text("Select a template on the left and click 'Render & Audit Canvas',\nor drag and drop a screenshot here.")
                                 .font(.subheadline)
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
                         }
+                        .padding(40)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
                     guard let provider = providers.first else { return false }
                     _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                        if let url = url {
-                            Task { @MainActor in
-                                model.auditDroppedImage(url: url)
-                            }
+                        guard let url = url else { return }
+                        Task { @MainActor in
+                            model.auditDroppedImage(url: url)
                         }
                     }
                     return true

@@ -13,7 +13,7 @@ public struct IssuesSidebarView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             HStack {
-                Text("HIG & Layout Issues")
+                Text("HIG & WCAG Issues")
                     .font(.headline)
                 Spacer()
                 Text("\(model.currentIssues.count)")
@@ -36,9 +36,9 @@ public struct IssuesSidebarView: View {
                     Image(systemName: "checkmark.seal.fill")
                         .font(.system(size: 40))
                         .foregroundColor(.green)
-                    Text("100% HIG Compliant")
+                    Text("100% HIG & WCAG Compliant")
                         .font(.headline)
-                    Text("No touch target, clipping, or occlusion defects detected.")
+                    Text("No touch target, clipping, occlusion, or color contrast defects detected.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -130,6 +130,16 @@ struct IssueCardView: View {
                         .foregroundColor(issue.severity == .error ? .red : .orange)
 
                     Spacer()
+
+                    if let wcag = issue.wcagCriterion {
+                        Text([wcag, issue.wcagLevel].compactMap { $0 }.joined(separator: " "))
+                            .font(.system(size: 9, weight: .semibold))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(Color.blue.opacity(0.15))
+                            .foregroundColor(.blue)
+                            .cornerRadius(3)
+                    }
 
                     if let elemIdx = issue.elementIndex {
                         Text("#\(elemIdx)")

@@ -27,7 +27,8 @@ let package = Package(
         .target(
             name: "ViewLensKit",
             dependencies: [
-                .product(name: "NativeUIAuditKitModels", package: "NativeUIAuditKit")
+                .product(name: "NativeUIAuditKitModels", package: "NativeUIAuditKit"),
+                .product(name: "NativeUIAuditKit", package: "NativeUIAuditKit")
             ],
             path: "Sources/ViewLensKit",
             swiftSettings: [

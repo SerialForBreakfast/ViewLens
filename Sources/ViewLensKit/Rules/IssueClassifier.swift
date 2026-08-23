@@ -1,32 +1,44 @@
 import Foundation
 import CoreGraphics
 
-/// Evaluates detected elements against Apple Human Interface Guidelines and flags layout defects.
+/// Evaluates detected elements against Apple Human Interface Guidelines and W3C WCAG 2.2 accessibility rules.
 public struct IssueClassifier: Sendable {
     public static let minTouchTargetPoints: Double = 44.0
 
-    /// Classifies layout, touch target, and occlusion defects across detected elements.
+    /// Classifies layout, touch target, occlusion, and WCAG accessibility defects across detected elements.
     public static func classify(
         elements: [DetectedElement],
         imageSize: CGSize,
-        scale: Double? = nil
+        scale: Double? = nil,
+        image: CGImage? = nil,
+        targetLevel: WCAGConformanceLevel = .aaa
     ) -> [ViewLensIssue] {
         guard !elements.isEmpty else { return [] }
 
         let resolvedScale = scale ?? inferDisplayScale(imageWidth: imageSize.width)
         var issues: [ViewLensIssue] = []
 
-        // Rule 1: Tappable touch target size (HIG 44x44pt minimum)
-        issues.append(contentsOf: checkTouchTargets(elements: elements, imageSize: imageSize, scale: resolvedScale))
+        // Rule 1: Tappable touch target size (HIG 44x44pt / WCAG 2.5.5 AAA / WCAG 2.5.8 AA)
+        issues.append(contentsOf: WCAGRules.targetSizeIssues(
+            elements: elements,
+            imageSize: imageSize,
+            scale: resolvedScale,
+            targetLevel: targetLevel
+        ))
 
-        // Rule 2: Boundary clipping (elements too close to viewport edge)
+        // Rule 2: Boundary clipping (Apple HIG safe-area / viewport clearance)
         issues.append(contentsOf: checkClippedElements(elements: elements, imageSize: imageSize, scale: resolvedScale))
 
-        // Rule 3: Cross-element overlaps (IoU > 0.30 between interactive elements)
+        // Rule 3: Cross-element overlaps (WCAG 1.4.10 Reflow collision)
         issues.append(contentsOf: checkOverlappingElements(elements: elements, imageSize: imageSize))
 
-        // Rule 4: Off-screen elements (>50% area outside normalized viewport)
+        // Rule 4: Off-screen elements (Apple HIG viewport bounding)
         issues.append(contentsOf: checkOffScreenElements(elements: elements))
+
+        // Rule 5: Color contrast analysis if source CGImage is provided (WCAG 1.4.3 Minimum Contrast)
+        if let image = image {
+            issues.append(contentsOf: checkContrast(image: image, elements: elements))
+        }
 
         return issues
     }
@@ -45,50 +57,7 @@ public struct IssueClassifier: Sendable {
         }
     }
 
-    // MARK: - Rule 1: Touch Target Size Check
-    private static func checkTouchTargets(
-        elements: [DetectedElement],
-        imageSize: CGSize,
-        scale: Double
-    ) -> [ViewLensIssue] {
-        var issues: [ViewLensIssue] = []
-        let interactiveTypes = Set(["primaryButton", "toggle", "button", "textField"])
-
-        for (index, element) in elements.enumerated() {
-            guard interactiveTypes.contains(element.type) else { continue }
-
-            let pixelRect = element.boundingBox.toPixelRect(imageSize: imageSize)
-            let heightPt = pixelRect.height / scale
-            let widthPt = pixelRect.width / scale
-
-            // Buttons/Toggles must meet the 44pt height and width minimum (with 2pt grace tolerance)
-            let isTooShort = heightPt < (minTouchTargetPoints - 2.0)
-            let isTooNarrow = widthPt < (minTouchTargetPoints - 2.0)
-
-            if isTooShort || isTooNarrow {
-                let dimensionDesc = isTooShort && isTooNarrow ?
-                    "size \(Int(round(widthPt)))x\(Int(round(heightPt)))pt" :
-                    (isTooShort ? "height \(Int(round(heightPt)))pt" : "width \(Int(round(widthPt)))pt")
-                let description = "\(element.type) \(dimensionDesc) is below Apple HIG minimum requirement of \(Int(minTouchTargetPoints))x\(Int(minTouchTargetPoints))pt."
-                let remediation = RemediationAdvice(
-                    description: "Increase frame dimensions to at least 44x44pt.",
-                    codeSnippet: ".frame(minWidth: 44, minHeight: 44)"
-                )
-                issues.append(ViewLensIssue(
-                    kind: .tappableTargetTooSmall,
-                    severity: .error,
-                    description: description,
-                    confidence: element.confidence,
-                    elementIndex: index,
-                    remediation: remediation
-                ))
-            }
-        }
-
-        return issues
-    }
-
-    // MARK: - Rule 2: Boundary Clipping Check
+    // MARK: - Rule 2: Boundary Clipping Check (Apple HIG)
     private static func checkClippedElements(
         elements: [DetectedElement],
         imageSize: CGSize,
@@ -96,8 +65,6 @@ public struct IssueClassifier: Sendable {
     ) -> [ViewLensIssue] {
         var issues: [ViewLensIssue] = []
         let marginPixels = 3.0 * scale // 3pt buffer from edge
-
-        // Containers like navigationBar or tabBar naturally span full width
         let fullWidthContainers = Set(["navigationBar", "tabBar"])
 
         for (index, element) in elements.enumerated() {
@@ -122,6 +89,8 @@ public struct IssueClassifier: Sendable {
                     description: description,
                     confidence: element.confidence,
                     elementIndex: index,
+                    wcagCriterion: "Apple HIG",
+                    wcagLevel: "Mobile",
                     remediation: remediation
                 ))
             }
@@ -130,15 +99,13 @@ public struct IssueClassifier: Sendable {
         return issues
     }
 
-    // MARK: - Rule 3: Cross-Element Overlap Check
+    // MARK: - Rule 3: Cross-Element Overlap Check (WCAG 1.4.10)
     private static func checkOverlappingElements(
         elements: [DetectedElement],
         imageSize: CGSize
     ) -> [ViewLensIssue] {
         var issues: [ViewLensIssue] = []
         guard elements.count > 1 else { return [] }
-
-        // We only check for collision between distinct non-container elements
         let containerTypes = Set(["navigationBar", "tabBar"])
 
         for i in 0..<elements.count {
@@ -163,6 +130,8 @@ public struct IssueClassifier: Sendable {
                         description: description,
                         confidence: max(elemA.confidence, elemB.confidence),
                         elementIndex: i,
+                        wcagCriterion: "WCAG 1.4.10",
+                        wcagLevel: "AA",
                         remediation: remediation
                     ))
                 }
@@ -172,13 +141,12 @@ public struct IssueClassifier: Sendable {
         return issues
     }
 
-    // MARK: - Rule 4: Off-Screen Elements Check
+    // MARK: - Rule 4: Off-Screen Elements Check (Apple HIG)
     private static func checkOffScreenElements(elements: [DetectedElement]) -> [ViewLensIssue] {
         var issues: [ViewLensIssue] = []
 
         for (index, element) in elements.enumerated() {
             let box = element.boundingBox
-            // If more than 50% of the box extends outside normalized [0,0,1,1]
             let clampedWidth = max(0.0, min(box.maxX, 1.0) - max(box.minX, 0.0))
             let clampedHeight = max(0.0, min(box.maxY, 1.0) - max(box.minY, 0.0))
             let visibleArea = clampedWidth * clampedHeight
@@ -195,8 +163,50 @@ public struct IssueClassifier: Sendable {
                     description: description,
                     confidence: element.confidence,
                     elementIndex: index,
+                    wcagCriterion: "Apple HIG",
+                    wcagLevel: "Mobile",
                     remediation: remediation
                 ))
+            }
+        }
+
+        return issues
+    }
+
+    // MARK: - Rule 5: Color Contrast Check (WCAG 1.4.3 / 1.4.11)
+    private static func checkContrast(image: CGImage, elements: [DetectedElement]) -> [ViewLensIssue] {
+        var issues: [ViewLensIssue] = []
+        let textAndControlTypes = Set(["primaryButton", "secondaryButton", "textField", "label"])
+
+        for (index, element) in elements.enumerated() {
+            guard textAndControlTypes.contains(element.type) else { continue }
+
+            let isNonTextControl = element.type != "label"
+            if let result = ContrastEvaluator.sampleContrast(
+                image: image,
+                box: element.boundingBox,
+                isLargeTextOrIcon: isNonTextControl
+            ) {
+                let passes = isNonTextControl ? result.passesAALargeText : result.passesAA
+                if !passes {
+                    let criterion = isNonTextControl ? "WCAG 1.4.11" : "WCAG 1.4.3"
+                    let threshold = isNonTextControl ? 3.0 : 4.5
+                    let desc = "\(element.type) contrast ratio is \(String(format: "%.1f", result.ratio)):1, which fails \(criterion) AA minimum of \(String(format: "%.1f", threshold)):1."
+                    let remediation = RemediationAdvice(
+                        description: "Increase contrast between foreground content and background surface.",
+                        codeSnippet: ".foregroundStyle(Color.primary)"
+                    )
+                    issues.append(ViewLensIssue(
+                        kind: .contrastRisk,
+                        severity: .warning,
+                        description: desc,
+                        confidence: element.confidence,
+                        elementIndex: index,
+                        wcagCriterion: criterion,
+                        wcagLevel: "AA",
+                        remediation: remediation
+                    ))
+                }
             }
         }
 
