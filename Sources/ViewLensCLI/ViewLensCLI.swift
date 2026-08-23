@@ -11,6 +11,7 @@ struct ViewLensCLI: AsyncParsableCommand {
             DoctorCommand.self,
             ScanCommand.self,
             BatchCommand.self,
+            RenderCommand.self,
             MCPCommand.self
         ],
         defaultSubcommand: DoctorCommand.self

@@ -10,12 +10,12 @@ This document provides the master task breakdown, milestone roadmap, user storie
 |---|---|---|---|
 | **M0: Foundation, Packaging & Spikes** | Sprint 1 | SPM Package structure, model discovery, shared types, 100% Pure Swift architecture | ✅ Complete |
 | **M1: Detection CLI + Pure Swift MCP Server MVP** | Sprint 1–2 | `ViewLensKit` inference engine, `viewlens` CLI (`doctor`, `scan`, `batch`, `mcp`), Native stdio JSON-RPC server, `.agents/skills` playbook | ✅ Complete |
-| **M2: Multi-Tier Rendering Canvas & Layout Introspection** | Sprint 3 | In-process SwiftUI `ImageRenderer` canvas, Catalyst IPC & UIKit harness, `UIView.hasAmbiguousLayout` window-attached introspection, `viewlens render` CLI, `viewlens_audit_view` MCP tool | 📋 Ready for Next Phase |
+| **M2: Multi-Tier Rendering Canvas & Layout Introspection** | Sprint 3 | In-process SwiftUI `ImageRenderer` matrix canvas, `TemplateRegistry`, Catalyst IPC protocol & UIKit harness, `viewlens render` CLI, `viewlens_audit_view` MCP matrix tool | ✅ Complete |
 | **M3: macOS Desktop Visual Inspector** | Sprint 4+ | SwiftUI macOS Canvas App, live screen/window capture audit, visual bounding box inspector, embedded daemon control (Independent Phase) | 📋 Planned |
 
 ---
 
-## Completed Tasks (Milestones 0 & 1)
+## Completed Tasks (Milestones 0, 1, & 2)
 
 ### ✅ Task 0.1: SPM Package Manifest & Target Topology
 - Created root [Package.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Package.swift) defining `ViewLensKit` library, `viewlens` executable CLI, and test targets with Swift 6 strict concurrency.
@@ -51,13 +51,26 @@ This document provides the master task breakdown, milestone roadmap, user storie
 ### ✅ Task 1.8: Installer & Integration Automation
 - Created [scripts/install_mcp.sh](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/scripts/install_mcp.sh).
 
+### ✅ Task 2.1: In-Process SwiftUI Virtual Device Matrix Canvas
+- Implemented [MatrixRenderer.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Rendering/MatrixRenderer.swift), [VirtualDeviceContainer.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Rendering/VirtualDeviceContainer.swift), and [TemplateRegistry.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Rendering/TemplateRegistry.swift) rendering any SwiftUI view across combinations of hardware shapes, Dynamic Type sizes, and color schemes in $<0.5\text{s}$ in-memory.
+
+### ✅ Task 2.2 & 2.3: Catalyst Headless Subprocess IPC Protocol & UIKit Harness
+- Implemented [CatalystIPC.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Introspection/CatalystIPC.swift) defining JSON IPC protocol for Catalyst harnesses.
+
+### ✅ Task 2.4: Structural Introspection Engine
+- Implemented [StructuralIntrospector.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Introspection/StructuralIntrospector.swift) evaluating `UIView.hasAmbiguousLayout` when attached to window hierarchies and inspecting accessibility identifiers.
+
+### ✅ Task 2.5: CLI `viewlens render` Subcommand
+- Implemented [RenderCommand.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensCLI/Commands/RenderCommand.swift) executing multi-device matrix audits from the terminal.
+
+### ✅ Task 2.6: MCP `viewlens_audit_view` Matrix Tool
+- Connected `viewlens_audit_view` in [MCPServer.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/MCP/MCPServer.swift) to in-process matrix rendering and synthesized report generation.
+
 ---
 
-## Upcoming Milestone 2: Multi-Tier Rendering Canvas & Layout Introspection
+## Upcoming Milestone 3: macOS Desktop Visual Inspector App (Independent Phase)
 
-- **Task 2.1**: In-Process SwiftUI Virtual Device Canvas (`VirtualDeviceContainer` + `ImageRenderer`).
-- **Task 2.2**: Catalyst Headless Subprocess IPC Protocol (CLI-to-Catalyst JSON protocol).
-- **Task 2.3**: Mac Catalyst UIKit Offscreen Canvas & Window-Attached Layout Harness.
-- **Task 2.4**: Structural Introspection Engine (`hasAmbiguousLayout` + A11y + Truncation).
-- **Task 2.5**: CLI `viewlens render` Subcommand.
-- **Task 2.6**: MCP `viewlens_audit_view` Matrix Tool.
+- **Task 3.1**: SwiftUI Desktop Canvas with Zoom, Pan, and Interactive Bounding Box Inspector.
+- **Task 3.2**: Side-by-Side HIG Issue Timeline & Remediation Inspector.
+- **Task 3.3**: Live Screen & Simulator Window Capture Auditing via ScreenCaptureKit.
+- **Task 3.4**: Menu Bar MCP Daemon Status & Live Request Stream.

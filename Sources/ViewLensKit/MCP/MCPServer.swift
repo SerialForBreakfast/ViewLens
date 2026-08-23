@@ -209,13 +209,41 @@ public final class MCPServer: Sendable {
             return try? JSONEncoder().encode(response)
 
         case "viewlens_audit_view":
-            let template = arguments["template"]?.stringValue ?? "Unknown"
-            let msg = [
-                "status": "template_rendering_staged",
-                "template": template,
-                "message": "Template rendering matrix engine is available in Milestone 2. Use 'viewlens_audit_screenshot' to audit rendered simulator or canvas captures today."
-            ]
-            let result = MCPToolCallResult(text: JSONFormatter.encode(msg), isError: false)
+            guard let templateName = arguments["template"]?.stringValue else {
+                let result = MCPToolCallResult(text: JSONFormatter.errorJSON(message: "Missing required 'template' parameter"), isError: true)
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+
+            let devicesArray: [String]
+            if case .array(let arr) = arguments["devices"] {
+                devicesArray = arr.compactMap { $0.stringValue }
+            } else {
+                devicesArray = ["iPhoneSE", "iPhone16Pro"]
+            }
+
+            let dtArray: [String]
+            if case .array(let arr) = arguments["dynamic_type_sizes"] {
+                dtArray = arr.compactMap { $0.stringValue }
+            } else {
+                dtArray = ["large", "accessibility3"]
+            }
+
+            let schemeArray: [String]
+            if case .array(let arr) = arguments["color_schemes"] {
+                schemeArray = arr.compactMap { $0.stringValue }
+            } else {
+                schemeArray = ["light", "dark"]
+            }
+
+            let auditResult = await runAuditView(
+                templateName: templateName,
+                deviceNames: devicesArray,
+                dtSizes: dtArray,
+                schemes: schemeArray
+            )
+
+            let result = MCPToolCallResult(text: auditResult.jsonText, isError: !auditResult.passed)
             let response = JSONRPCResponse(id: request.id, result: result)
             return try? JSONEncoder().encode(response)
 
@@ -345,5 +373,37 @@ public final class MCPServer: Sendable {
         }
 
         return (JSONFormatter.encode(report), report.passed)
+    }
+
+    private func runAuditView(
+        templateName: String,
+        deviceNames: [String],
+        dtSizes: [String],
+        schemes: [String]
+    ) async -> (jsonText: String, passed: Bool) {
+        var detector: YOLODetector? = nil
+        if let modelURL = try? ModelLocator.resolve().get() {
+            detector = try? YOLODetector(modelURL: modelURL)
+        }
+
+        do {
+            let matrixReport = try await MatrixRenderer.auditNamedTemplate(
+                templateName: templateName,
+                deviceNames: deviceNames,
+                dtSizes: dtSizes,
+                schemes: schemes,
+                detector: detector
+            )
+            return (JSONFormatter.encode(matrixReport), matrixReport.passed)
+        } catch {
+            let available = await MainActor.run {
+                TemplateRegistry.shared.availableTemplates.joined(separator: ", ")
+            }
+            return (JSONFormatter.errorJSON(
+                message: error.localizedDescription,
+                detail: "Available templates: \(available)",
+                nextCommand: "viewlens render --list-templates"
+            ), false)
+        }
     }
 }
