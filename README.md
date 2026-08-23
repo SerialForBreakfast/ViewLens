@@ -123,8 +123,30 @@ Audits entire directory trees containing test artifacts or simulator outputs, pr
 viewlens batch ./DerivedData/Screenshots --pattern "png" --output ./audit_report.json
 ```
 
-### 4. `viewlens mcp`
-Launches the native Swift Model Context Protocol (MCP) server over standard I/O (stdio).
+### 4. `viewlens render`
+Renders and audits a SwiftUI/UIKit template across a multi-device matrix in memory without simulators:
+
+```bash
+# Audits template across iPhone SE and iPhone 16 Pro in Light and Dark mode
+viewlens render --template LoginForm --devices iPhoneSE,iPhone16Pro --dt large,accessibility3 --scheme light,dark
+
+# Output structured JSON report
+viewlens render --template LoginForm --format json
+```
+
+### 5. `viewlens tui`
+Launches the interactive full-screen Terminal User Interface (TUI) or headless ASCII layout dashboard:
+
+```bash
+# Interactive full-screen terminal dashboard with live keyboard shortcuts
+viewlens tui
+
+# Headless snapshot output for CI or SSH sessions
+viewlens tui --headless --template LoginForm
+```
+
+### 6. `viewlens mcp`
+Launches the 100% pure Swift Model Context Protocol (MCP) server over standard I/O (`stdio`):
 
 ```bash
 viewlens mcp

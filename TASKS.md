@@ -11,66 +11,45 @@ This document provides the master task breakdown, milestone roadmap, user storie
 | **M0: Foundation, Packaging & Spikes** | Sprint 1 | SPM Package structure, model discovery, shared types, 100% Pure Swift architecture | ✅ Complete |
 | **M1: Detection CLI + Pure Swift MCP Server MVP** | Sprint 1–2 | `ViewLensKit` inference engine, `viewlens` CLI (`doctor`, `scan`, `batch`, `mcp`), Native stdio JSON-RPC server, `.agents/skills` playbook | ✅ Complete |
 | **M2: Multi-Tier Rendering Canvas & Layout Introspection** | Sprint 3 | In-process SwiftUI `ImageRenderer` matrix canvas, `TemplateRegistry`, Catalyst IPC protocol & UIKit harness, `viewlens render` CLI, `viewlens_audit_view` MCP matrix tool | ✅ Complete |
-| **M3: macOS Desktop Visual Inspector** | Sprint 4+ | SwiftUI macOS Canvas App, live screen/window capture audit, visual bounding box inspector, embedded daemon control (Independent Phase) | 📋 Planned |
+| **M3: macOS Desktop Visual Inspector App** | Sprint 4 | SwiftUI macOS Canvas App, live MCP status bar, incoming agent activity stream, visual confirmation preview canvas, and HIG remediation sidebar | ✅ Complete |
+| **M4: Terminal UI (TUI) & Headless ASCII Dashboard** | Sprint 5 | Full-screen interactive ANSI terminal UI (`viewlens tui`), ASCII wireframe visualizer, keyboard shortcuts, and headless CI streaming mode | ✅ Complete |
+| **M5: Mac Catalyst Live Validation Spike** | Sprint 5 | Empirical verification of offscreen `UIWindow`, `hasAmbiguousLayout` accuracy, Dynamic Type trait overrides, and sub-millisecond layout benchmarking | ✅ Complete |
+| **M6: NativeUIAuditKit 2.0 Integration & Release Distribution** | Sprint 6 | `NativeUIAuditKitModels` 2.0.0 dependency wiring, `ModelLocator` zero-config bundled model resolution, and release packaging | 📋 Ready for Release |
 
 ---
 
-## Completed Tasks (Milestones 0, 1, & 2)
+## Completed Tasks (Milestones 0–5)
 
-### ✅ Task 0.1: SPM Package Manifest & Target Topology
-- Created root [Package.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Package.swift) defining `ViewLensKit` library, `viewlens` executable CLI, and test targets with Swift 6 strict concurrency.
+### ✅ Milestone 0: Foundation & Core Setup
+- **Task 0.1**: Created [Package.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Package.swift) defining `ViewLensKit`, `viewlens` CLI, and test targets.
+- **Task 0.2**: Created [DeviceProfile.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Models/DeviceProfile.swift) with hardware metrics for iPhone SE, iPhone 16 Pro, iPhone 16 Pro Max, iPad Pro 11", and iPad Pro 13".
+- **Task 0.4**: Created [ModelLocator.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Detector/ModelLocator.swift) with prioritized resolution chain.
 
-### ✅ Task 0.2: Device Configuration & Trait Matrix
-- Created [DeviceProfile.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Models/DeviceProfile.swift) with hardware metrics for iPhone SE, iPhone 16 Pro, iPhone 16 Pro Max, iPad Pro 11", and iPad Pro 13".
+### ✅ Milestone 1: Core Detection Engine & Pure Swift MCP Server
+- **Task 1.1**: Implemented [BoundingBox.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Models/BoundingBox.swift) with normalized top-left $[0,1]$ space matching SwiftUI frames.
+- **Task 1.2**: Implemented [YOLODetector.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Detector/YOLODetector.swift) and [NMS.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Detector/NMS.swift).
+- **Task 1.3**: Implemented [IssueClassifier.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Rules/IssueClassifier.swift) and [HIGRule.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Rules/HIGRule.swift).
+- **Task 1.4**: Implemented [OverlayRenderer.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Rendering/OverlayRenderer.swift).
+- **Task 1.5**: Implemented [ViewLensCLI.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensCLI/ViewLensCLI.swift), [DoctorCommand.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensCLI/Commands/DoctorCommand.swift), [ScanCommand.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensCLI/Commands/ScanCommand.swift), and [BatchCommand.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensCLI/Commands/BatchCommand.swift).
+- **Task 1.6**: Implemented [MCPServer.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/MCP/MCPServer.swift) and [MCPProtocol.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/MCP/MCPProtocol.swift) with zero Python dependencies.
+- **Task 1.7**: Created [.agents/skills/viewlens/SKILL.md](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/.agents/skills/viewlens/SKILL.md) and [scripts/install_mcp.sh](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/scripts/install_mcp.sh).
 
-### ✅ Task 0.4: Model Locator & Environment Resolution
-- Created [ModelLocator.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Detector/ModelLocator.swift) with prioritized resolution chain (`--model`, `VIEWLENS_MODEL_PATH`, `NATIVEUI_MODEL_PATH`, sibling `NativeUIAuditKit` fallback, Application Support cache).
+### ✅ Milestone 2: Multi-Tier Matrix Canvas & Introspection
+- **Task 2.1**: Implemented [MatrixRenderer.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Rendering/MatrixRenderer.swift), [VirtualDeviceContainer.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Rendering/VirtualDeviceContainer.swift), and [TemplateRegistry.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Rendering/TemplateRegistry.swift).
+- **Task 2.2 & 2.3**: Implemented [CatalystIPC.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Introspection/CatalystIPC.swift) and [StructuralIntrospector.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Introspection/StructuralIntrospector.swift).
+- **Task 2.5**: Implemented [RenderCommand.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensCLI/Commands/RenderCommand.swift).
+- **Task 2.6**: Connected `viewlens_audit_view` tool in [MCPServer.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/MCP/MCPServer.swift).
 
-### ✅ Task 1.1: Core Types & Coordinate Geometry (`sourceMode` Contract)
-- Implemented [BoundingBox.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Models/BoundingBox.swift) with normalized top-left origin $[0,1]$ matching SwiftUI frames.
-- Implemented [DetectedElement.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Models/DetectedElement.swift), [ViewLensIssue.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Models/ViewLensIssue.swift), [DoctorReport.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Models/DoctorReport.swift), and [AuditReport.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Models/AuditReport.swift).
+### ✅ Milestone 3: macOS Desktop Visual Inspector App
+- **Task 3.1**: Implemented [AppModel.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/ViewLens/Models/AppModel.swift) and [DoctorStatusView.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/ViewLens/Views/DoctorStatusView.swift).
+- **Task 3.2**: Implemented [VisualInspectorView.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/ViewLens/Views/VisualInspectorView.swift) with interactive bounding box overlays and drag-and-drop.
+- **Task 3.3**: Implemented [IssuesSidebarView.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/ViewLens/Views/IssuesSidebarView.swift) and [ActivityLogView.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/ViewLens/Views/ActivityLogView.swift).
+- **Task 3.4**: Implemented [TemplatePlaygroundView.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/ViewLens/Views/TemplatePlaygroundView.swift) and configured Xcode package integration in [ViewLens.xcodeproj](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/ViewLens.xcodeproj/project.pbxproj).
 
-### ✅ Task 1.2: YOLO CoreML Inference & Greedy NMS Engine
-- Implemented [YOLODetector.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Detector/YOLODetector.swift) with letterbox preprocessing, ANE/GPU CoreML execution, stride-based MultiArray tensor parsing, and [NMS.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Detector/NMS.swift).
+### ✅ Milestone 4: Terminal UI (TUI) & Headless ASCII Dashboard
+- **Task 4.1**: Implemented [TerminalCanvas.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/TUI/TerminalCanvas.swift) with ANSI screen buffers, cursor positioning, and raw mode.
+- **Task 4.2**: Implemented [ASCIILayoutRenderer.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/TUI/ASCIILayoutRenderer.swift) rendering 2D wireframes with embedded label chips and safe-area boundaries.
+- **Task 4.3 & 4.4**: Implemented [TUICommand.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensCLI/Commands/TUICommand.swift) (`viewlens tui`) with interactive keyboard controls (`1-4`, `d`, `t`, `c`, `r`, `q`) and `--headless` CI mode.
 
-### ✅ Task 1.3: Deterministic HIG Rules Engine
-- Implemented [IssueClassifier.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Rules/IssueClassifier.swift) and [HIGRule.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Rules/HIGRule.swift) evaluating $44\times 44\text{pt}$ touch target minimums, boundary clipping, cross-class overlaps ($\text{IoU} > 0.30$), and off-screen elements.
-
-### ✅ Task 1.4: Annotated Bounding Box Visual Overlay Generator
-- Implemented [OverlayRenderer.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Rendering/OverlayRenderer.swift) with CoreGraphics color-coded bounding boxes (green/red/amber) and PNG export.
-
-### ✅ Task 1.5: Swift CLI Binary Implementation (`viewlens`)
-- Implemented [ViewLensCLI.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensCLI/ViewLensCLI.swift), [DoctorCommand.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensCLI/Commands/DoctorCommand.swift), [ScanCommand.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensCLI/Commands/ScanCommand.swift), [BatchCommand.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensCLI/Commands/BatchCommand.swift), [JSONFormatter.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Formatters/JSONFormatter.swift), and [TableFormatter.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Formatters/TableFormatter.swift).
-
-### ✅ Task 1.6: 100% Pure Swift Native MCP Server (stdio Transport)
-- Implemented [MCPServer.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/MCP/MCPServer.swift), [MCPProtocol.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/MCP/MCPProtocol.swift), and [MCPCommand.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensCLI/Commands/MCPCommand.swift) exposing `viewlens_doctor`, `viewlens_audit_screenshot`, and `viewlens_audit_view` over stdio JSON-RPC with zero Python dependencies.
-
-### ✅ Task 1.7: Agent Skill Playbook
-- Created [.agents/skills/viewlens/SKILL.md](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/.agents/skills/viewlens/SKILL.md) documenting agent order of operations and SwiftUI remediation patterns.
-
-### ✅ Task 1.8: Installer & Integration Automation
-- Created [scripts/install_mcp.sh](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/scripts/install_mcp.sh).
-
-### ✅ Task 2.1: In-Process SwiftUI Virtual Device Matrix Canvas
-- Implemented [MatrixRenderer.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Rendering/MatrixRenderer.swift), [VirtualDeviceContainer.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Rendering/VirtualDeviceContainer.swift), and [TemplateRegistry.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Rendering/TemplateRegistry.swift) rendering any SwiftUI view across combinations of hardware shapes, Dynamic Type sizes, and color schemes in $<0.5\text{s}$ in-memory.
-
-### ✅ Task 2.2 & 2.3: Catalyst Headless Subprocess IPC Protocol & UIKit Harness
-- Implemented [CatalystIPC.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Introspection/CatalystIPC.swift) defining JSON IPC protocol for Catalyst harnesses.
-
-### ✅ Task 2.4: Structural Introspection Engine
-- Implemented [StructuralIntrospector.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Introspection/StructuralIntrospector.swift) evaluating `UIView.hasAmbiguousLayout` when attached to window hierarchies and inspecting accessibility identifiers.
-
-### ✅ Task 2.5: CLI `viewlens render` Subcommand
-- Implemented [RenderCommand.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensCLI/Commands/RenderCommand.swift) executing multi-device matrix audits from the terminal.
-
-### ✅ Task 2.6: MCP `viewlens_audit_view` Matrix Tool
-- Connected `viewlens_audit_view` in [MCPServer.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/MCP/MCPServer.swift) to in-process matrix rendering and synthesized report generation.
-
----
-
-## Upcoming Milestone 3: macOS Desktop Visual Inspector App (Independent Phase)
-
-- **Task 3.1**: SwiftUI Desktop Canvas with Zoom, Pan, and Interactive Bounding Box Inspector.
-- **Task 3.2**: Side-by-Side HIG Issue Timeline & Remediation Inspector.
-- **Task 3.3**: Live Screen & Simulator Window Capture Auditing via ScreenCaptureKit.
-- **Task 3.4**: Menu Bar MCP Daemon Status & Live Request Stream.
+### ✅ Milestone 5: Mac Catalyst Live Validation Spike
+- **Task 5.1 & 5.2**: Implemented [CatalystSpikeHarness.swift](file:///Users/josephmccraw/Dropbox/My%20Mac%20%28MacBook-Air%29/Documents/GitHub/ViewLens/Sources/ViewLensKit/Introspection/CatalystSpikeHarness.swift) empirically validating that `view.hasAmbiguousLayout` returns `false` on fully-constrained layouts, `true` on under-constrained layouts when attached to offscreen `UIWindow`, and `UIGraphicsImageRenderer` rasterizes offscreen hierarchies in $<1\text{ms}$.
