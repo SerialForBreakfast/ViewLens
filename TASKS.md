@@ -18,10 +18,15 @@ This document provides the master task breakdown, milestone roadmap, user storie
 | **M7: NativeUIAuditKit 2.0 Integration & Model Bundling** | Sprint 7 | Resolved `NativeUIAuditKit` 2.0.0 SPM dependency, wired `NativeUIModelAsset.defaultModelURL` and `metadata`, verified zero-config `viewlens doctor` and `xcodebuild` | ✅ Complete |
 | **M8: Desktop Design System & Navigation Shell** | UI Sprint 1 | Semantic tokens, reusable components, native split navigation, toolbar, commands, adaptive appearance | 🟨 In Progress |
 | **M9: Review Domain & State Architecture** | UI Sprint 1–2 | Review lifecycle, focused stores, cancellable orchestration, errors, partial/stale results | ✅ Complete |
-| **M10: Current Status Dashboard** | UI Sprint 2 | Health cards, recent reviews, quality trend, activity, quick import | 🟨 In Progress |
-| **M11: AI Review Workbench** | UI Sprint 3–4 | Review progress, inspection canvas, findings, activity, remediation, export | 🟨 In Progress |
-| **M12: Playground, History & Settings** | UI Sprint 4–5 | Manual/template audit setup, durable reviews, comparison, preferences and diagnostics | 🟨 In Progress |
-| **M13: Desktop Accessibility & Release Verification** | UI Sprint 6 | Keyboard/VoiceOver coverage, self-audits, visual baselines, UI/build tests | ⬜ Planned |
+| **M10: Current Status Dashboard** | UI Sprint 2 | Health cards, recent reviews, quality trend, activity, quick import | ✅ Complete |
+| **M11: AI Review Workbench** | UI Sprint 3–4 | Review progress, inspection canvas, findings, activity, remediation, export | ✅ Complete |
+| **M12: Playground, History & Settings** | UI Sprint 4–5 | Manual/template audit setup, durable reviews, comparison, preferences and diagnostics | ✅ Complete |
+| **M13: Desktop Accessibility & Release Verification** | UI Sprint 6 | Keyboard/VoiceOver coverage, self-audits, visual baselines, UI/build tests | 🟨 In Progress — host XCTest runner session pending |
+| **M14: Modern MCP Protocol & Structured Evidence** | Agent Sprint 1–2 | Protocol negotiation, structured outputs, resources, prompts, tasks, cancellation, conformance | 🟨 In Progress — resources, prompts, monotonic progress, and cooperative cancellation implemented |
+| **M15: Live Native Review Sessions** | Agent Sprint 3–5 | Safe app launch, simulator/macOS capture, accessibility hierarchy, spatial queries, durable session handles | ⬜ Planned |
+| **M16: Interaction & Accessibility Graph** | Agent Sprint 6–8 | Allowlisted UI actions, focus traversal, state crawling, accommodations, localization and replay | ⬜ Planned |
+| **M17: Source Provenance & Fix Verification** | Agent Sprint 9–11 | Visual-to-source mapping, before/after verification, regression generation, CI evidence | ⬜ Planned |
+| **M18: Interactive MCP App & Remote Collaboration** | Agent Sprint 12–14 | Sandboxed review UI, approvals, remote transport, authorization, packaging and agent skills | ⬜ Planned |
 
 ---
 
@@ -81,3 +86,9 @@ This document provides the master task breakdown, milestone roadmap, user storie
 The detailed screen definitions, component states, style tokens, interaction rules, acceptance criteria, and task-level work breakdown are maintained in [ViewLens Desktop UI Design Specification](Docs/ViewLens-Desktop-UI-Design-Specification.md).
 
 Implementation should begin with **M8 Design System & Shell**, followed by **M9 Review Domain & State Architecture**. The AI Review workbench and Current Status dashboard must share that domain model rather than maintaining separate transient representations of a review.
+
+## Planned Agent Capability Platform (Milestones 14–18)
+
+The detailed protocol contracts, runtime safety boundaries, task dependencies, acceptance criteria, and iteration slices are maintained in [ViewLens MCP & Agent Capability Roadmap](Docs/ViewLens-MCP-Agent-Capability-Roadmap.md).
+
+Implementation begins with **M14 Modern MCP Protocol & Structured Evidence**. Live runtime control must not be added until protocol-version negotiation, typed evidence, cancellation, explicit state handles, and conformance fixtures are in place.

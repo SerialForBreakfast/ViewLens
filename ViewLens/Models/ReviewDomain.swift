@@ -145,6 +145,11 @@ public struct ReviewFinding: Identifiable, Equatable, Sendable {
         self.id = parts.joined(separator: "|")
         self.issue = issue
     }
+
+    public init(id: ID, issue: ViewLensIssue) {
+        self.id = id
+        self.issue = issue
+    }
 }
 
 public struct ReviewEvent: Identifiable, Equatable, Sendable {
@@ -203,19 +208,30 @@ public struct ReviewRecord: Identifiable, Sendable {
     }
 }
 
+public enum FindingStandard: String, CaseIterable, Identifiable, Sendable {
+    case all = "All Standards"
+    case wcag = "WCAG"
+    case hig = "Apple HIG"
+
+    public var id: String { rawValue }
+}
+
 public struct FindingFilter: Equatable, Sendable {
     public var searchText = ""
     public var severities: Set<ViewLensSeverity> = []
+    public var standard: FindingStandard = .all
     public var criterion: String?
-    public var elementType: String?
+    public var elementIndex: Int?
 
     public init() {}
 
     public func matches(_ finding: ReviewFinding) -> Bool {
         let issue = finding.issue
         if !severities.isEmpty && !severities.contains(issue.severity) { return false }
+        if standard == .wcag && issue.wcagCriterion == nil { return false }
+        if standard == .hig && issue.wcagCriterion != nil { return false }
         if let criterion, issue.wcagCriterion != criterion { return false }
-        if let elementType, issue.identifier != elementType { return false }
+        if let elementIndex, issue.elementIndex != elementIndex { return false }
         if !searchText.isEmpty {
             let matchesText = issue.displayTitle.localizedStandardContains(searchText)
                 || issue.description.localizedStandardContains(searchText)

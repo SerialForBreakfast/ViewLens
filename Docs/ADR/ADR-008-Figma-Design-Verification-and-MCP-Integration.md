@@ -165,6 +165,31 @@ ViewLens can integrate with and leverage the broader design-to-code ecosystem:
 - **Figma API Rate Limits:** Figma REST API requires an API access token and has rate limits; cached reference assets and MCP stdio connection mitigate this.
 - **Font Rendering Differences:** CoreText on Apple platforms renders San Francisco typography slightly differently than Chromium/Canvas in Figma; SSIM threshold must use structural filtering to avoid false positives on font anti-aliasing.
 
+### MCP Resource Security Boundary
+
+- ViewLens uses the custom `viewlens://` URI scheme for server-mediated evidence. It does not accept arbitrary `file://` reads through MCP.
+- Modern tool results are retained in a process-bounded catalog of at most 50 reviews. Eviction removes the oldest review and its reachable resource handles.
+- Generated binary artifacts are snapshotted when a review is cataloged, limited to 10 MB, and served from the immutable snapshot. Later path replacement, symlink changes, or deletion cannot redirect the read to unrelated filesystem content.
+- Unknown or malformed resource URIs return JSON-RPC `-32602`; unavailable or oversized cataloged artifacts return `-32603` with stable machine-readable recovery codes.
+- Resource lists and reads are marked `cacheScope: "private"`; list results use `ttlMs: 0` because retained review availability can change. Static URI templates may be publicly cached.
+- Subscription support is not advertised until bounded lifecycle, cancellation, and notification delivery are implemented.
+
+### MCP Prompt Security Boundary
+
+- Prompts are user-controlled workflow templates and are advertised only in modern discovery. The legacy initialization contract remains unchanged.
+- Prompt arguments must be string values, are limited to 4,096 characters each, reject unexpected keys and disallowed control characters, and are JSON encoded under an explicit untrusted-data boundary before interpolation.
+- Review resource arguments use a restricted opaque identifier alphabet and resolve only to `viewlens://reviews/{reviewId}` links. They cannot introduce paths, traversal components, or arbitrary URI schemes.
+- The prompt catalog is static, deterministically ordered, and publicly cacheable for one hour. `listChanged` remains false until bounded subscription delivery exists.
+- Generated workflows instruct agents to preserve incomplete and not-evaluated evidence, and never authorize reads outside the ViewLens tools and catalog resources named by the workflow.
+
+### MCP Execution-Control Boundary
+
+- The stdio server dispatches requests concurrently so cancellation notifications can be processed while an audit is active, while a single actor serializes all responses and progress notifications onto stdout.
+- Active request IDs and client-provided progress tokens must be unique. Progress tokens accept only strings or integers, and monotonicity is enforced server-side before a notification is emitted.
+- Audits check cancellation between expensive stages and before overlay or heatmap writes. Inference and pixel comparison are cooperative rather than forcibly interrupted mid-call; cancellation takes effect at the next safe checkpoint.
+- A cancelled non-subscription request produces no terminal response, matching MCP cancellation semantics. Unknown, completed, and malformed cancellation notifications are ignored.
+- Execution state exists only for the lifetime of the request. At most 512 progress notifications are retained in the bounded diagnostic buffer; durable execution, polling, and reconnect recovery require the separate MCP task-handle milestone.
+
 ### Milestones for ViewLens
 - **Milestone 8A:** Figma Token Parser (`FigmaTokenSync.swift`) — import Figma variables and typography into Swift.
 - **Milestone 8B:** Image SSIM & Perceptual Diff Engine (`VisualDiffEngine.swift`).

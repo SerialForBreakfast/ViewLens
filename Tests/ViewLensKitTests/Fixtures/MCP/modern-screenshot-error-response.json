@@ -1,0 +1,67 @@
+{
+  "jsonrpc": "2.0",
+  "id": 21,
+  "result": {
+    "resultType": "complete",
+    "content": [
+      {
+        "type": "text",
+        "text": "{\n  \"error\" : \"Missing required 'image_path' parameter\"\n}"
+      }
+    ],
+    "structuredContent": {
+      "schemaVersion": "1.0",
+      "reviewId": "<review-id>",
+      "sourceMode": "screenshot",
+      "target": {
+        "type": "image",
+        "identifier": "unspecified"
+      },
+      "environment": {
+        "platform": "macOS",
+        "server": {
+          "name": "viewlens",
+          "version": "0.2.0"
+        }
+      },
+      "completeness": {
+        "status": "unavailable",
+        "evaluated": [],
+        "notEvaluated": ["visualDetection", "layoutRules"]
+      },
+      "findings": [],
+      "artifacts": [],
+      "timing": {
+        "durationMs": 0
+      },
+      "warnings": [],
+      "recoveryActions": ["Provide an absolute PNG or JPEG path in image_path"],
+      "data": {
+        "sourceMode": "screenshot",
+        "image": "unspecified",
+        "elements": [],
+        "issues": [],
+        "passed": false,
+        "summary": {
+          "totalElements": 0,
+          "totalIssues": 0,
+          "errorCount": 0,
+          "warningCount": 0,
+          "worstIssue": null
+        }
+      },
+      "error": {
+        "code": "invalid_input",
+        "message": "Missing required 'image_path' parameter",
+        "recoverable": true
+      }
+    },
+    "isError": true,
+    "_meta": {
+      "io.modelcontextprotocol/serverInfo": {
+        "name": "viewlens",
+        "version": "0.2.0"
+      }
+    }
+  }
+}

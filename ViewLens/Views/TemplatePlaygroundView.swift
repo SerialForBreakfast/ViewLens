@@ -3,95 +3,65 @@ import ViewLensKit
 
 public struct TemplatePlaygroundView: View {
     @Bindable var model: AppModel
+    @Bindable var playground: PlaygroundStore
+    @Bindable var preferences: PreferenceStore
 
     public init(model: AppModel) {
         self.model = model
+        self.playground = model.playgroundStore
+        self.preferences = model.preferenceStore
     }
 
     public var body: some View {
         Form {
-            Section(header: Text("SwiftUI Template")) {
+            Section("SwiftUI Template") {
                 Picker("Template", selection: $model.selectedTemplateName) {
-                    ForEach(TemplateRegistry.shared.availableTemplates, id: \.self) { name in
-                        Text(name).tag(name)
-                    }
-                }
-                .pickerStyle(.menu)
+                    ForEach(TemplateRegistry.shared.availableTemplates, id: \.self) { Text($0).tag($0) }
+                }.pickerStyle(.menu)
             }
-
-            Section(header: Text("Device & Hardware Shape")) {
-                Picker("Target Device", selection: $model.selectedDevice) {
-                    ForEach(DeviceProfile.allPresets, id: \.id) { preset in
-                        Text("\(preset.name) (\(Int(preset.pointWidth))×\(Int(preset.pointHeight))pt @\(Int(preset.scale))x)").tag(preset)
-                    }
+            Section("Evaluation Matrix") {
+                matrixMenu(title: "Devices", summary: "\(playground.selectedDeviceIDs.count) selected", choices: DeviceProfile.allPresets.map { ($0.id, $0.name) }, selection: $playground.selectedDeviceIDs)
+                matrixMenu(title: "Dynamic Type", summary: "\(playground.selectedDynamicTypeNames.count) selected", choices: [("large", "Large"), ("accessibility1", "AX 1"), ("accessibility3", "AX 3"), ("accessibility5", "AX 5")], selection: $playground.selectedDynamicTypeNames)
+                matrixMenu(title: "Appearance", summary: "\(playground.selectedAppearanceNames.count) selected", choices: [("light", "Light"), ("dark", "Dark")], selection: $playground.selectedAppearanceNames)
+                Picker("WCAG target", selection: $playground.wcagLevel) {
+                    Text("Level A").tag("A"); Text("Level AA").tag("AA"); Text("Level AAA").tag("AAA")
                 }
-                .pickerStyle(.menu)
+                VStack(alignment: .leading, spacing: 4) {
+                    LabeledContent("Detector confidence", value: playground.minimumConfidence.formatted(.percent.precision(.fractionLength(0))))
+                    Slider(value: $playground.minimumConfidence, in: 0.05...0.95, step: 0.05)
+                }
             }
-
-            Section(header: Text("Accessibility & Environment")) {
-                Picker("Dynamic Type", selection: $model.selectedDynamicType) {
-                    Group {
-                        Text("xSmall (80% • 14pt)").tag(DynamicTypeSize.xSmall)
-                        Text("Small (88% • 15pt)").tag(DynamicTypeSize.small)
-                        Text("Medium (94% • 16pt)").tag(DynamicTypeSize.medium)
-                        Text("Large (100% • 17pt Default)").tag(DynamicTypeSize.large)
-                        Text("xLarge (112% • 19pt)").tag(DynamicTypeSize.xLarge)
-                        Text("xxLarge (124% • 21pt)").tag(DynamicTypeSize.xxLarge)
-                        Text("xxxLarge (135% • 23pt)").tag(DynamicTypeSize.xxxLarge)
-                    }
-                    Divider()
-                    Group {
-                        Text("AX 1 (165% • 28pt Min Accessibility)").tag(DynamicTypeSize.accessibility1)
-                        Text("AX 2 (194% • 33pt)").tag(DynamicTypeSize.accessibility2)
-                        Text("AX 3 (235% • 40pt Standard Audit)").tag(DynamicTypeSize.accessibility3)
-                        Text("AX 4 (276% • 47pt)").tag(DynamicTypeSize.accessibility4)
-                        Text("AX 5 (312% • 53pt Max Accessibility)").tag(DynamicTypeSize.accessibility5)
-                    }
-                }
-                .pickerStyle(.menu)
-
-                Picker("Color Scheme", selection: $model.selectedColorScheme) {
-                    Text("Light").tag(ColorScheme.light)
-                    Text("Dark").tag(ColorScheme.dark)
-                }
-                .pickerStyle(.segmented)
-            }
-
-            Section {
-                Button(action: {
-                    model.renderPlaygroundTemplate()
-                }) {
-                    HStack {
-                        Spacer()
-                        if model.isRenderingPlayground {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else {
-                            Image(systemName: "arrow.clockwise")
-                        }
-                        Text("Re-Audit Canvas")
-                            .fontWeight(.semibold)
-                        Spacer()
-                    }
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.regular)
+            Section("Run Behavior") {
+                Toggle("Auto-run when configuration changes", isOn: $preferences.autoRunPlayground)
+                Text("The matrix contains \(permutationCount) permutation\(permutationCount == 1 ? "" : "s"). Auto-run is off by default.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
-        .padding(8)
-        // Reactive Live Auto-Update on any property change
-        .onChange(of: model.selectedTemplateName) { _, _ in
+        .onChange(of: configurationSignature) { _, _ in
+            guard preferences.autoRunPlayground, !model.isRenderingPlayground else { return }
             model.renderPlaygroundTemplate()
         }
-        .onChange(of: model.selectedDevice) { _, _ in
-            model.renderPlaygroundTemplate()
-        }
-        .onChange(of: model.selectedDynamicType) { _, _ in
-            model.renderPlaygroundTemplate()
-        }
-        .onChange(of: model.selectedColorScheme) { _, _ in
-            model.renderPlaygroundTemplate()
+    }
+
+    private var permutationCount: Int {
+        max(1, playground.selectedDeviceIDs.count) * max(1, playground.selectedDynamicTypeNames.count) * max(1, playground.selectedAppearanceNames.count)
+    }
+    private var configurationSignature: String {
+        [model.selectedTemplateName, playground.selectedDeviceIDs.sorted().joined(), playground.selectedDynamicTypeNames.sorted().joined(), playground.selectedAppearanceNames.sorted().joined(), playground.wcagLevel].joined(separator: "|")
+    }
+
+    private func matrixMenu(title: String, summary: String, choices: [(String, String)], selection: Binding<Set<String>>) -> some View {
+        LabeledContent(title) {
+            Menu(summary) {
+                ForEach(choices, id: \.0) { id, label in
+                    Button {
+                        var updated = selection.wrappedValue
+                        if updated.contains(id) { if updated.count > 1 { updated.remove(id) } } else { updated.insert(id) }
+                        selection.wrappedValue = updated
+                    } label: { Label(label, systemImage: selection.wrappedValue.contains(id) ? "checkmark" : "circle") }
+                }
+            }
         }
     }
 }

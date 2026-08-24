@@ -50,6 +50,9 @@ let package = Package(
             name: "ViewLensKitTests",
             dependencies: ["ViewLensKit"],
             path: "Tests/ViewLensKitTests",
+            resources: [
+                .copy("Fixtures")
+            ],
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency")
             ]

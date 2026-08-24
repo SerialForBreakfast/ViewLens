@@ -1,0 +1,8 @@
+{
+  "jsonrpc": "2.0",
+  "method": "notifications/cancelled",
+  "params": {
+    "requestId": 58,
+    "reason": "User stopped the audit"
+  }
+}

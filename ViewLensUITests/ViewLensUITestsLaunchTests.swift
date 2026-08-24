@@ -20,6 +20,9 @@ final class ViewLensUITestsLaunchTests: XCTestCase {
     @MainActor
     func testLaunch() throws {
         let app = XCUIApplication()
+        app.launchArguments = ["-ApplePersistenceIgnoreState", "YES"]
+        app.launchEnvironment["VIEWLENS_UI_TESTING"] = "1"
+        app.launchEnvironment["VIEWLENS_UI_FIXTURE"] = "completed"
         app.launch()
 
         // Insert steps here to perform after app launch but before taking a screenshot,

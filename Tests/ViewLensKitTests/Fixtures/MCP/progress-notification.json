@@ -1,0 +1,10 @@
+{
+  "jsonrpc": "2.0",
+  "method": "notifications/progress",
+  "params": {
+    "progressToken": "golden-progress",
+    "progress": 25,
+    "total": 100,
+    "message": "Rendered first permutation"
+  }
+}

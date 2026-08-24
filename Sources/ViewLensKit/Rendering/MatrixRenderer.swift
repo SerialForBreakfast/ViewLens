@@ -130,7 +130,9 @@ public struct MatrixRenderer: Sendable {
         permutations: [Permutation],
         detector: YOLODetector? = nil,
         minConfidence: Float = 0.10,
-        outputDirectory: URL? = nil
+        targetLevel: WCAGConformanceLevel = .aaa,
+        outputDirectory: URL? = nil,
+        progress: (@Sendable (Int, Int, String) async -> Bool)? = nil
     ) async throws -> MatrixAuditReport {
         var reportsByPermutation: [String: AuditReport] = [:]
         var failedKeys: [String] = []
@@ -140,13 +142,24 @@ public struct MatrixRenderer: Sendable {
             try? FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
         }
 
-        for perm in permutations {
+        guard await progress?(0, permutations.count, "starting") != false else {
+            throw CancellationError()
+        }
+
+        for (index, perm) in permutations.enumerated() {
             guard let image = InProcessCanvasRenderer.render(
                 profile: perm.device,
                 dynamicTypeSize: perm.dynamicTypeSize,
                 colorScheme: perm.colorScheme,
                 content: { view }
             ) else {
+                failedKeys.append(perm.key)
+                if worstIssue == nil {
+                    worstIssue = "Rendering unavailable on \(perm.key)"
+                }
+                guard await progress?(index + 1, permutations.count, perm.key) != false else {
+                    throw CancellationError()
+                }
                 continue
             }
 
@@ -174,7 +187,9 @@ public struct MatrixRenderer: Sendable {
             let issues = IssueClassifier.classify(
                 elements: elements,
                 imageSize: imageSize,
-                scale: perm.device.scale
+                scale: perm.device.scale,
+                image: image,
+                targetLevel: targetLevel
             )
 
             let report = AuditReport(
@@ -201,6 +216,9 @@ public struct MatrixRenderer: Sendable {
                     let outPath = outDir.appendingPathComponent("\(templateName)_\(perm.key).png")
                     try? OverlayRenderer.write(image: annotated, to: outPath)
                 }
+            }
+            guard await progress?(index + 1, permutations.count, perm.key) != false else {
+                throw CancellationError()
             }
         }
 
@@ -230,7 +248,9 @@ public struct MatrixRenderer: Sendable {
         dtSizes: [String] = ["large", "accessibility3"],
         schemes: [String] = ["light", "dark"],
         detector: YOLODetector? = nil,
-        outputDirectory: URL? = nil
+        targetLevel: WCAGConformanceLevel = .aaa,
+        outputDirectory: URL? = nil,
+        progress: (@Sendable (Int, Int, String) async -> Bool)? = nil
     ) async throws -> MatrixAuditReport {
         guard let view = TemplateRegistry.shared.template(named: templateName) else {
             let available = TemplateRegistry.shared.availableTemplates.joined(separator: ", ")
@@ -253,7 +273,9 @@ public struct MatrixRenderer: Sendable {
             view: view,
             permutations: permutations,
             detector: detector,
-            outputDirectory: outputDirectory
+            targetLevel: targetLevel,
+            outputDirectory: outputDirectory,
+            progress: progress
         )
     }
 }

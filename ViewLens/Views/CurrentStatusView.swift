@@ -36,6 +36,7 @@ struct CurrentStatusView: View {
         }
         .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle("Current Status")
+        .accessibilityIdentifier("screen.currentStatus")
         .sheet(isPresented: $dashboard.showsDiagnostics) { DiagnosticsSheet(model: model) }
     }
 
@@ -309,39 +310,6 @@ private struct DashboardBanner: View {
 private struct DashboardActivityItem: Identifiable {
     let id: UUID; let timestamp: Date; let title: String; let detail: String; let symbol: String; let color: Color
     init(id: UUID = UUID(), timestamp: Date, title: String, detail: String, symbol: String, color: Color) { self.id = id; self.timestamp = timestamp; self.title = title; self.detail = detail; self.symbol = symbol; self.color = color }
-}
-
-private struct DiagnosticsSheet: View {
-    @Bindable var model: AppModel
-    @Environment(\.dismiss) private var dismiss
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                VStack(alignment: .leading, spacing: 3) { Text("ViewLens Diagnostics").font(.title2.bold()); Text("Detector, model, and MCP readiness details").foregroundStyle(.secondary) }
-                Spacer(); Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
-            }.padding(20)
-            Divider()
-            if model.isRunningDoctor {
-                ProgressView("Running doctor probe…").frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if let report = model.doctorReport {
-                List {
-                    Section("System") { LabeledContent("MCP Server", value: model.mcpStatus); LabeledContent("Overall Status", value: report.status == "ready" ? "Ready" : "Needs attention") }
-                    Section("Checks") {
-                        ForEach(report.checks, id: \.self) { check in
-                            HStack(alignment: .top, spacing: 10) {
-                                Image(systemName: check.status == "confirmed" ? "checkmark.circle.fill" : (check.status == "failed" ? "xmark.octagon.fill" : "minus.circle.fill"))
-                                    .foregroundStyle(check.status == "confirmed" ? .green : (check.status == "failed" ? .red : .secondary)).accessibilityHidden(true)
-                                VStack(alignment: .leading, spacing: 3) { Text(check.name.replacingOccurrences(of: "_", with: " ").capitalized).fontWeight(.medium); Text(check.detail).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
-                            }.accessibilityElement(children: .combine).accessibilityValue(check.status)
-                        }
-                    }
-                    Section("Recovery") { Text(report.recommendedNextCommand).font(.system(.caption, design: .monospaced)).textSelection(.enabled) }
-                }
-            } else {
-                ContentUnavailableView { Label("Diagnostics Not Run", systemImage: "stethoscope") } actions: { Button("Run Doctor Probe") { model.runDoctorCheck() } }
-            }
-        }.frame(minWidth: 560, minHeight: 480)
-    }
 }
 
 private struct QualityTrendGraph: View {

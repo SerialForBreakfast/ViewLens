@@ -1,0 +1,11 @@
+{
+  "jsonrpc": "2.0",
+  "id": 9,
+  "method": "tools/list",
+  "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "1900-01-01",
+      "io.modelcontextprotocol/clientCapabilities": {}
+    }
+  }
+}

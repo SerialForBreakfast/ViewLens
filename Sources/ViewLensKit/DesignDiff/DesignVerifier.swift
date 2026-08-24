@@ -19,7 +19,8 @@ public struct DesignVerifier {
         thresholdSSIM: Double = 0.98,
         pixelTolerance: Double = 0.05,
         includeAccessibility: Bool = true,
-        heatmapOutputPath: String? = nil
+        heatmapOutputPath: String? = nil,
+        progress: (@Sendable (Double, String) async -> Bool)? = nil
     ) async -> DesignDiffReport {
         guard let view = TemplateRegistry.shared.template(named: templateName) else {
             let emptyDiff = VisualDiffResult(
@@ -46,6 +47,10 @@ public struct DesignVerifier {
             )
         }
 
+        guard await progress?(10, "Preparing design verification render") != false else {
+            return cancellationReport(referenceSource: referenceSource, templateName: templateName, pixelTolerance: pixelTolerance)
+        }
+
         // 1. Render SwiftUI candidate template in-process
         guard let candidateImage = InProcessCanvasRenderer.render(
             profile: device,
@@ -68,6 +73,9 @@ public struct DesignVerifier {
                 passed: false
             )
         }
+        guard await progress?(30, "Rendered candidate template") != false else {
+            return cancellationReport(referenceSource: referenceSource, templateName: templateName, pixelTolerance: pixelTolerance)
+        }
 
         // 2. Perform Visual SSIM & Pixel Diff
         let diffResult = VisualDiffEngine.compare(
@@ -76,15 +84,28 @@ public struct DesignVerifier {
             thresholdSSIM: thresholdSSIM,
             pixelTolerance: pixelTolerance
         )
+        guard await progress?(52, "Computed SSIM and pixel differences") != false else {
+            return cancellationReport(referenceSource: referenceSource, templateName: templateName, pixelTolerance: pixelTolerance)
+        }
 
         // 3. Optional Diff Heatmap export
-        if let heatmapPath = heatmapOutputPath,
-           let heatmapImage = VisualDiffEngine.generateDiffHeatmap(
-            reference: referenceImage,
-            candidate: candidateImage,
-            pixelTolerance: pixelTolerance
-           ) {
-            savePNG(image: heatmapImage, to: URL(fileURLWithPath: heatmapPath))
+        if let heatmapPath = heatmapOutputPath {
+            guard await progress?(60, "Generating design-diff heatmap") != false else {
+                return cancellationReport(referenceSource: referenceSource, templateName: templateName, pixelTolerance: pixelTolerance)
+            }
+            if let heatmapImage = VisualDiffEngine.generateDiffHeatmap(
+                reference: referenceImage,
+                candidate: candidateImage,
+                pixelTolerance: pixelTolerance
+            ) {
+                guard await progress?(68, "Writing design-diff heatmap") != false else {
+                    return cancellationReport(referenceSource: referenceSource, templateName: templateName, pixelTolerance: pixelTolerance)
+                }
+                savePNG(image: heatmapImage, to: URL(fileURLWithPath: heatmapPath))
+            }
+        }
+        guard await progress?(72, "Design artifact stage complete") != false else {
+            return cancellationReport(referenceSource: referenceSource, templateName: templateName, pixelTolerance: pixelTolerance)
         }
 
         // 4. Optional Accessibility Audit
@@ -93,8 +114,15 @@ public struct DesignVerifier {
             a11yReport = await AccessibilityAuditor.auditTemplate(
                 named: templateName,
                 targetLevel: "AA",
-                device: device
+                device: device,
+                progress: { value, message in
+                    await progress?(72 + (value * 0.24), message) ?? true
+                }
             )
+        }
+
+        guard await progress?(96, "Assembling design verification evidence") != false else {
+            return cancellationReport(referenceSource: referenceSource, templateName: templateName, pixelTolerance: pixelTolerance)
         }
 
         let passed = diffResult.passed && (a11yReport?.passed ?? true)
@@ -116,6 +144,26 @@ public struct DesignVerifier {
         }
         CGImageDestinationAddImage(destination, image, nil)
         CGImageDestinationFinalize(destination)
+    }
+
+    private static func cancellationReport(
+        referenceSource: String,
+        templateName: String,
+        pixelTolerance: Double
+    ) -> DesignDiffReport {
+        DesignDiffReport(
+            referenceSource: referenceSource,
+            candidateTemplate: templateName,
+            visualDiff: VisualDiffResult(
+                ssimScore: 0,
+                mismatchPercentage: 100,
+                differingPixelsCount: 0,
+                totalPixelsCount: 0,
+                passed: false,
+                tolerance: pixelTolerance
+            ),
+            passed: false
+        )
     }
 }
 #endif

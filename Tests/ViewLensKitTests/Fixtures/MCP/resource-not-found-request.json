@@ -1,0 +1,12 @@
+{
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "resources/read",
+  "params": {
+    "uri": "viewlens://unknown",
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientCapabilities": {}
+    }
+  }
+}

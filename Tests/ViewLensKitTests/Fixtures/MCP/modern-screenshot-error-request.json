@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 21,
+  "method": "tools/call",
+  "params": {
+    "name": "viewlens_audit_screenshot",
+    "arguments": {},
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientCapabilities": {}
+    }
+  }
+}

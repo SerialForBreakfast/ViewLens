@@ -18,7 +18,8 @@ public struct AccessibilityAuditor {
     public static func auditTemplate(
         named templateName: String,
         targetLevel: String = "AA",
-        device: DeviceProfile = .iPhone16Pro
+        device: DeviceProfile = .iPhone16Pro,
+        progress: (@Sendable (Double, String) async -> Bool)? = nil
     ) async -> AccessibilityReport {
         guard let level = WCAGConformanceLevel(input: targetLevel) else {
             return invalidLevelReport(target: templateName, requestedLevel: targetLevel)
@@ -29,6 +30,10 @@ public struct AccessibilityAuditor {
                 level: level,
                 description: "Template '\(templateName)' not found in TemplateRegistry."
             )
+        }
+
+        guard await progress?(10, "Preparing accessibility baseline") != false else {
+            return cancellationReport(target: templateName, level: level)
         }
 
         let detector = makeDetector()
@@ -46,6 +51,9 @@ public struct AccessibilityAuditor {
                 level: level,
                 description: "Unable to render the template for accessibility analysis."
             )
+        }
+        guard await progress?(25, "Rendered Large Light baseline") != false else {
+            return cancellationReport(target: templateName, level: level)
         }
 
         var issues: [ViewLensIssue] = []
@@ -112,6 +120,10 @@ public struct AccessibilityAuditor {
             ))
             metrics = replacing(metrics, targetSize: targetIssues.isEmpty ? 100 : 0)
 
+            guard await progress?(38, "Evaluated semantics and target size") != false else {
+                return cancellationReport(target: templateName, level: level)
+            }
+
             let dark = await renderState(
                 name: "Large / Dark",
                 view: view,
@@ -152,6 +164,10 @@ public struct AccessibilityAuditor {
             ))
             metrics = replacing(metrics, contrast: appearancesComplete ? (contrastIssues.isEmpty ? 100 : 0) : nil)
 
+            guard await progress?(50, "Evaluated Light and Dark contrast") != false else {
+                return cancellationReport(target: templateName, level: level)
+            }
+
             let dynamicStages: [(String, DynamicTypeSize)] = [
                 ("AX1 (165%)", .accessibility1),
                 ("AX3 (235%)", .accessibility3),
@@ -159,7 +175,8 @@ public struct AccessibilityAuditor {
             ]
             var reflowIssues: [ViewLensIssue] = []
             var renderedStageCount = 0
-            for (stageName, size) in dynamicStages {
+            for (index, stage) in dynamicStages.enumerated() {
+                let (stageName, size) = stage
                 guard let state = await renderState(
                     name: stageName,
                     view: view,
@@ -168,7 +185,12 @@ public struct AccessibilityAuditor {
                     dynamicTypeSize: size,
                     colorScheme: .light,
                     detector: detector
-                ) else { continue }
+                ) else {
+                    guard await progress?(58 + (Double(index) * 9), "Dynamic Type stage \(stageName) unavailable") != false else {
+                        return cancellationReport(target: templateName, level: level)
+                    }
+                    continue
+                }
                 renderedStageCount += 1
                 let layoutIssues = IssueClassifier.classify(
                     elements: state.elements,
@@ -182,6 +204,9 @@ public struct AccessibilityAuditor {
                     enlargedLayoutIssues: layoutIssues,
                     stage: stageName
                 ))
+                guard await progress?(58 + (Double(index) * 9), "Evaluated Dynamic Type \(stageName)") != false else {
+                    return cancellationReport(target: templateName, level: level)
+                }
             }
             issues.append(contentsOf: reflowIssues)
             let reflowComplete = renderedStageCount == dynamicStages.count
@@ -214,6 +239,9 @@ public struct AccessibilityAuditor {
                 colorScheme: .light,
                 detector: detector
             )
+            guard await progress?(88, "Evaluated landscape orientation") != false else {
+                return cancellationReport(target: templateName, level: level)
+            }
             var orientationIssues: [ViewLensIssue] = []
             if let landscape {
                 let layoutIssues = IssueClassifier.classify(
@@ -259,6 +287,10 @@ public struct AccessibilityAuditor {
             ))
         }
 
+        guard await progress?(96, "Assembling accessibility evidence") != false else {
+            return cancellationReport(target: templateName, level: level)
+        }
+
         return makeReport(target: templateName, level: level, criteria: criteria, issues: deduplicated(issues), metrics: metrics)
     }
 
@@ -267,13 +299,20 @@ public struct AccessibilityAuditor {
     public static func auditScreenshot(
         image: CGImage,
         imageName: String,
-        targetLevel: String = "AA"
+        targetLevel: String = "AA",
+        progress: (@Sendable (Double, String) async -> Bool)? = nil
     ) async -> AccessibilityReport {
         guard let level = WCAGConformanceLevel(input: targetLevel) else {
             return invalidLevelReport(target: imageName, requestedLevel: targetLevel)
         }
+        guard await progress?(15, "Preparing screenshot accessibility audit") != false else {
+            return cancellationReport(target: imageName, level: level)
+        }
         let detector = makeDetector()
         let elements = await detect(image: image, detector: detector, fallback: [])
+        guard await progress?(65, "Detected screenshot accessibility targets") != false else {
+            return cancellationReport(target: imageName, level: level)
+        }
         let scale = IssueClassifier.inferDisplayScale(imageWidth: Double(image.width))
         let classified = IssueClassifier.classify(
             elements: elements,
@@ -315,6 +354,9 @@ public struct AccessibilityAuditor {
             ))
             metrics = replacing(metrics, contrast: contrastIssues.isEmpty ? 100 : 0)
         }
+        guard await progress?(96, "Assembling screenshot accessibility evidence") != false else {
+            return cancellationReport(target: imageName, level: level)
+        }
         return makeReport(target: imageName, level: level, criteria: criteria, issues: classified, metrics: metrics)
     }
 
@@ -354,6 +396,10 @@ public struct AccessibilityAuditor {
             criteria: [],
             issues: [ViewLensIssue(kind: .customRuleViolation, severity: .error, description: description)]
         )
+    }
+
+    private static func cancellationReport(target: String, level: WCAGConformanceLevel) -> AccessibilityReport {
+        failureReport(target: target, level: level, description: "Accessibility audit cancelled before completion.")
     }
 
     private static func makeDetector() -> YOLODetector? {

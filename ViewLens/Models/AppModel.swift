@@ -2,6 +2,20 @@ import CoreGraphics
 import SwiftUI
 import ViewLensKit
 
+public struct ScreenshotAuditConfiguration: Equatable, Sendable {
+    public var displayScale: Double?
+    public var wcagLevel: String
+    public var device: DeviceProfile?
+    public var minimumConfidence: Double
+
+    public init(displayScale: Double? = nil, wcagLevel: String = "AA", device: DeviceProfile? = nil, minimumConfidence: Double = 0.15) {
+        self.displayScale = displayScale
+        self.wcagLevel = wcagLevel
+        self.device = device
+        self.minimumConfidence = min(max(minimumConfidence, 0.05), 0.95)
+    }
+}
+
 /// Composition root for system health, review lifecycle, canvas, and Playground configuration.
 @MainActor
 @Observable
@@ -21,13 +35,17 @@ public final class AppModel {
     private var doctorTask: Task<Void, Never>?
 
     public convenience init() {
+        let environment = ProcessInfo.processInfo.environment
+        let isUITesting = environment["VIEWLENS_UI_TESTING"] == "1"
         self.init(
-            reviewStore: ReviewStore(),
+            reviewStore: isUITesting ? ReviewStore() : ReviewStore(repository: FileReviewRepository()),
             canvasStore: CanvasStore(),
             healthStore: SystemHealthStore(),
             playgroundStore: PlaygroundStore(),
-            loadsInitialSample: true
+            loadsInitialSample: false,
+            runsDoctorCheck: !isUITesting
         )
+        if isUITesting { loadUITestFixture(running: environment["VIEWLENS_UI_FIXTURE"] == "running") }
     }
 
     public init(
@@ -35,7 +53,8 @@ public final class AppModel {
         canvasStore: CanvasStore,
         healthStore: SystemHealthStore,
         playgroundStore: PlaygroundStore,
-        loadsInitialSample: Bool = true
+        loadsInitialSample: Bool = true,
+        runsDoctorCheck: Bool = true
     ) {
         self.reviewStore = reviewStore
         self.canvasStore = canvasStore
@@ -45,7 +64,9 @@ public final class AppModel {
         self.historyStore = HistoryStore()
         self.currentStatusStore = CurrentStatusStore()
         self.preferenceStore = PreferenceStore()
-        runDoctorCheck()
+        applyAuditPreferenceDefaults()
+        self.reviewStore.applyRetention(days: self.preferenceStore.retentionDays)
+        if runsDoctorCheck { runDoctorCheck() }
         if loadsInitialSample { loadInitialSample() }
     }
 
@@ -218,6 +239,94 @@ public final class AppModel {
         renderPlaygroundTemplate()
     }
 
+    private func loadUITestFixture(running: Bool) {
+        guard let image = Self.makeUITestImage() else { return }
+        let element = DetectedElement(
+            type: "primaryButton",
+            confidence: 0.98,
+            boundingBox: BoundingBox(x: 0.18, y: 0.68, width: 0.64, height: 0.055)
+        )
+        let issue = ViewLensIssue(
+            kind: .tappableTargetTooSmall,
+            severity: .error,
+            description: "The primary action is smaller than the configured target-size policy.",
+            confidence: 0.98,
+            elementIndex: 0,
+            identifier: "FixturePrimaryAction",
+            wcagCriterion: "WCAG 2.5.8",
+            wcagLevel: "AA",
+            remediation: RemediationAdvice(description: "Increase the control's interactive frame.", codeSnippet: ".frame(minWidth: 44, minHeight: 44)")
+        )
+        let fixtureDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let reviewID = reviewStore.begin(
+            source: .template(name: "LoginForm"),
+            environment: ReviewEnvironment(deviceID: DeviceProfile.iPhone16Pro.id, deviceName: DeviceProfile.iPhone16Pro.name, dynamicType: "large", appearance: "Light", wcagLevel: "AA", detectorName: "UI Test Fixture"),
+            startedAt: fixtureDate
+        )
+        let report = AuditReport(
+            sourceMode: .rendered,
+            target: "LoginForm [UI Test Fixture]",
+            device: DeviceProfile.iPhone16Pro.name,
+            dimensions: AuditDimensions(width: Double(image.width), height: Double(image.height), scale: 2),
+            elements: [element],
+            issues: [issue]
+        )
+        let activity = MCPAgentActivity(
+            timestamp: fixtureDate,
+            toolName: "viewlens_audit_view",
+            argumentsDescription: "template: LoginForm, deterministic fixture",
+            duration: 0.25,
+            passed: false,
+            summary: "1 accessibility issue detected",
+            previewImage: image,
+            auditReport: report,
+            reviewID: reviewID
+        )
+        canvasStore.update(image: image, elements: [element], issues: [issue])
+        reviewStore.complete(
+            reviewID: reviewID,
+            image: image,
+            elements: [element],
+            issues: [issue],
+            score: ReviewScore(value: 82, evaluatedCriteria: 8, totalCriteria: 8),
+            activity: activity,
+            finishedAt: fixtureDate.addingTimeInterval(0.25)
+        )
+        if running {
+            let runningID = reviewStore.begin(
+                source: .template(name: "CheckoutView"),
+                environment: ReviewEnvironment(deviceName: DeviceProfile.iPhone16Pro.name, wcagLevel: "AA"),
+                startedAt: fixtureDate.addingTimeInterval(10)
+            )
+            reviewStore.transition(reviewID: runningID, to: .evaluating, message: "Evaluating deterministic fixture")
+        }
+        healthStore.mcpStatus = "Ready (UI Test)"
+        healthStore.doctorReport = DoctorReport(
+            status: "ready",
+            checks: [DiagnosticCheck(name: "fixture", status: "confirmed", detail: "Deterministic UI test environment")],
+            recommendedNextCommand: "viewlens accessibility --template LoginForm"
+        )
+    }
+
+    private static func makeUITestImage() -> CGImage? {
+        let width = 390
+        let height = 844
+        guard let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        context.setFillColor(CGColor(red: 0.95, green: 0.97, blue: 0.99, alpha: 1)); context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        context.setFillColor(CGColor(red: 0.08, green: 0.48, blue: 0.50, alpha: 1)); context.fill(CGRect(x: 70, y: 220, width: 250, height: 46))
+        context.setFillColor(CGColor(gray: 0.22, alpha: 1)); context.fill(CGRect(x: 48, y: 650, width: 294, height: 18))
+        context.fill(CGRect(x: 48, y: 610, width: 220, height: 12))
+        return context.makeImage()
+    }
+
     public func cancelActiveReview() {
         reviewTask?.cancel()
         reviewTask = nil
@@ -229,15 +338,21 @@ public final class AppModel {
         cancelRunningReviewIfNeeded()
 
         let templateName = selectedTemplateName
-        let device = selectedDevice
-        let dynamicType = selectedDynamicType
-        let colorScheme = selectedColorScheme
+        let devices = DeviceProfile.allPresets.filter { playgroundStore.selectedDeviceIDs.contains($0.id) }
+        let dynamicTypeNames = Array(playgroundStore.selectedDynamicTypeNames).sorted()
+        let appearanceNames = Array(playgroundStore.selectedAppearanceNames).sorted()
+        let permutations = MatrixRenderer.buildPermutations(
+            devices: devices.isEmpty ? [selectedDevice] : devices,
+            dynamicTypeSizes: dynamicTypeNames.isEmpty ? ["large"] : dynamicTypeNames,
+            colorSchemes: appearanceNames.isEmpty ? ["light"] : appearanceNames
+        )
+        let primary = permutations[0]
         let environment = ReviewEnvironment(
-            deviceID: device.id,
-            deviceName: device.name,
-            dynamicType: String(describing: dynamicType),
-            appearance: colorScheme == .dark ? "Dark" : "Light",
-            wcagLevel: "AA",
+            deviceID: devices.count == 1 ? primary.device.id : nil,
+            deviceName: devices.count == 1 ? primary.device.name : "\(Set(permutations.map(\.device.id)).count)-device matrix",
+            dynamicType: dynamicTypeNames.joined(separator: ", "),
+            appearance: appearanceNames.map(\.capitalized).joined(separator: ", "),
+            wcagLevel: playgroundStore.wcagLevel,
             detectorName: doctorReport?.status == "ready" ? "YOLO11n" : nil
         )
         let reviewID = reviewStore.begin(source: .template(name: templateName), environment: environment)
@@ -254,73 +369,80 @@ public final class AppModel {
             return
         }
 
-        reviewStore.transition(reviewID: reviewID, to: .rendering, message: "Rendering \(templateName) for \(device.name)")
-        guard let image = InProcessCanvasRenderer.render(
-            profile: device,
-            dynamicTypeSize: dynamicType,
-            colorScheme: colorScheme,
-            content: { view }
-        ) else {
-            reviewStore.fail(
-                reviewID: reviewID,
-                failure: ReviewFailure(
-                    title: "Render failed",
-                    message: "ViewLens could not render \(templateName).",
-                    recoverySuggestion: "Check that the template produces a valid SwiftUI view."
-                )
-            )
-            return
-        }
-
-        reviewStore.transition(reviewID: reviewID, to: .detecting, message: "Detecting interface elements")
+        reviewStore.transition(reviewID: reviewID, to: .rendering, message: "Rendering \(permutations.count) matrix permutation(s)")
         reviewTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            let detected = await self.detectElements(in: image, minimumConfidence: 0.20)
-            guard !Task.isCancelled, self.reviewStore.activeReview?.id == reviewID else { return }
-
-            let elements = detected.isEmpty
-                ? self.fallbackElements(for: templateName, device: device, image: image)
-                : detected
-
-            self.reviewStore.transition(reviewID: reviewID, to: .evaluating, message: "Evaluating WCAG and Apple HIG rules")
-            let imageSize = CGSize(width: image.width, height: image.height)
-            let issues = IssueClassifier.classify(elements: elements, imageSize: imageSize, scale: device.scale)
-            guard !Task.isCancelled else { return }
-
-            self.reviewStore.transition(reviewID: reviewID, to: .reviewing, message: "Preparing findings and remediation")
-            await Task.yield()
-            guard !Task.isCancelled else { return }
-
-            let report = AuditReport(
-                sourceMode: .rendered,
-                target: "\(templateName) [\(device.id)]",
-                device: device.name,
-                dimensions: AuditDimensions(width: Double(image.width), height: Double(image.height), scale: device.scale),
-                elements: elements,
-                issues: issues
-            )
-            let score = ReviewScore(issues: issues, evaluatedCriteria: 8, totalCriteria: 8)
-            let activity = MCPAgentActivity(
-                toolName: "viewlens_audit_view",
-                argumentsDescription: "template: \(templateName), device: \(device.id)",
-                duration: self.reviewStore.activeReview.map { Date().timeIntervalSince($0.startedAt) } ?? 0,
-                passed: report.passed,
-                summary: report.passed ? "All evaluated checks passed" : "\(issues.count) accessibility issue(s) detected",
-                previewImage: image,
-                auditReport: report,
-                reviewID: reviewID
-            )
-
-            self.canvasStore.update(image: image, elements: elements, issues: issues)
-            self.reviewStore.complete(reviewID: reviewID, image: image, elements: elements, issues: issues, score: score, activity: activity)
-            self.reviewTask = nil
+            do {
+                self.reviewStore.transition(reviewID: reviewID, to: .detecting, message: "Detecting interface elements across the matrix")
+                let detector: YOLODetector?
+                if let modelURL = try? ModelLocator.resolve().get() { detector = try? YOLODetector(modelURL: modelURL) } else { detector = nil }
+                let matrix = try await MatrixRenderer.auditMatrix(
+                    templateName: templateName,
+                    view: view,
+                    permutations: permutations,
+                    detector: detector,
+                    minConfidence: Float(self.playgroundStore.minimumConfidence),
+                    targetLevel: WCAGConformanceLevel(input: self.playgroundStore.wcagLevel) ?? .aa
+                )
+                guard !Task.isCancelled, self.reviewStore.activeReview?.id == reviewID else { return }
+                self.reviewStore.transition(reviewID: reviewID, to: .evaluating, message: "Evaluating WCAG and Apple HIG rules")
+                let representativeKey = matrix.summary.failedPermutations.first ?? primary.key
+                let representative = matrix.permutations[representativeKey] ?? matrix.permutations.values.first
+                let representativePermutation = permutations.first { $0.key == representativeKey } ?? primary
+                guard let report = representative,
+                      let image = InProcessCanvasRenderer.render(
+                        profile: representativePermutation.device,
+                        dynamicTypeSize: representativePermutation.dynamicTypeSize,
+                        colorScheme: representativePermutation.colorScheme,
+                        content: { view }
+                      ) else { throw CocoaError(.fileReadUnknown) }
+                self.reviewStore.transition(reviewID: reviewID, to: .reviewing, message: "Preparing matrix findings and remediation")
+                let score = ReviewScore(
+                    issues: matrix.permutations.values.flatMap(\.issues),
+                    evaluatedCriteria: matrix.summary.totalPermutations * 8,
+                    totalCriteria: matrix.summary.totalPermutations * 8
+                )
+                let activity = MCPAgentActivity(
+                    toolName: "viewlens_audit_view",
+                    argumentsDescription: "template: \(templateName), \(matrix.summary.totalPermutations) permutations",
+                    duration: self.reviewStore.activeReview.map { Date().timeIntervalSince($0.startedAt) } ?? 0,
+                    passed: matrix.passed,
+                    summary: matrix.passed ? "All \(matrix.summary.totalPermutations) permutations passed" : "\(matrix.summary.failedCount) of \(matrix.summary.totalPermutations) permutations have findings",
+                    previewImage: image,
+                    auditReport: report,
+                    reviewID: reviewID
+                )
+                self.canvasStore.update(image: image, elements: report.elements, issues: report.issues)
+                self.reviewStore.complete(reviewID: reviewID, image: image, elements: report.elements, issues: report.issues, score: score, activity: activity)
+                self.applyAssetRetentionPolicy()
+                self.reviewTask = nil
+            } catch {
+                self.reviewStore.fail(reviewID: reviewID, failure: ReviewFailure(
+                    title: "Matrix audit failed",
+                    message: error.localizedDescription,
+                    recoverySuggestion: "Reduce the matrix or verify the selected template."
+                ))
+                self.reviewTask = nil
+            }
         }
     }
 
     public func auditDroppedImage(url: URL) {
+        auditDroppedImage(url: url, configuration: ScreenshotAuditConfiguration(
+            wcagLevel: preferenceStore.wcagLevel,
+            minimumConfidence: preferenceStore.detectorConfidence
+        ))
+    }
+
+    public func auditDroppedImage(url: URL, configuration: ScreenshotAuditConfiguration) {
         cancelRunningReviewIfNeeded()
 
-        let environment = ReviewEnvironment(wcagLevel: "AA", detectorName: doctorReport?.status == "ready" ? "YOLO11n" : nil)
+        let environment = ReviewEnvironment(
+            deviceID: configuration.device?.id,
+            deviceName: configuration.device?.name,
+            wcagLevel: configuration.wcagLevel,
+            detectorName: doctorReport?.status == "ready" ? "YOLO11n" : nil
+        )
         let reviewID = reviewStore.begin(source: .image(url: url), environment: environment)
 
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
@@ -337,16 +459,22 @@ public final class AppModel {
         }
 
         let imageSize = CGSize(width: image.width, height: image.height)
-        let scale = IssueClassifier.inferDisplayScale(imageWidth: Double(image.width))
+        let scale = configuration.displayScale ?? configuration.device?.scale ?? IssueClassifier.inferDisplayScale(imageWidth: Double(image.width))
         reviewStore.transition(reviewID: reviewID, to: .detecting, message: "Detecting elements in \(url.lastPathComponent)")
 
         reviewTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            let elements = await self.detectElements(in: image, minimumConfidence: 0.15)
+            let elements = await self.detectElements(in: image, minimumConfidence: Float(configuration.minimumConfidence))
             guard !Task.isCancelled, self.reviewStore.activeReview?.id == reviewID else { return }
 
             self.reviewStore.transition(reviewID: reviewID, to: .evaluating, message: "Evaluating screenshot-detectable criteria")
-            let issues = IssueClassifier.classify(elements: elements, imageSize: imageSize, scale: scale)
+            let issues = IssueClassifier.classify(
+                elements: elements,
+                imageSize: imageSize,
+                scale: scale,
+                image: image,
+                targetLevel: WCAGConformanceLevel(input: configuration.wcagLevel) ?? .aa
+            )
             guard !Task.isCancelled else { return }
 
             self.reviewStore.transition(reviewID: reviewID, to: .reviewing, message: "Preparing findings and coverage limitations")
@@ -372,6 +500,7 @@ public final class AppModel {
 
             self.canvasStore.update(image: image, elements: elements, issues: issues)
             self.reviewStore.complete(reviewID: reviewID, image: image, elements: elements, issues: issues, score: score, activity: activity)
+            self.applyAssetRetentionPolicy()
             self.reviewTask = nil
         }
     }
@@ -397,6 +526,79 @@ public final class AppModel {
         guard let review = reviewStore.activeReview else { return }
         canvasStore.load(review: review)
         reviewStore.activeActivity = reviewStore.activityHistory.first { $0.reviewID == reviewID }
+    }
+
+    public func rerunReview(_ review: ReviewRecord) {
+        switch review.source {
+        case .template(let name):
+            selectedTemplateName = name
+            playgroundStore.mode = .template
+            renderPlaygroundTemplate()
+        case .image(let url):
+            guard FileManager.default.fileExists(atPath: url.path) else {
+                reviewStore.markStale(reviewID: review.id, reason: "The original screenshot is no longer available at \(url.path).")
+                openReview(reviewID: review.id)
+                return
+            }
+            auditDroppedImage(url: url, configuration: ScreenshotAuditConfiguration(
+                wcagLevel: review.environment.wcagLevel,
+                device: review.environment.deviceID.flatMap(DeviceProfile.named),
+                minimumConfidence: preferenceStore.detectorConfidence
+            ))
+        }
+    }
+
+    public func applyRetentionPolicy() {
+        reviewStore.applyRetention(days: preferenceStore.retentionDays)
+    }
+
+    public func applyAssetRetentionPolicy() {
+        switch preferenceStore.assetRetention {
+        case "Do not retain": reviewStore.applyAssetRetention(days: nil)
+        case "30 days": reviewStore.applyAssetRetention(days: 30)
+        default: break
+        }
+    }
+
+    public func applyAuditPreferenceDefaults() {
+        playgroundStore.wcagLevel = preferenceStore.wcagLevel
+        playgroundStore.minimumConfidence = min(max(preferenceStore.detectorConfidence, 0.05), 0.95)
+        switch preferenceStore.requiredMatrix {
+        case "Expanded":
+            playgroundStore.selectedDeviceIDs = [DeviceProfile.iPhoneSE.id, DeviceProfile.iPhone16Pro.id]
+            playgroundStore.selectedDynamicTypeNames = ["large", "accessibility3"]
+            playgroundStore.selectedAppearanceNames = ["light", "dark"]
+        case "Exhaustive":
+            playgroundStore.selectedDeviceIDs = Set(DeviceProfile.allPresets.map(\.id))
+            playgroundStore.selectedDynamicTypeNames = ["large", "accessibility1", "accessibility3", "accessibility5"]
+            playgroundStore.selectedAppearanceNames = ["light", "dark"]
+        default:
+            playgroundStore.selectedDeviceIDs = [DeviceProfile.iPhone16Pro.id]
+            playgroundStore.selectedDynamicTypeNames = ["large"]
+            playgroundStore.selectedAppearanceNames = ["light"]
+        }
+    }
+
+    public func selectFinding(_ finding: ReviewFinding?) {
+        reviewStore.selectedFindingID = finding?.id
+        canvasStore.selectedFindingID = finding?.id
+        canvasStore.selectedElementIndex = finding?.issue.elementIndex
+    }
+
+    public func selectElement(at index: Int?) {
+        canvasStore.selectedElementIndex = index
+        let finding = index.flatMap { elementIndex in
+            canvasStore.findings.first { $0.issue.elementIndex == elementIndex }
+        }
+        canvasStore.selectedFindingID = finding?.id
+        reviewStore.selectedFindingID = finding?.id
+    }
+
+    public func moveElementSelection(by offset: Int) {
+        guard !canvasStore.elements.isEmpty else { return }
+        let current = canvasStore.selectedElementIndex ?? (offset > 0 ? -1 : canvasStore.elements.count)
+        let next = min(max(current + offset, 0), canvasStore.elements.count - 1)
+        selectElement(at: next)
     }
 
     private func cancelRunningReviewIfNeeded() {

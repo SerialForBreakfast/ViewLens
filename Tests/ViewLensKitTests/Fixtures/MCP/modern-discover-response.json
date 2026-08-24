@@ -1,0 +1,32 @@
+{
+  "jsonrpc": "2.0",
+  "id": "discover-1",
+  "result": {
+    "resultType": "complete",
+    "supportedVersions": [
+      "2026-07-28",
+      "2024-11-05"
+    ],
+    "capabilities": {
+      "tools": {
+        "listChanged": false
+      },
+      "resources": {
+        "listChanged": false,
+        "subscribe": false
+      },
+      "prompts": {
+        "listChanged": false
+      }
+    },
+    "_meta": {
+      "io.modelcontextprotocol/serverInfo": {
+        "name": "viewlens",
+        "version": "0.2.0"
+      }
+    },
+    "instructions": "Use ViewLens tools for deterministic Apple UI visual, HIG, WCAG 2.2, and design verification evidence.",
+    "ttlMs": 3600000,
+    "cacheScope": "public"
+  }
+}

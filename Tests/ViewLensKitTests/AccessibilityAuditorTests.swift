@@ -5,6 +5,20 @@ import CoreGraphics
 
 @Suite("W3C WAI & WCAG 2.2 Accessibility Engine Tests")
 struct AccessibilityAuditorTests {
+    @Test("Accessibility audit honors cooperative cancellation checkpoints")
+    @MainActor
+    func testAccessibilityCancellation() async {
+        let report = await AccessibilityAuditor.auditTemplate(
+            named: "LoginForm",
+            targetLevel: "AA",
+            progress: { value, _ in value < 50 }
+        )
+
+        #expect(report.complete == false)
+        #expect(report.passed == false)
+        #expect(report.issues.contains { $0.description.contains("cancelled") })
+    }
+
 
     @Test("WCAG relative luminance calculation")
     func testRelativeLuminance() {

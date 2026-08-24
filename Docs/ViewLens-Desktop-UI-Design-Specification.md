@@ -618,51 +618,53 @@ This redesign becomes Milestones 8–13 after the completed foundation work in `
 
 ### Milestone 10 — Current Status
 
-- [ ] **UI-10.1** Implement health header and four status cards backed by actual doctor/MCP/review data.
-- [ ] **UI-10.2** Implement recent-review table with sorting, filtering, selection, context menu, and keyboard opening.
-- [ ] **UI-10.3** Implement accessible quality trend and textual summary.
-- [ ] **UI-10.4** Implement system/review activity feed.
-- [ ] **UI-10.5** Add quick import/drop action and diagnostics drill-in.
-- [ ] **UI-10.6** Cover loading, empty, partial, stale, and error states.
+- [x] **UI-10.1** Implement health header and four status cards backed by actual doctor/MCP/review data.
+- [x] **UI-10.2** Implement recent-review table with sorting, filtering, selection, context menu, and keyboard opening.
+- [x] **UI-10.3** Implement accessible quality trend and textual summary.
+- [x] **UI-10.4** Implement system/review activity feed.
+- [x] **UI-10.5** Add quick import/drop action and diagnostics drill-in.
+- [x] **UI-10.6** Cover loading, empty, partial, stale, and error states.
 
 **Acceptance:** A user can determine readiness and open or start a review without visiting another screen; all status signals include non-color cues.
 
 ### Milestone 11 — AI Review Workbench
 
-- [ ] **UI-11.1** Implement review header, score/completeness summary, environment metadata, and phase timeline.
-- [ ] **UI-11.2** Refactor `VisualInspectorView` into a reusable zoomable/pannable canvas with layer controls.
-- [ ] **UI-11.3** Add patterned semantic overlays, keyboard element navigation, and selection reveal.
-- [ ] **UI-11.4** Implement Findings inspector with search and severity/standard/criterion/element filters.
-- [ ] **UI-11.5** Implement expandable finding details, evidence, deterministic remediation, AI guidance labeling, and copy feedback.
-- [ ] **UI-11.6** Implement Activity and Details inspector tabs.
-- [ ] **UI-11.7** Implement review empty, running, complete, incomplete, failed, cancelled, and stale states.
-- [ ] **UI-11.8** Add export actions for JSON, Markdown, annotated PNG, and report bundle.
-- [ ] **UI-11.9** Gate Apply Fix behind a patch-preview integration; do not ship a nonfunctional action.
+- [x] **UI-11.1** Implement review header, score/completeness summary, environment metadata, and phase timeline.
+- [x] **UI-11.2** Refactor `VisualInspectorView` into a reusable zoomable/pannable canvas with layer controls.
+- [x] **UI-11.3** Add patterned semantic overlays, keyboard element navigation, and selection reveal.
+- [x] **UI-11.4** Implement Findings inspector with search and severity/standard/criterion/element filters.
+- [x] **UI-11.5** Implement expandable finding details, evidence, deterministic remediation, AI guidance labeling, and copy feedback.
+- [x] **UI-11.6** Implement Activity and Details inspector tabs.
+- [x] **UI-11.7** Implement review empty, running, complete, incomplete, failed, cancelled, and stale states.
+- [x] **UI-11.8** Add export actions for JSON, Markdown, annotated PNG, and report bundle.
+- [x] **UI-11.9** Gate Apply Fix behind a patch-preview integration; do not ship a nonfunctional action.
 
 **Acceptance:** Findings and canvas elements remain synchronized; every review lifecycle state has a defined UI; an exported report preserves score completeness and unevaluated criteria.
 
 ### Milestone 12 — Playground, History, and Settings
 
-- [ ] **UI-12.1** Rebuild Playground with Import File and Template modes.
-- [ ] **UI-12.2** Add explicit audit configuration and optional auto-run preference.
-- [ ] **UI-12.3** Route Playground results into the shared AI Review workbench.
-- [ ] **UI-12.4** Implement durable review storage with schema migration and configurable retention.
-- [ ] **UI-12.5** Implement History search, filters, reopen, re-run, compare, export, and deletion.
-- [ ] **UI-12.6** Implement native Settings scene sections and inline validation.
-- [ ] **UI-12.7** Implement diagnostics and storage-management sheets.
+- [x] **UI-12.1** Rebuild Playground with Import File and Template modes.
+- [x] **UI-12.2** Add explicit audit configuration and optional auto-run preference.
+- [x] **UI-12.3** Route Playground results into the shared AI Review workbench.
+- [x] **UI-12.4** Implement durable review storage with schema migration and configurable retention.
+- [x] **UI-12.5** Implement History search, filters, reopen, re-run, compare, export, and deletion.
+- [x] **UI-12.6** Implement native Settings scene sections and inline validation.
+- [x] **UI-12.7** Implement diagnostics and storage-management sheets.
 
 **Acceptance:** Imported and template audits share one result model; reviews survive relaunch; destructive storage operations are confirmed and testable.
 
 ### Milestone 13 — Verification and Release Quality
 
-- [ ] **UI-13.1** Add unit tests for all domain state transitions, filters, scoring/completeness, persistence, and migrations.
-- [ ] **UI-13.2** Add UI tests for primary navigation, keyboard shortcuts, import, review selection, filters, export, and cancellation.
-- [ ] **UI-13.3** Add VoiceOver labels/values/actions and Accessibility Inspector test checklist.
-- [ ] **UI-13.4** Validate Increase Contrast, Differentiate Without Color, Reduce Motion, and accessibility text sizes.
-- [ ] **UI-13.5** Register representative desktop views in `TemplateRegistry` where feasible and run ViewLens self-audits.
-- [ ] **UI-13.6** Capture deterministic reference screenshots for compact/standard/wide windows in Light and Dark appearances.
-- [ ] **UI-13.7** Run visual diffs against approved design baselines and resolve material drift.
+- [x] **UI-13.1** Add unit tests for all domain state transitions, filters, scoring/completeness, persistence, and migrations.
+- [x] **UI-13.2** Add UI tests for primary navigation, keyboard shortcuts, import, review selection, filters, export, and cancellation.
+- [x] **UI-13.3** Add VoiceOver labels/values/actions and Accessibility Inspector test checklist.
+- [x] **UI-13.4** Validate Increase Contrast, Differentiate Without Color, Reduce Motion, and accessibility text sizes.
+- [x] **UI-13.5** Register representative desktop views in `TemplateRegistry` where feasible and run ViewLens self-audits.
+- [x] **UI-13.6** Capture deterministic reference screenshots for compact/standard/wide windows in Light and Dark appearances.
+- [x] **UI-13.7** Run visual diffs against approved design baselines and resolve material drift.
 - [ ] **UI-13.8** Run `swift test` and the macOS Xcode build/test suite.
+
+**Verification status (2026-08-23):** `swift test` passes 43 tests, the signed macOS app suite passes 15 tests, all six reference diffs pass, and the desktop self-audit reports WCAG 2.2 AA compliant at 100%. The six workflow UI tests and an isolated runner-handshake test compile and sign. On this host, `ViewLensUITests-Runner` is spawned but never establishes its XCTest session—even the handshake test that does not launch ViewLens waits indefinitely. Complete UI-13.8 by resolving the host Xcode/XCTest runner session and recording a passing UI suite.
 
 **Acceptance:** No critical accessibility defects; keyboard-only completion of primary workflows; approved visual baselines; all automated tests and builds pass.
 

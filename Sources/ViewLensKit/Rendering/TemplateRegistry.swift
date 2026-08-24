@@ -117,6 +117,15 @@ public final class TemplateRegistry {
             ]
         }) { AnyView(LoginFormTemplate()) }
         register(name: "OnboardingView") { AnyView(OnboardingViewTemplate()) }
+        register(name: "DesktopReviewWorkbench", accessibility: {
+            [
+                AccessibilityElementSnapshot(identifier: "CurrentStatus", label: "Current Status", role: "button"),
+                AccessibilityElementSnapshot(identifier: "AIReview", label: "AI Review", role: "button"),
+                AccessibilityElementSnapshot(identifier: "Playground", label: "Playground", role: "button"),
+                AccessibilityElementSnapshot(identifier: "FindingSearch", label: "Search findings", role: "searchField", value: "", requiresValue: false),
+                AccessibilityElementSnapshot(identifier: "ExportReview", label: "Export Review", role: "button")
+            ]
+        }) { AnyView(DesktopReviewWorkbenchTemplate()) }
 
         // Deliberate HIG Defect Testing Templates
         register(name: "Sub44ptButtonBug", accessibility: {
@@ -124,6 +133,115 @@ public final class TemplateRegistry {
         }) { AnyView(Sub44ptButtonBugTemplate()) }
         register(name: "ClippedEdgeBug") { AnyView(ClippedEdgeBugTemplate()) }
         register(name: "OverlapBug") { AnyView(OverlapBugTemplate()) }
+    }
+}
+
+/// Deterministic, responsive facsimile of the desktop review workbench used by
+/// self-audits and compact/standard/wide visual regression tests.
+public struct DesktopReviewWorkbenchTemplate: View {
+    public init() {}
+
+    public var body: some View {
+        GeometryReader { geometry in
+            HStack(spacing: 0) {
+                sidebar
+                    .frame(width: geometry.size.width < 1_000 ? 170 : 210)
+                Divider()
+                VStack(spacing: 0) {
+                    header
+                    Divider()
+                    Group {
+                        if geometry.size.width < 1_050 {
+                            VStack(spacing: 12) { canvas; findings }
+                        } else {
+                            HStack(spacing: 12) { canvas; findings.frame(width: 310) }
+                        }
+                    }
+                    .padding(14)
+                }
+            }
+            .background(Color(nsColor: .windowBackgroundColor))
+        }
+    }
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("ViewLens", systemImage: "eye.circle.fill").font(.title2.bold()).padding(.bottom, 16)
+            navigation("Current Status", icon: "gauge.with.dots.needle.67percent", selected: false)
+            navigation("AI Review", icon: "sparkles", selected: true)
+            navigation("Playground", icon: "hammer", selected: false)
+            navigation("History", icon: "clock", selected: false)
+            Spacer()
+            Label("Detector ready", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+        }
+        .padding(14)
+        .background(Color(nsColor: .controlBackgroundColor))
+    }
+
+    private func navigation(_ title: String, icon: String, selected: Bool) -> some View {
+        Label(title, systemImage: icon)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .padding(.horizontal, 10)
+            .background(selected ? Color.accentColor.opacity(0.16) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var header: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("AI Review").font(.title.bold())
+                Text("LoginForm · WCAG 2.2 AA").foregroundStyle(.secondary)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 3) {
+                Text("82").font(.title.bold()).foregroundStyle(.orange)
+                Text("8/8 criteria").font(.caption).foregroundStyle(.secondary)
+            }
+            Button("Export Review", systemImage: "square.and.arrow.up") {}
+                .frame(minHeight: 44)
+        }
+        .padding(14)
+    }
+
+    private var canvas: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12).fill(Color.secondary.opacity(0.08))
+            RoundedRectangle(cornerRadius: 22)
+                .fill(Color(nsColor: .textBackgroundColor))
+                .frame(width: 230, height: 420)
+                .overlay {
+                    VStack(spacing: 18) {
+                        Image(systemName: "lock.shield.fill").font(.system(size: 42)).foregroundStyle(.teal)
+                        Text("Welcome back").font(.title2.bold())
+                        RoundedRectangle(cornerRadius: 8).stroke(Color.secondary).frame(height: 44)
+                        RoundedRectangle(cornerRadius: 8).fill(Color.accentColor).frame(height: 44).overlay(Text("Sign In").foregroundStyle(.white))
+                    }.padding(22)
+                }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityLabel("Review canvas, LoginForm")
+    }
+
+    private var findings: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Findings").font(.title2.bold())
+            HStack { Image(systemName: "magnifyingglass"); Text("Search findings").foregroundStyle(.secondary); Spacer() }
+                .padding(.horizontal, 10).frame(minHeight: 44)
+                .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+            finding("Touch target is too small", criterion: "WCAG 2.5.8", color: .red)
+            finding("Contrast needs review", criterion: "WCAG 1.4.3", color: .orange)
+            Spacer()
+        }
+        .padding(14)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func finding(_ title: String, criterion: String, color: Color) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Circle().fill(color).frame(width: 10, height: 10).overlay(Circle().stroke(Color.primary, lineWidth: 1)).padding(.top, 5)
+            VStack(alignment: .leading, spacing: 4) { Text(title).font(.headline); Text(criterion).font(.caption).foregroundStyle(.secondary) }
+        }
+        .padding(12).frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+        .background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
     }
 }
 

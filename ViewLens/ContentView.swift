@@ -14,6 +14,7 @@ struct ContentView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 900, minHeight: 650)
+        .preferredColorScheme(preferredColorScheme)
         .toolbar { appToolbar }
         .fileImporter(
             isPresented: $navigation.showsImporter,
@@ -51,6 +52,7 @@ struct ContentView: View {
                             .badge(badgeCount(for: item))
                             .tag(item)
                             .accessibilityHint(accessibilityHint(for: item))
+                            .accessibilityIdentifier(item.accessibilityIdentifier)
                     }
                 }
             }
@@ -134,12 +136,17 @@ struct ContentView: View {
             } label: {
                 Label("Import & Validate", systemImage: "square.and.arrow.down")
             }
+            .accessibilityIdentifier("toolbar.import")
             .keyboardShortcut("o", modifiers: .command)
             .help("Import a screenshot for accessibility validation")
         }
     }
 
     private var detectorReady: Bool { model.doctorReport?.status == "ready" }
+
+    private var preferredColorScheme: ColorScheme? {
+        switch model.preferenceStore.appearance { case "Light": return .light; case "Dark": return .dark; default: return nil }
+    }
 
     private func badgeCount(for item: AppDestination) -> Int {
         switch item {

@@ -79,4 +79,29 @@ struct VisualDiffEngineTests {
         #expect(report.accessibilityReport?.passed == true)
         #expect(report.formattedMarkdown().contains("ViewLens Design-to-Code Verification"))
     }
+
+    @Test("Design verification cancellation prevents heatmap export")
+    @MainActor
+    func testDesignVerifierCancellationBeforeExport() async {
+        guard let loginView = TemplateRegistry.shared.template(named: "LoginForm"),
+              let refImage = InProcessCanvasRenderer.render(profile: .iPhone16Pro, content: { loginView }) else {
+            Issue.record("Failed to render reference image")
+            return
+        }
+        let output = FileManager.default.temporaryDirectory
+            .appendingPathComponent("viewlens-cancelled-\(UUID().uuidString).png")
+        defer { try? FileManager.default.removeItem(at: output) }
+
+        let report = await DesignVerifier.verify(
+            referenceImage: refImage,
+            referenceSource: "reference.png",
+            templateName: "LoginForm",
+            includeAccessibility: true,
+            heatmapOutputPath: output.path,
+            progress: { value, _ in value < 60 }
+        )
+
+        #expect(report.passed == false)
+        #expect(FileManager.default.fileExists(atPath: output.path) == false)
+    }
 }

@@ -40,6 +40,7 @@ private extension Color {
 }
 
 struct ViewLensPanelModifier: ViewModifier {
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     var padding: CGFloat = ViewLensTheme.standardSpacing
 
     func body(content: Content) -> some View {
@@ -49,7 +50,10 @@ struct ViewLensPanelModifier: ViewModifier {
             .clipShape(RoundedRectangle(cornerRadius: ViewLensTheme.panelCornerRadius, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: ViewLensTheme.panelCornerRadius, style: .continuous)
-                    .stroke(ViewLensTheme.panelBorder)
+                    .stroke(
+                        colorSchemeContrast == .increased ? Color.primary.opacity(0.45) : ViewLensTheme.panelBorder,
+                        lineWidth: colorSchemeContrast == .increased ? 2 : 1
+                    )
             }
     }
 }

@@ -68,65 +68,265 @@ public struct JSONRPCError: Codable, Sendable {
 
 // MARK: - MCP Domain Schemas
 
-public struct MCPInitializeResult: Encodable, Sendable {
-    public let protocolVersion: String = "2024-11-05"
-    public let capabilities: ServerCapabilities
-    public let serverInfo: ServerInfo
+public enum MCPProtocolVersion: String, Codable, CaseIterable, Sendable {
+    case modern = "2026-07-28"
+    case legacy = "2024-11-05"
 
-    public struct ServerCapabilities: Encodable, Sendable {
-        public let tools: ToolsCapability
-        public struct ToolsCapability: Encodable, Sendable {
-            public let listChanged: Bool = false
+    public static let supported: [MCPProtocolVersion] = [.modern, .legacy]
+    public static let legacySupported: [MCPProtocolVersion] = [.legacy]
+}
+
+public struct MCPImplementation: Codable, Sendable, Equatable {
+    public let name: String
+    public let version: String
+
+    public init(name: String, version: String) {
+        self.name = name
+        self.version = version
+    }
+
+    public static let viewLens = MCPImplementation(name: "viewlens", version: "0.2.0")
+}
+
+public struct MCPServerCapabilities: Codable, Sendable, Equatable {
+    public struct ToolsCapability: Codable, Sendable, Equatable {
+        public let listChanged: Bool
+
+        public init(listChanged: Bool = false) {
+            self.listChanged = listChanged
         }
     }
 
-    public struct ServerInfo: Encodable, Sendable {
-        public let name: String = "viewlens"
-        public let version: String = "0.1.0"
+    public struct ResourcesCapability: Codable, Sendable, Equatable {
+        public let listChanged: Bool
+        public let subscribe: Bool
+
+        public init(listChanged: Bool = false, subscribe: Bool = false) {
+            self.listChanged = listChanged
+            self.subscribe = subscribe
+        }
+    }
+
+    public struct PromptsCapability: Codable, Sendable, Equatable {
+        public let listChanged: Bool
+
+        public init(listChanged: Bool = false) {
+            self.listChanged = listChanged
+        }
+    }
+
+    public let tools: ToolsCapability
+    public let resources: ResourcesCapability?
+    public let prompts: PromptsCapability?
+
+    public init(
+        tools: ToolsCapability = .init(),
+        includeResources: Bool = false,
+        includePrompts: Bool = false
+    ) {
+        self.tools = tools
+        self.resources = includeResources ? ResourcesCapability() : nil
+        self.prompts = includePrompts ? PromptsCapability() : nil
+    }
+}
+
+public struct MCPResultMetadata: Codable, Sendable, Equatable {
+    public let serverInfo: MCPImplementation
+
+    enum CodingKeys: String, CodingKey {
+        case serverInfo = "io.modelcontextprotocol/serverInfo"
+    }
+
+    public init(serverInfo: MCPImplementation = .viewLens) {
+        self.serverInfo = serverInfo
+    }
+}
+
+public struct MCPInitializeResult: Encodable, Sendable {
+    public let protocolVersion: String
+    public let capabilities: MCPServerCapabilities
+    public let serverInfo: MCPImplementation
+
+    public init(protocolVersion: MCPProtocolVersion = .legacy) {
+        self.protocolVersion = protocolVersion.rawValue
+        self.capabilities = MCPServerCapabilities()
+        self.serverInfo = .viewLens
+    }
+}
+
+public struct MCPDiscoverResult: Encodable, Sendable {
+    public let resultType = "complete"
+    public let supportedVersions: [String]
+    public let capabilities: MCPServerCapabilities
+    public let metadata: MCPResultMetadata
+    public let instructions: String
+    public let ttlMs: Int
+    public let cacheScope: String
+
+    enum CodingKeys: String, CodingKey {
+        case resultType, supportedVersions, capabilities, instructions, ttlMs, cacheScope
+        case metadata = "_meta"
     }
 
     public init() {
-        self.capabilities = ServerCapabilities(tools: .init())
-        self.serverInfo = ServerInfo()
+        self.supportedVersions = MCPProtocolVersion.supported.map(\.rawValue)
+        self.capabilities = MCPServerCapabilities(includeResources: true, includePrompts: true)
+        self.metadata = MCPResultMetadata()
+        self.instructions = "Use ViewLens tools for deterministic Apple UI visual, HIG, WCAG 2.2, and design verification evidence."
+        self.ttlMs = 3_600_000
+        self.cacheScope = "public"
+    }
+}
+
+public struct MCPPingResult: Encodable, Sendable {
+    public let resultType: String?
+    public let metadata: MCPResultMetadata?
+
+    enum CodingKeys: String, CodingKey {
+        case resultType
+        case metadata = "_meta"
+    }
+
+    public init(modern: Bool) {
+        self.resultType = modern ? "complete" : nil
+        self.metadata = modern ? MCPResultMetadata() : nil
     }
 }
 
 public struct MCPTool: Encodable, Sendable {
+    public struct Icon: Encodable, Sendable {
+        public let source: String
+        public let mimeType: String
+
+        enum CodingKeys: String, CodingKey {
+            case source = "src"
+            case mimeType
+        }
+
+        public init(source: String, mimeType: String = "image/svg+xml") {
+            self.source = source
+            self.mimeType = mimeType
+        }
+    }
+
+    public struct Annotations: Encodable, Sendable {
+        public let readOnlyHint: Bool
+        public let destructiveHint: Bool
+        public let idempotentHint: Bool
+        public let openWorldHint: Bool
+
+        public init(
+            readOnlyHint: Bool = true,
+            destructiveHint: Bool = false,
+            idempotentHint: Bool = true,
+            openWorldHint: Bool = false
+        ) {
+            self.readOnlyHint = readOnlyHint
+            self.destructiveHint = destructiveHint
+            self.idempotentHint = idempotentHint
+            self.openWorldHint = openWorldHint
+        }
+    }
+
     public let name: String
+    public let title: String?
     public let description: String
     public let inputSchema: JSONValue
+    public let outputSchema: JSONValue?
+    public let icons: [Icon]?
+    public let annotations: Annotations?
 
-    public init(name: String, description: String, inputSchema: JSONValue) {
+    public init(
+        name: String,
+        title: String? = nil,
+        description: String,
+        inputSchema: JSONValue,
+        outputSchema: JSONValue? = nil,
+        icons: [Icon]? = nil,
+        annotations: Annotations? = nil
+    ) {
         self.name = name
+        self.title = title
         self.description = description
         self.inputSchema = inputSchema
+        self.outputSchema = outputSchema
+        self.icons = icons
+        self.annotations = annotations
     }
 }
 
 public struct MCPToolsListResult: Encodable, Sendable {
+    public let resultType: String?
     public let tools: [MCPTool]
+    public let metadata: MCPResultMetadata?
 
-    public init(tools: [MCPTool]) {
+    enum CodingKeys: String, CodingKey {
+        case resultType, tools
+        case metadata = "_meta"
+    }
+
+    public init(tools: [MCPTool], modern: Bool = false) {
+        self.resultType = modern ? "complete" : nil
         self.tools = tools
+        self.metadata = modern ? MCPResultMetadata() : nil
     }
 }
 
 public struct MCPToolCallResult: Encodable, Sendable {
     public struct ContentItem: Encodable, Sendable {
-        public let type: String = "text"
-        public let text: String
+        public let type: String
+        public let text: String?
+        public let name: String?
+        public let uri: String?
+        public let description: String?
+        public let mimeType: String?
 
         public init(text: String) {
+            self.type = "text"
             self.text = text
+            self.name = nil
+            self.uri = nil
+            self.description = nil
+            self.mimeType = nil
+        }
+
+        public init(artifact: MCPEvidenceEnvelope.Artifact, index: Int, reviewID: String?) {
+            self.type = "resource_link"
+            self.text = nil
+            self.name = artifact.kind
+            self.uri = reviewID.map { "viewlens://reviews/\($0)/artifacts/\(index)" }
+                ?? URL(fileURLWithPath: artifact.path).absoluteString
+            self.description = "ViewLens \(artifact.kind) artifact"
+            self.mimeType = artifact.mediaType
         }
     }
 
+    public let resultType: String?
     public let content: [ContentItem]
+    public let structuredContent: JSONValue?
     public let isError: Bool
+    public let metadata: MCPResultMetadata?
 
-    public init(text: String, isError: Bool = false) {
-        self.content = [ContentItem(text: text)]
+    enum CodingKeys: String, CodingKey {
+        case resultType, content, structuredContent, isError
+        case metadata = "_meta"
+    }
+
+    public init(
+        text: String,
+        structuredContent: JSONValue? = nil,
+        artifacts: [MCPEvidenceEnvelope.Artifact] = [],
+        artifactReviewID: String? = nil,
+        isError: Bool = false,
+        modern: Bool = false
+    ) {
+        self.resultType = modern ? "complete" : nil
+        self.content = [ContentItem(text: text)] + (modern ? artifacts.enumerated().map {
+            ContentItem(artifact: $0.element, index: $0.offset, reviewID: artifactReviewID)
+        } : [])
+        self.structuredContent = modern ? structuredContent : nil
         self.isError = isError
+        self.metadata = modern ? MCPResultMetadata() : nil
     }
 }
 

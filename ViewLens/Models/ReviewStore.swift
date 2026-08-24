@@ -5,10 +5,16 @@ import ViewLensKit
 
 @MainActor
 public protocol ReviewRepository: AnyObject {
+    var persistenceState: ReviewPersistenceState { get }
+    var storageURL: URL? { get }
     func save(_ review: ReviewRecord)
     func review(id: UUID) -> ReviewRecord?
     func allReviews() -> [ReviewRecord]
     func delete(id: UUID)
+    func deleteAll()
+    func prune(olderThan cutoff: Date)
+    func prunePreviewAssets(olderThan cutoff: Date?)
+    func storageBytes() -> Int64
 }
 
 @MainActor
@@ -17,10 +23,24 @@ public final class InMemoryReviewRepository: ReviewRepository {
 
     public init() {}
 
+    public var persistenceState: ReviewPersistenceState { .ready }
+    public var storageURL: URL? { nil }
+
     public func save(_ review: ReviewRecord) { records[review.id] = review }
     public func review(id: UUID) -> ReviewRecord? { records[id] }
     public func allReviews() -> [ReviewRecord] { records.values.sorted { $0.startedAt > $1.startedAt } }
     public func delete(id: UUID) { records[id] = nil }
+    public func deleteAll() { records.removeAll() }
+    public func prune(olderThan cutoff: Date) { records = records.filter { $0.value.startedAt >= cutoff } }
+    public func prunePreviewAssets(olderThan cutoff: Date?) {
+        let ids = records.values.filter { cutoff == nil || $0.startedAt < (cutoff ?? .distantPast) }.map(\.id)
+        for id in ids {
+            guard var record = records[id] else { continue }
+            record.previewImage = nil
+            records[id] = record
+        }
+    }
+    public func storageBytes() -> Int64 { 0 }
 }
 
 @MainActor
@@ -34,6 +54,7 @@ public final class ReviewStore {
     public var filter = FindingFilter()
     public var activeActivity: MCPAgentActivity?
     public private(set) var activityHistory: [MCPAgentActivity] = []
+    public private(set) var persistenceState: ReviewPersistenceState
 
     private let repository: ReviewRepository
 
@@ -44,11 +65,12 @@ public final class ReviewStore {
     public init(repository: ReviewRepository) {
         self.repository = repository
         self.reviews = repository.allReviews()
+        self.persistenceState = repository.persistenceState
     }
 
     @discardableResult
-    public func begin(source: ReviewSource, environment: ReviewEnvironment) -> UUID {
-        let review = ReviewRecord(source: source, environment: environment)
+    public func begin(source: ReviewSource, environment: ReviewEnvironment, startedAt: Date = Date()) -> UUID {
+        let review = ReviewRecord(source: source, environment: environment, startedAt: startedAt)
         activeReview = review
         selectedReviewID = review.id
         selectedFindingID = nil
@@ -68,14 +90,15 @@ public final class ReviewStore {
         elements: [DetectedElement],
         issues: [ViewLensIssue],
         score: ReviewScore,
-        activity: MCPAgentActivity
+        activity: MCPAgentActivity,
+        finishedAt: Date = Date()
     ) {
         guard var review = activeReview, review.id == reviewID else { return }
         review.previewImage = image
         review.elements = elements
         review.findings = Self.makeFindings(from: issues)
         review.score = score
-        review.finishedAt = Date()
+        review.finishedAt = finishedAt
         review.duration = review.finishedAt?.timeIntervalSince(review.startedAt)
         review.status = score.isComplete ? .completed : .incomplete(reason: "Some criteria require a rendered semantic hierarchy.")
 
@@ -84,7 +107,7 @@ public final class ReviewStore {
         activityHistory.removeAll { $0.reviewID == reviewID }
         activityHistory.insert(activity, at: 0)
         repository.save(review)
-        reviews = repository.allReviews()
+        refreshRepositoryState()
         events.append(ReviewEvent(phase: .complete, message: score.isComplete ? "Review complete" : "Review complete with limited coverage"))
     }
 
@@ -105,7 +128,7 @@ public final class ReviewStore {
         review.status = .stale(reason: reason)
         repository.save(review)
         if activeReview?.id == reviewID { activeReview = review }
-        reviews = repository.allReviews()
+        refreshRepositoryState()
     }
 
     public func load(reviewID: UUID) {
@@ -117,12 +140,40 @@ public final class ReviewStore {
 
     public func delete(reviewID: UUID) {
         repository.delete(id: reviewID)
-        reviews = repository.allReviews()
+        refreshRepositoryState()
         if activeReview?.id == reviewID {
             activeReview = nil
             selectedReviewID = nil
             selectedFindingID = nil
         }
+    }
+
+    public var storageURL: URL? { repository.storageURL }
+    public var storageBytes: Int64 { repository.storageBytes() }
+
+    public func deleteAllReviews() {
+        repository.deleteAll()
+        reviews = []
+        activeReview = nil
+        selectedReviewID = nil
+        selectedFindingID = nil
+        refreshRepositoryState()
+    }
+
+    public func applyRetention(days: Int?) {
+        guard let days else { refreshRepositoryState(); return }
+        repository.prune(olderThan: Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? .distantPast)
+        refreshRepositoryState()
+    }
+
+    public func applyAssetRetention(days: Int?) {
+        repository.prunePreviewAssets(olderThan: days.map { Calendar.current.date(byAdding: .day, value: -$0, to: Date()) ?? .distantPast })
+        refreshRepositoryState()
+    }
+
+    private func refreshRepositoryState() {
+        reviews = repository.allReviews()
+        persistenceState = repository.persistenceState
     }
 
     public var filteredFindings: [ReviewFinding] {

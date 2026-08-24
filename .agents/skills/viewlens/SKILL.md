@@ -53,10 +53,44 @@ flowchart LR
 
 ViewLens exposes 5 standard JSON-RPC tools over `stdio`:
 
+### Protocol compatibility
+
+- Legacy clients use the `2024-11-05` `initialize` handshake and retain the original tool/result shapes.
+- Modern clients use the `2026-07-28` stateless protocol, call `server/discover`, and include protocol version plus client capabilities in `_meta` on every request.
+- An unsupported modern version returns error `-32022` with `supported` and `requested` values so the client can retry safely.
+- Modern successful results include `resultType: "complete"` and ViewLens server metadata. All five tools return typed `structuredContent` in the ViewLens evidence-envelope schema (`schemaVersion: "1.0"`) while preserving the serialized JSON `TextContent` fallback for legacy and text-oriented clients.
+- The evidence envelope reports its target, environment, completeness, findings, artifacts, timing, warnings, recovery actions, and an optional stable error code. A screenshot-only audit deliberately reports programmatic semantics, Dynamic Type reflow, orientation variants, and dark-mode contrast as `notEvaluated` rather than treating unavailable evidence as a pass.
+- Generated screenshot overlays and design-diff heatmaps are included as modern MCP `resource_link` content in addition to their typed artifact metadata.
+
+### Resource discovery and bounded reads
+
+- Call `resources/list` to discover the fixed ViewLens catalogs and retained review resources. Results are deterministically ordered, paginated in bounded pages, and marked private with a zero-second list TTL.
+- Call `resources/templates/list` for `viewlens://reviews/{reviewId}`, `/findings`, `/report`, and `/artifacts/{artifactId}` URI templates.
+- Read `viewlens://reviews` for the retained-review index, then prefer `/findings` when the full envelope would add unnecessary context.
+- `viewlens://semantic-trees`, `viewlens://screenshots`, `viewlens://overlays`, `viewlens://baselines`, `viewlens://task-logs`, and `viewlens://reports` are category catalogs. Categories with no evidence return an explicit `not_available` state.
+- Artifact reads only accept opaque catalog URIs. Binary data is snapshotted when the review is retained, capped at 10 MB, and returned base64 encoded; arbitrary filesystem URIs and path traversal are rejected.
+
+### User-selected prompt workflows
+
+- Modern clients can call `prompts/list` to discover five stable workflows: `viewlens_screenshot_audit`, `viewlens_design_verification`, `viewlens_release_accessibility_audit`, `viewlens_regression_triage`, and `viewlens_fix_verification`.
+- Call `prompts/get` only after the user selects a workflow. Prompt arguments are bounded strings and are rendered as explicitly untrusted JSON data, not executable instructions.
+- Regression-triage and fix-verification prompts return `viewlens://reviews/{reviewId}` resource links for supplied review IDs. Review identifiers allow only letters, numbers, hyphens, and underscores; filesystem-like identifiers are rejected.
+- Prompt workflows preserve evaluated, not-evaluated, and unavailable evidence. They must never convert missing screenshot-only semantics, Dynamic Type, orientation, or dark-mode evidence into a pass.
+- The legacy capability shape intentionally omits prompts. A client must negotiate the modern `2026-07-28` protocol before using them.
+
+### Progress and cooperative cancellation
+
+- Add a unique string or integer `progressToken` to request `_meta` when calling a long-running ViewLens tool. The server emits monotonic `notifications/progress` messages with a total of 100 and stops emitting after the request finishes.
+- Screenshot audits report image loading, model resolution, inference, classification, and overlay export. Matrix audits report every completed permutation. Accessibility audits report semantics, target size, contrast, Dynamic Type, and orientation stages. Design verification reports rendering, SSIM, heatmap export, and nested accessibility progress.
+- Cancel an active stdio request with `notifications/cancelled` and its original `requestId`. Cancellation is fire-and-forget: ViewLens stops at the next cooperative checkpoint, avoids pending artifact writes, releases the active handle, and sends no terminal response for that request.
+- Unknown, completed, or malformed cancellation notifications are ignored. Duplicate active request IDs and duplicate active progress tokens are rejected.
+- Progress is process-bounded and ephemeral. Durable polling, reconnect recovery, and terminal cancelled results belong to MCP task handles and are not implied by progress notifications.
+
 ### 1. `viewlens_doctor`
 Probes environment, Apple Neural Engine readiness, and CoreML model status.
 - **Arguments**: `{}`
 - **When to use**: Call once at session start to verify detector availability.
+- **Modern result**: Typed readiness data plus `unavailable_evidence` and a recovery action when required model evidence cannot be obtained.
 
 ### 2. `viewlens_design_diff`
 Performs Design-to-Code verification comparing a Figma reference design image against a rendered native SwiftUI view.
@@ -67,6 +101,7 @@ Performs Design-to-Code verification comparing a Figma reference design image ag
   - `ssim_threshold` (number, optional): Minimum Structural Similarity Index (SSIM) score (default `0.98`).
   - `heatmap_path` (string, optional): Path to write annotated visual diff heatmap PNG.
   - `check_accessibility` (boolean, optional): Whether to run WCAG accessibility audits concurrently (default `true`).
+- **Modern result**: Typed visual-diff, accessibility, completeness, and finding data. A successfully generated heatmap is returned as a resource link.
 
 ### 3. `viewlens_accessibility_audit`
 Performs a full W3C WAI & WCAG 2.2 mobile accessibility audit on a SwiftUI template or screenshot image.
@@ -75,6 +110,7 @@ Performs a full W3C WAI & WCAG 2.2 mobile accessibility audit on a SwiftUI templ
   - `image_path` (string, optional): Path to screenshot image.
   - `wcag_level` (string, optional): Target level (`"A"`, `"AA"`, or `"AAA"`; default `"AA"`). Specify exactly one of `template` and `image_path`.
 - **Returns**: Structured compliance and completeness, category scores, programmatic semantics, level-aware target size, Light/Dark contrast, AX1/AX3/AX5 reflow, portrait/landscape orientation, mobile safe-area findings, and remediation snippets.
+- **Modern result**: Evaluated and not-evaluated criteria are separated in the shared evidence envelope; incomplete evidence carries `unavailable_evidence` without becoming an implicit pass.
 
 ### 4. `viewlens_audit_view`
 Renders a SwiftUI view template across a multi-device matrix entirely in-memory in $<0.5\text{s}$.
@@ -84,6 +120,7 @@ Renders a SwiftUI view template across a multi-device matrix entirely in-memory 
   - `dynamic_type_sizes` (array of strings, optional): `["large", "accessibility3", "accessibility5"]`.
   - `color_schemes` (array of strings, optional): `["light", "dark"]`.
 - **Response Mode**: `sourceMode: "rendered"` with synthesized worst-case issue matrix.
+- **Modern result**: Typed per-permutation evidence and explicit partial completeness if any requested render cannot be produced.
 
 ### 5. `viewlens_audit_screenshot`
 Audits static image files (simulator screenshots, test artifacts, mocks).
@@ -91,6 +128,7 @@ Audits static image files (simulator screenshots, test artifacts, mocks).
   - `image_path` (string, required): Path to PNG/JPEG image.
   - `scale` (number, optional): Explicit display scale (@2x, @3x).
   - `min_confidence` (number, optional): Minimum detection confidence (default `0.15`).
+- **Modern result**: Typed elements, findings, completeness, overlay artifacts, and stable `invalid_input`, `unavailable_evidence`, or `runtime_failure` codes for operational failures.
 
 ---
 
