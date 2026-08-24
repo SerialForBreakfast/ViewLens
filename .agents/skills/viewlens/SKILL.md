@@ -84,7 +84,17 @@ ViewLens exposes 5 standard JSON-RPC tools over `stdio`:
 - Screenshot audits report image loading, model resolution, inference, classification, and overlay export. Matrix audits report every completed permutation. Accessibility audits report semantics, target size, contrast, Dynamic Type, and orientation stages. Design verification reports rendering, SSIM, heatmap export, and nested accessibility progress.
 - Cancel an active stdio request with `notifications/cancelled` and its original `requestId`. Cancellation is fire-and-forget: ViewLens stops at the next cooperative checkpoint, avoids pending artifact writes, releases the active handle, and sends no terminal response for that request.
 - Unknown, completed, or malformed cancellation notifications are ignored. Duplicate active request IDs and duplicate active progress tokens are rejected.
-- Progress is process-bounded and ephemeral. Durable polling, reconnect recovery, and terminal cancelled results belong to MCP task handles and are not implied by progress notifications.
+- Progress notifications are process-bounded and ephemeral. Use durable tasks when a result must survive a reconnect or cancellation must produce a pollable terminal state.
+
+### Durable long-running tasks
+
+- Modern discovery advertises the `io.modelcontextprotocol/tasks` extension. A client must opt in again on every task-aware request through `io.modelcontextprotocol/clientCapabilities.extensions`; task methods without that capability return JSON-RPC `-32021`.
+- Task-aware `tools/call` is available for `viewlens_audit_screenshot`, `viewlens_audit_view`, `viewlens_accessibility_audit`, and `viewlens_design_diff`. `viewlens_doctor` remains synchronous. The creation response has `resultType: "task"`, an opaque `taskId`, `status`, timestamps, `ttlMs`, and `pollIntervalMs`.
+- Poll with `tasks/get`. States are `working`, `input_required`, `completed`, `failed`, and `cancelled`; terminal states are immutable. A completed task contains the original tool result, including tool-level `isError: true` results. `failed` is reserved for JSON-RPC execution or persistence failures.
+- Send bounded form responses with `tasks/update` when a task exposes keyed `inputRequests`. Form-mode elicitation producers are introduced in MCP-14.16; input-response values are consumed in memory and are never persisted in the task record.
+- Cancel task execution with `tasks/cancel`, not `notifications/cancelled`. Task calls report progress through the polled `statusMessage` and do not emit `notifications/progress`.
+- Task records default to a one-hour TTL and 250 ms polling interval. They are stored under the user's Application Support `ViewLens/MCPTasks` directory, survive a local stdio server reconnect, and are limited to 100 records and 5 MB per record. Unknown and expired task IDs return JSON-RPC `-32602` with stable ViewLens error codes.
+- Persisted task arguments must not contain credential-like keys such as passwords, secrets, authorization values, or access/refresh tokens. The directory and record modes are `0700` and `0600`; arbitrary task listing is not exposed. Treat task IDs as private local handles and do not place credentials or personal data in arguments, status text, or form responses.
 
 ### 1. `viewlens_doctor`
 Probes environment, Apple Neural Engine readiness, and CoreML model status.

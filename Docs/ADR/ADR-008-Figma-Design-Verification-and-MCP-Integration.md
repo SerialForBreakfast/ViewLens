@@ -188,7 +188,7 @@ ViewLens can integrate with and leverage the broader design-to-code ecosystem:
 - Active request IDs and client-provided progress tokens must be unique. Progress tokens accept only strings or integers, and monotonicity is enforced server-side before a notification is emitted.
 - Audits check cancellation between expensive stages and before overlay or heatmap writes. Inference and pixel comparison are cooperative rather than forcibly interrupted mid-call; cancellation takes effect at the next safe checkpoint.
 - A cancelled non-subscription request produces no terminal response, matching MCP cancellation semantics. Unknown, completed, and malformed cancellation notifications are ignored.
-- Execution state exists only for the lifetime of the request. At most 512 progress notifications are retained in the bounded diagnostic buffer; durable execution, polling, and reconnect recovery require the separate MCP task-handle milestone.
+- Non-task execution state exists only for the lifetime of the request. At most 512 progress notifications are retained in the bounded diagnostic buffer. Durable execution, polling, cancellation state, and reconnect recovery use the separately negotiated task contract recorded in ADR-009.
 
 ### Milestones for ViewLens
 - **Milestone 8A:** Figma Token Parser (`FigmaTokenSync.swift`) — import Figma variables and typography into Swift.

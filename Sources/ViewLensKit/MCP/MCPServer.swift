@@ -22,18 +22,22 @@ private struct MatrixAuditExecution: Sendable {
 public final class MCPServer: Sendable {
     private let resourceStore: MCPResourceStore
     private let protocolRuntime: MCPProtocolRuntime
+    private let taskStore: MCPTaskStore
 
     public init() {
         self.resourceStore = MCPResourceStore()
         self.protocolRuntime = MCPProtocolRuntime()
+        self.taskStore = MCPTaskStore()
     }
 
     init(
         resourceStore: MCPResourceStore,
-        protocolRuntime: MCPProtocolRuntime = MCPProtocolRuntime()
+        protocolRuntime: MCPProtocolRuntime = MCPProtocolRuntime(),
+        taskStore: MCPTaskStore = MCPTaskStore()
     ) {
         self.resourceStore = resourceStore
         self.protocolRuntime = protocolRuntime
+        self.taskStore = taskStore
     }
 
     /// Starts the blocking stdio JSON-RPC request loop.
@@ -168,6 +172,38 @@ public final class MCPServer: Sendable {
             return try? JSONEncoder().encode(response)
 
         case "tools/call":
+            if modernRequest,
+               supportsTasks(request),
+               let toolName = request.params?.objectValue?["name"]?.stringValue,
+               isTaskEligibleTool(toolName) {
+                guard request.id != nil else {
+                    return encodeInvalidParamsResponse(message: "tools/call requires a request ID", requestID: nil)
+                }
+                let arguments = request.params?.objectValue?["arguments"]?.objectValue ?? [:]
+                do {
+                    let task = try await taskStore.create(toolName: toolName, arguments: arguments)
+                    let response = try? JSONEncoder().encode(JSONRPCResponse(id: request.id, result: task))
+                    scheduleTask(taskID: task.taskId)
+                    return response
+                } catch MCPTaskStore.PersistenceError.sensitiveInput {
+                    let response = JSONRPCResponse<String>(
+                        id: request.id,
+                        error: JSONRPCError(
+                            code: -32602,
+                            message: "Sensitive values cannot be persisted in task arguments",
+                            data: .object(["errorCode": .string(MCPToolErrorCode.permissionDenied.rawValue)])
+                        )
+                    )
+                    return try? JSONEncoder().encode(response)
+                } catch {
+                    let response = JSONRPCResponse<String>(
+                        id: request.id,
+                        error: JSONRPCError(code: -32603, message: "Unable to durably create ViewLens task")
+                    )
+                    return try? JSONEncoder().encode(response)
+                }
+            }
+
             let progressTokenValue = request.params?.objectValue?["_meta"]?.objectValue?["progressToken"]
             let progressToken: MCPProgressToken?
             if let progressTokenValue {
@@ -195,6 +231,54 @@ public final class MCPServer: Sendable {
             let response = await handleToolCall(request, modern: modernRequest, execution: context)
             let cancelled = await protocolRuntime.finish(requestID: requestID)
             return cancelled ? nil : response
+
+        case "tasks/get":
+            guard supportsTasks(request) else {
+                return encodeMissingTaskCapability(requestID: request.id)
+            }
+            guard let taskID = request.params?.objectValue?["taskId"]?.stringValue else {
+                return encodeInvalidParamsResponse(message: "tasks/get requires taskId", requestID: request.id)
+            }
+            do {
+                let task = try await taskStore.snapshot(taskID: taskID)
+                if task.status == .working { scheduleTask(taskID: taskID) }
+                return try? JSONEncoder().encode(JSONRPCResponse(id: request.id, result: task))
+            } catch {
+                return encodeTaskLookupError(error, taskID: taskID, requestID: request.id)
+            }
+
+        case "tasks/update":
+            guard supportsTasks(request) else {
+                return encodeMissingTaskCapability(requestID: request.id)
+            }
+            guard let taskID = request.params?.objectValue?["taskId"]?.stringValue,
+                  let responses = request.params?.objectValue?["inputResponses"]?.objectValue else {
+                return encodeInvalidParamsResponse(
+                    message: "tasks/update requires taskId and inputResponses",
+                    requestID: request.id
+                )
+            }
+            do {
+                try await taskStore.update(taskID: taskID, responses: responses)
+                scheduleTask(taskID: taskID)
+                return try? JSONEncoder().encode(JSONRPCResponse(id: request.id, result: MCPTaskAcknowledgement()))
+            } catch {
+                return encodeTaskLookupError(error, taskID: taskID, requestID: request.id)
+            }
+
+        case "tasks/cancel":
+            guard supportsTasks(request) else {
+                return encodeMissingTaskCapability(requestID: request.id)
+            }
+            guard let taskID = request.params?.objectValue?["taskId"]?.stringValue else {
+                return encodeInvalidParamsResponse(message: "tasks/cancel requires taskId", requestID: request.id)
+            }
+            do {
+                try await taskStore.cancel(taskID: taskID)
+                return try? JSONEncoder().encode(JSONRPCResponse(id: request.id, result: MCPTaskAcknowledgement()))
+            } catch {
+                return encodeTaskLookupError(error, taskID: taskID, requestID: request.id)
+            }
 
         case "resources/list":
             let resources = await resourceStore.resources()
@@ -343,6 +427,138 @@ public final class MCPServer: Sendable {
             return .int(Int(number))
         }
         return nil
+    }
+
+    private func supportsTasks(_ request: JSONRPCRequest) -> Bool {
+        guard let metadata = request.params?.objectValue?["_meta"]?.objectValue,
+              let capabilities = metadata["io.modelcontextprotocol/clientCapabilities"]?.objectValue,
+              let extensions = capabilities["extensions"]?.objectValue else {
+            return false
+        }
+        return extensions["io.modelcontextprotocol/tasks"]?.objectValue != nil
+    }
+
+    private func isTaskEligibleTool(_ name: String) -> Bool {
+        [
+            "viewlens_audit_screenshot",
+            "viewlens_audit_view",
+            "viewlens_accessibility_audit",
+            "viewlens_design_diff"
+        ].contains(name)
+    }
+
+    private func encodeMissingTaskCapability(requestID: JSONRPCRequest.RequestID?) -> Data? {
+        let response = JSONRPCResponse<String>(
+            id: requestID,
+            error: JSONRPCError(
+                code: -32021,
+                message: "Missing required client capability",
+                data: .object([
+                    "requiredCapabilities": .object([
+                        "extensions": .object([
+                            "io.modelcontextprotocol/tasks": .object([:])
+                        ])
+                    ])
+                ])
+            )
+        )
+        return try? JSONEncoder().encode(response)
+    }
+
+    private func encodeTaskLookupError(
+        _ error: Error,
+        taskID: String,
+        requestID: JSONRPCRequest.RequestID?
+    ) -> Data? {
+        let message: String
+        let errorCode: MCPToolErrorCode
+        if error as? MCPTaskStore.LookupError == .expired {
+            message = "Task has expired"
+            errorCode = .expiredHandle
+        } else if error is MCPTaskStore.LookupError {
+            message = "Task not found"
+            errorCode = .invalidInput
+        } else {
+            let response = JSONRPCResponse<String>(
+                id: requestID,
+                error: JSONRPCError(code: -32603, message: "Task storage is unavailable")
+            )
+            return try? JSONEncoder().encode(response)
+        }
+        let response = JSONRPCResponse<String>(
+            id: requestID,
+            error: JSONRPCError(
+                code: -32602,
+                message: message,
+                data: .object(["taskId": .string(taskID), "errorCode": .string(errorCode.rawValue)])
+            )
+        )
+        return try? JSONEncoder().encode(response)
+    }
+
+    private func scheduleTask(taskID: String) {
+        Task { [self] in
+            await executeTask(taskID: taskID)
+        }
+    }
+
+    private func executeTask(taskID: String) async {
+        let descriptor: MCPTaskStore.ExecutionDescriptor
+        do {
+            guard let claimed = try await taskStore.claimExecution(taskID: taskID) else { return }
+            descriptor = claimed
+        } catch {
+            return
+        }
+
+        let request = JSONRPCRequest(
+            id: .string("task-\(taskID)"),
+            method: "tools/call",
+            params: .object([
+                "name": .string(descriptor.toolName),
+                "arguments": .object(descriptor.arguments)
+            ])
+        )
+        let execution = MCPExecutionContext(taskID: taskID, taskStore: taskStore)
+        guard let responseData = await handleToolCall(request, modern: true, execution: execution) else {
+            if await taskStore.isCancellationRequested(taskID: taskID) {
+                try? await taskStore.cancel(taskID: taskID)
+            } else {
+                try? await taskStore.fail(
+                    taskID: taskID,
+                    error: JSONRPCError(code: -32603, message: "Task execution ended without a result")
+                )
+            }
+            return
+        }
+
+        do {
+            let root = try JSONDecoder().decode(JSONValue.self, from: responseData)
+            guard let object = root.objectValue else {
+                throw NSError(domain: "ViewLensMCPTask", code: 1)
+            }
+            if let result = object["result"] {
+                do {
+                    try await taskStore.complete(taskID: taskID, result: result)
+                } catch MCPTaskStore.PersistenceError.resultTooLarge {
+                    try await taskStore.fail(
+                        taskID: taskID,
+                        error: JSONRPCError(code: -32603, message: "Task result exceeds the 5 MB storage limit")
+                    )
+                }
+            } else if let errorValue = object["error"] {
+                let errorData = try JSONEncoder().encode(errorValue)
+                let error = try JSONDecoder().decode(JSONRPCError.self, from: errorData)
+                try await taskStore.fail(taskID: taskID, error: error)
+            } else {
+                throw NSError(domain: "ViewLensMCPTask", code: 2)
+            }
+        } catch {
+            try? await taskStore.fail(
+                taskID: taskID,
+                error: JSONRPCError(code: -32603, message: "Unable to persist task result")
+            )
+        }
     }
 
     func drainProtocolNotifications() async -> [Data] {

@@ -1,0 +1,36 @@
+{
+  "jsonrpc": "2.0",
+  "id": 92,
+  "result": {
+    "resultType": "complete",
+    "taskId": "<task-id>",
+    "status": "input_required",
+    "statusMessage": "Waiting for review configuration.",
+    "createdAt": "<timestamp>",
+    "lastUpdatedAt": "<timestamp>",
+    "ttlMs": 3600000,
+    "pollIntervalMs": 250,
+    "inputRequests": {
+      "approval": {
+        "method": "elicitation/create",
+        "params": {
+          "mode": "form",
+          "message": "Approve the audit?"
+        }
+      },
+      "scope": {
+        "method": "elicitation/create",
+        "params": {
+          "mode": "form",
+          "message": "Choose the scope"
+        }
+      }
+    },
+    "_meta": {
+      "io.modelcontextprotocol/serverInfo": {
+        "name": "viewlens",
+        "version": "0.2.0"
+      }
+    }
+  }
+}

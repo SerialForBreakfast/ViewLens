@@ -1,0 +1,12 @@
+{
+  "jsonrpc": "2.0",
+  "id": 69,
+  "error": {
+    "code": -32602,
+    "message": "Task not found",
+    "data": {
+      "taskId": "00000000-0000-4000-8000-000000000000",
+      "errorCode": "invalid_input"
+    }
+  }
+}

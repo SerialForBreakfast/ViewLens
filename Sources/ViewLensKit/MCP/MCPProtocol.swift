@@ -8,6 +8,13 @@ public struct JSONRPCRequest: Codable, Sendable {
     public let method: String
     public let params: JSONValue?
 
+    public init(jsonrpc: String = "2.0", id: RequestID?, method: String, params: JSONValue? = nil) {
+        self.jsonrpc = jsonrpc
+        self.id = id
+        self.method = method
+        self.params = params
+    }
+
     public enum RequestID: Codable, Sendable, Equatable, Hashable {
         case string(String)
         case int(Int)
@@ -118,15 +125,18 @@ public struct MCPServerCapabilities: Codable, Sendable, Equatable {
     public let tools: ToolsCapability
     public let resources: ResourcesCapability?
     public let prompts: PromptsCapability?
+    public let extensions: [String: JSONValue]?
 
     public init(
         tools: ToolsCapability = .init(),
         includeResources: Bool = false,
-        includePrompts: Bool = false
+        includePrompts: Bool = false,
+        includeTasks: Bool = false
     ) {
         self.tools = tools
         self.resources = includeResources ? ResourcesCapability() : nil
         self.prompts = includePrompts ? PromptsCapability() : nil
+        self.extensions = includeTasks ? ["io.modelcontextprotocol/tasks": .object([:])] : nil
     }
 }
 
@@ -170,7 +180,7 @@ public struct MCPDiscoverResult: Encodable, Sendable {
 
     public init() {
         self.supportedVersions = MCPProtocolVersion.supported.map(\.rawValue)
-        self.capabilities = MCPServerCapabilities(includeResources: true, includePrompts: true)
+        self.capabilities = MCPServerCapabilities(includeResources: true, includePrompts: true, includeTasks: true)
         self.metadata = MCPResultMetadata()
         self.instructions = "Use ViewLens tools for deterministic Apple UI visual, HIG, WCAG 2.2, and design verification evidence."
         self.ttlMs = 3_600_000

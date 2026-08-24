@@ -59,7 +59,7 @@ Every task is complete only when:
 
 - [x] **MCP-14.1** Replace the fixed protocol constant with negotiated protocol-version handling and explicit compatibility eras.
 - [x] **MCP-14.2** Preserve support for the existing `2024-11-05` tool surface while adding modern request metadata and result envelopes behind negotiated capabilities.
-- [ ] **MCP-14.3** Create golden initialize, discovery, list, call, error, input-required, task, and cancellation fixtures for every supported era. *(Initialize, discovery, list-envelope, call-error, progress, cancellation, required-metadata, and unsupported-version coverage complete; input-required and task fixtures remain.)*
+- [ ] **MCP-14.3** Create golden initialize, discovery, list, call, error, input-required, task, and cancellation fixtures for every supported era. *(Initialize, discovery, list-envelope, call-error, progress, cancellation, task creation, task input-required, required-metadata, and unsupported-version coverage complete; comprehensive every-era conformance coverage remains.)*
 - [ ] **MCP-14.4** Validate request IDs, method parameters, required metadata, schema dialects, pagination cursors, and unsupported-capability behavior without crashing the server loop.
 - [ ] **MCP-14.5** Add a protocol conformance command/test target suitable for CI and MCP Inspector automation.
 
@@ -76,8 +76,8 @@ Every task is complete only when:
 - [ ] **MCP-14.11** Implement resource discovery/read for `viewlens://reviews`, findings, semantic trees, screenshots, overlays, baselines, task logs, and exported reports. *(Review envelopes, findings, typed reports, overlays, heatmaps, and explicit empty-state catalogs are implemented; native semantic-tree, screenshot, baseline, task-log, and exported-report producers remain.)*
 - [ ] **MCP-14.12** Add parameterized resource templates and bounded subscriptions for active reviews and task progress. *(Review, findings, report, and artifact URI templates are implemented; subscriptions remain.)*
 - [x] **MCP-14.13** Publish prompt workflows for screenshot audit, design verification, release accessibility audit, regression triage, and fix verification.
-- [x] **MCP-14.14** Implement progress reporting and cooperative cancellation for render matrices, batch audits, design diffs, and exports. *(The current MCP audit surface and overlay/heatmap exports now have monotonic progress and cooperative checkpoints; durable cross-request execution remains MCP-14.15.)*
-- [ ] **MCP-14.15** Implement durable task handles for long-running operations, including working, input-required, completed, failed, cancelled, TTL, polling, and recovery after reconnect.
+- [x] **MCP-14.14** Implement progress reporting and cooperative cancellation for render matrices, batch audits, design diffs, and exports. *(The current MCP audit surface and overlay/heatmap exports have monotonic progress and cooperative checkpoints; task-aware calls use the durable MCP-14.15 state model.)*
+- [x] **MCP-14.15** Implement durable task handles for long-running operations, including working, input-required, completed, failed, cancelled, TTL, polling, and recovery after reconnect. *(Modern task-capable clients can create durable screenshot, matrix, accessibility, and design-diff tasks; poll, update, cancel, and recover them after a server reconnect. Task records are private, bounded, expiring, and reject credential-like persisted inputs.)*
 - [ ] **MCP-14.16** Add form-mode elicitation for non-sensitive ambiguity and approval decisions; reserve URL mode for authentication or sensitive external interactions.
 - [ ] **MCP-14.17** Add deterministic list ordering, pagination, cache metadata, list-changed notifications, and compatibility tests for clients that ignore optional capabilities. *(Resource ordering, bounded pagination, cursor rejection, and modern private/public cache hints are implemented; tool-list parity and list-changed notifications remain.)*
 

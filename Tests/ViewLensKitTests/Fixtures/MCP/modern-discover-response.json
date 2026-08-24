@@ -17,6 +17,9 @@
       },
       "prompts": {
         "listChanged": false
+      },
+      "extensions": {
+        "io.modelcontextprotocol/tasks": {}
       }
     },
     "_meta": {

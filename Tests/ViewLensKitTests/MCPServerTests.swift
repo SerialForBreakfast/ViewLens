@@ -576,6 +576,240 @@ struct MCPServerTests {
         #expect((json["error"] as? [String: Any])?["code"] as? Int == -32602)
     }
 
+    @Test("Task-aware tool calls return a durable handle and complete through polling")
+    func testTaskCreationAndPolling() async throws {
+        let fixture = temporaryTaskFixture()
+        defer { fixture.cleanup() }
+        let server = MCPServer(resourceStore: MCPResourceStore(), taskStore: fixture.store)
+        let createResponse = try #require(await server.handleRequest(try modernTaskToolRequest(
+            id: 61,
+            name: "viewlens_audit_view",
+            arguments: "{\"template\":\"LoginForm\",\"devices\":[\"iPhone16Pro\"],\"dynamic_type_sizes\":[\"large\"],\"color_schemes\":[\"light\"]}"
+        )))
+        #expect(try canonicalJSON(normalizeTaskCreate(createResponse)) == canonicalJSON(fixtureData("task-create-response")))
+
+        let createJSON = try #require(JSONSerialization.jsonObject(with: createResponse) as? [String: Any])
+        let createResult = try #require(createJSON["result"] as? [String: Any])
+        let taskID = try #require(createResult["taskId"] as? String)
+        let terminal = try await pollTask(server: server, taskID: taskID, startingID: 62)
+
+        #expect(terminal["status"] as? String == "completed")
+        let toolResult = try #require(terminal["result"] as? [String: Any])
+        #expect(toolResult["resultType"] as? String == "complete")
+        #expect(toolResult["structuredContent"] != nil)
+    }
+
+    @Test("Tool-level errors complete tasks instead of using failed status")
+    func testTaskToolErrorIsCompleted() async throws {
+        let fixture = temporaryTaskFixture()
+        defer { fixture.cleanup() }
+        let server = MCPServer(resourceStore: MCPResourceStore(), taskStore: fixture.store)
+        let createResponse = try #require(await server.handleRequest(try modernTaskToolRequest(
+            id: 70,
+            name: "viewlens_audit_screenshot",
+            arguments: "{}"
+        )))
+        let createJSON = try #require(JSONSerialization.jsonObject(with: createResponse) as? [String: Any])
+        let taskID = try #require((createJSON["result"] as? [String: Any])?["taskId"] as? String)
+        let terminal = try await pollTask(server: server, taskID: taskID, startingID: 71)
+
+        #expect(terminal["status"] as? String == "completed")
+        #expect((terminal["result"] as? [String: Any])?["isError"] as? Bool == true)
+        #expect(terminal["error"] == nil)
+    }
+
+    @Test("Persisted working tasks resume from another server instance")
+    func testTaskReconnectRecovery() async throws {
+        let fixture = temporaryTaskFixture()
+        defer { fixture.cleanup() }
+        let created = try await fixture.store.create(
+            toolName: "viewlens_audit_view",
+            arguments: [
+                "template": .string("LoginForm"),
+                "devices": .array([.string("iPhone16Pro")]),
+                "dynamic_type_sizes": .array([.string("large")]),
+                "color_schemes": .array([.string("light")])
+            ]
+        )
+
+        let reloadedStore = MCPTaskStore(directory: fixture.directory)
+        let reconnectedServer = MCPServer(resourceStore: MCPResourceStore(), taskStore: reloadedStore)
+        let firstPoll = try #require(await reconnectedServer.handleRequest(try modernTaskRequest(
+            id: 80,
+            method: "tasks/get",
+            fields: "\"taskId\":\"\(created.taskId)\""
+        )))
+        let firstJSON = try #require(JSONSerialization.jsonObject(with: firstPoll) as? [String: Any])
+        #expect((firstJSON["result"] as? [String: Any])?["status"] as? String == "working")
+
+        let terminal = try await pollTask(server: reconnectedServer, taskID: created.taskId, startingID: 81)
+        #expect(terminal["status"] as? String == "completed")
+    }
+
+    @Test("Task cancellation is acknowledged and reaches a terminal cancelled state")
+    func testTaskCancellation() async throws {
+        let fixture = temporaryTaskFixture()
+        defer { fixture.cleanup() }
+        let created = try await fixture.store.create(
+            toolName: "viewlens_audit_view",
+            arguments: ["template": .string("LoginForm")]
+        )
+        let server = MCPServer(resourceStore: MCPResourceStore(), taskStore: fixture.store)
+        let cancelResponse = try #require(await server.handleRequest(try modernTaskRequest(
+            id: 90,
+            method: "tasks/cancel",
+            fields: "\"taskId\":\"\(created.taskId)\""
+        )))
+        let cancelJSON = try #require(JSONSerialization.jsonObject(with: cancelResponse) as? [String: Any])
+        #expect((cancelJSON["result"] as? [String: Any])?["resultType"] as? String == "complete")
+
+        let getResponse = try #require(await server.handleRequest(try modernTaskRequest(
+            id: 91,
+            method: "tasks/get",
+            fields: "\"taskId\":\"\(created.taskId)\""
+        )))
+        let getJSON = try #require(JSONSerialization.jsonObject(with: getResponse) as? [String: Any])
+        #expect((getJSON["result"] as? [String: Any])?["status"] as? String == "cancelled")
+    }
+
+    @Test("Input-required tasks expose requests and accept bounded updates")
+    func testTaskInputRequiredAndUpdate() async throws {
+        let fixture = temporaryTaskFixture()
+        defer { fixture.cleanup() }
+        let created = try await fixture.store.create(
+            toolName: "viewlens_audit_view",
+            arguments: ["template": .string("LoginForm")]
+        )
+        try await fixture.store.requireInput(
+            taskID: created.taskId,
+            requests: [
+                "approval": .object([
+                    "method": .string("elicitation/create"),
+                    "params": .object(["mode": .string("form"), "message": .string("Approve the audit?")])
+                ]),
+                "scope": .object([
+                    "method": .string("elicitation/create"),
+                    "params": .object(["mode": .string("form"), "message": .string("Choose the scope")])
+                ])
+            ],
+            statusMessage: "Waiting for review configuration."
+        )
+        let server = MCPServer(resourceStore: MCPResourceStore(), taskStore: fixture.store)
+        let getResponse = try #require(await server.handleRequest(try modernTaskRequest(
+            id: 92,
+            method: "tasks/get",
+            fields: "\"taskId\":\"\(created.taskId)\""
+        )))
+        #expect(try canonicalJSON(normalizeTaskDynamicFields(getResponse)) == canonicalJSON(fixtureData("task-input-required-response")))
+        let getJSON = try #require(JSONSerialization.jsonObject(with: getResponse) as? [String: Any])
+        let getResult = try #require(getJSON["result"] as? [String: Any])
+        #expect(getResult["status"] as? String == "input_required")
+        #expect((getResult["inputRequests"] as? [String: Any])?.count == 2)
+
+        let updateResponse = try #require(await server.handleRequest(try modernTaskRequest(
+            id: 93,
+            method: "tasks/update",
+            fields: "\"taskId\":\"\(created.taskId)\",\"inputResponses\":{\"approval\":{\"action\":\"accept\"}}"
+        )))
+        let updateJSON = try #require(JSONSerialization.jsonObject(with: updateResponse) as? [String: Any])
+        #expect((updateJSON["result"] as? [String: Any])?["resultType"] as? String == "complete")
+        let partial = try await fixture.store.snapshot(taskID: created.taskId)
+        #expect(partial.status == .inputRequired)
+        #expect(partial.inputRequests?.keys.sorted() == ["scope"])
+    }
+
+    @Test("Expired and unknown task handles return stable protocol errors")
+    func testTaskExpiryAndUnknownGoldenFixture() async throws {
+        let clock = LockedTestClock(Date(timeIntervalSince1970: 1_700_000_000))
+        let fixture = temporaryTaskFixture(ttlMs: 1_000, now: { clock.now() })
+        defer { fixture.cleanup() }
+        let created = try await fixture.store.create(
+            toolName: "viewlens_audit_view",
+            arguments: ["template": .string("LoginForm")]
+        )
+        clock.advance(seconds: 2)
+        let server = MCPServer(resourceStore: MCPResourceStore(), taskStore: fixture.store)
+        let expiredResponse = try #require(await server.handleRequest(try modernTaskRequest(
+            id: 94,
+            method: "tasks/get",
+            fields: "\"taskId\":\"\(created.taskId)\""
+        )))
+        let expiredJSON = try #require(JSONSerialization.jsonObject(with: expiredResponse) as? [String: Any])
+        let expiredError = try #require(expiredJSON["error"] as? [String: Any])
+        #expect(expiredError["code"] as? Int == -32602)
+        #expect((expiredError["data"] as? [String: Any])?["errorCode"] as? String == "expired_handle")
+
+        let unknownRequest = try decodeRequest(fixture: "task-not-found-request")
+        let unknownResponse = try #require(await server.handleRequest(unknownRequest))
+        #expect(try canonicalJSON(unknownResponse) == canonicalJSON(fixtureData("task-not-found-response")))
+    }
+
+    @Test("Task methods require per-request extension capability")
+    func testTaskCapabilityRequired() async throws {
+        let request = try modernResourceRequest(
+            id: 95,
+            method: "tasks/get",
+            fields: "\"taskId\":\"00000000-0000-4000-8000-000000000000\""
+        )
+        let response = try #require(await MCPServer().handleRequest(request))
+        let json = try #require(JSONSerialization.jsonObject(with: response) as? [String: Any])
+        #expect((json["error"] as? [String: Any])?["code"] as? Int == -32021)
+    }
+
+    @Test("Protocol execution errors move durable tasks to failed")
+    func testTaskProtocolFailure() async throws {
+        let fixture = temporaryTaskFixture()
+        defer { fixture.cleanup() }
+        let created = try await fixture.store.create(toolName: "unknown_viewlens_tool", arguments: [:])
+        let server = MCPServer(resourceStore: MCPResourceStore(), taskStore: fixture.store)
+        let terminal = try await pollTask(server: server, taskID: created.taskId, startingID: 96)
+
+        #expect(terminal["status"] as? String == "failed")
+        #expect((terminal["error"] as? [String: Any])?["code"] as? Int == -32601)
+        #expect(terminal["result"] == nil)
+    }
+
+    @Test("Task persistence rejects credential-like arguments and uses private permissions")
+    func testTaskPersistenceSecurity() async throws {
+        let fixture = temporaryTaskFixture()
+        defer { fixture.cleanup() }
+        let server = MCPServer(resourceStore: MCPResourceStore(), taskStore: fixture.store)
+        let rejected = try #require(await server.handleRequest(try modernTaskToolRequest(
+            id: 97,
+            name: "viewlens_audit_view",
+            arguments: "{\"template\":\"LoginForm\",\"password\":\"do-not-store\"}"
+        )))
+        let rejectedJSON = try #require(JSONSerialization.jsonObject(with: rejected) as? [String: Any])
+        let rejectedError = try #require(rejectedJSON["error"] as? [String: Any])
+        #expect(rejectedError["code"] as? Int == -32602)
+        #expect((rejectedError["data"] as? [String: Any])?["errorCode"] as? String == "permission_denied")
+
+        _ = try await fixture.store.create(
+            toolName: "viewlens_audit_view",
+            arguments: ["template": .string("LoginForm")]
+        )
+        let directoryAttributes = try FileManager.default.attributesOfItem(atPath: fixture.directory.path)
+        let files = try FileManager.default.contentsOfDirectory(at: fixture.directory, includingPropertiesForKeys: nil)
+        let taskFile = try #require(files.first)
+        let fileAttributes = try FileManager.default.attributesOfItem(atPath: taskFile.path)
+        #expect((directoryAttributes[.posixPermissions] as? NSNumber)?.intValue == 0o700)
+        #expect((fileAttributes[.posixPermissions] as? NSNumber)?.intValue == 0o600)
+    }
+
+    @Test("Terminal task states are immutable")
+    func testTaskTerminalStateImmutability() async throws {
+        let fixture = temporaryTaskFixture()
+        defer { fixture.cleanup() }
+        let created = try await fixture.store.create(
+            toolName: "viewlens_audit_view",
+            arguments: ["template": .string("LoginForm")]
+        )
+        try await fixture.store.complete(taskID: created.taskId, result: .object(["isError": .bool(false)]))
+        try await fixture.store.cancel(taskID: created.taskId)
+        let snapshot = try await fixture.store.snapshot(taskID: created.taskId)
+        #expect(snapshot.status == .completed)
+    }
+
     @Test("Decodes initialize JSON-RPC request")
     func testDecodeInitialize() throws {
         let json = """
@@ -754,6 +988,92 @@ struct MCPServerTests {
         """.utf8))
     }
 
+    private func modernTaskToolRequest(id: Int, name: String, arguments: String) throws -> JSONRPCRequest {
+        try JSONDecoder().decode(JSONRPCRequest.self, from: Data("""
+        {
+          "jsonrpc": "2.0",
+          "id": \(id),
+          "method": "tools/call",
+          "params": {
+            "name": "\(name)",
+            "arguments": \(arguments),
+            "_meta": {
+              "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+              "io.modelcontextprotocol/clientCapabilities": {
+                "extensions": { "io.modelcontextprotocol/tasks": {} }
+              }
+            }
+          }
+        }
+        """.utf8))
+    }
+
+    private func modernTaskRequest(id: Int, method: String, fields: String) throws -> JSONRPCRequest {
+        try JSONDecoder().decode(JSONRPCRequest.self, from: Data("""
+        {
+          "jsonrpc": "2.0",
+          "id": \(id),
+          "method": "\(method)",
+          "params": {
+            \(fields),
+            "_meta": {
+              "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+              "io.modelcontextprotocol/clientCapabilities": {
+                "extensions": { "io.modelcontextprotocol/tasks": {} }
+              }
+            }
+          }
+        }
+        """.utf8))
+    }
+
+    private func pollTask(
+        server: MCPServer,
+        taskID: String,
+        startingID: Int
+    ) async throws -> [String: Any] {
+        // Full-suite visual and accessibility tests can saturate the shared runner for
+        // several seconds. Keep this bounded while allowing the real matrix audit to run.
+        for offset in 0..<3_000 {
+            let response = try #require(await server.handleRequest(try modernTaskRequest(
+                id: startingID + offset,
+                method: "tasks/get",
+                fields: "\"taskId\":\"\(taskID)\""
+            )))
+            let json = try #require(JSONSerialization.jsonObject(with: response) as? [String: Any])
+            let result = try #require(json["result"] as? [String: Any])
+            if ["completed", "failed", "cancelled"].contains(result["status"] as? String) {
+                return result
+            }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        throw NSError(domain: "ViewLensTaskTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Task did not reach a terminal state"])
+    }
+
+    private func normalizeTaskCreate(_ data: Data) throws -> Data {
+        try normalizeTaskDynamicFields(data)
+    }
+
+    private func normalizeTaskDynamicFields(_ data: Data) throws -> Data {
+        var object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var result = try #require(object["result"] as? [String: Any])
+        result["taskId"] = "<task-id>"
+        result["createdAt"] = "<timestamp>"
+        result["lastUpdatedAt"] = "<timestamp>"
+        object["result"] = result
+        return try JSONSerialization.data(withJSONObject: object)
+    }
+
+    private func temporaryTaskFixture(
+        ttlMs: Int = 3_600_000,
+        now: @escaping @Sendable () -> Date = Date.init
+    ) -> (directory: URL, store: MCPTaskStore, cleanup: () -> Void) {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("viewlens-task-tests-\(UUID().uuidString)", isDirectory: true)
+        let store = MCPTaskStore(directory: directory, ttlMs: ttlMs, now: now)
+        return (directory, store, { try? FileManager.default.removeItem(at: directory) })
+    }
+
     private func structuredContent(_ response: Data) throws -> [String: Any] {
         let json = try #require(JSONSerialization.jsonObject(with: response) as? [String: Any])
         let result = try #require(json["result"] as? [String: Any])
@@ -768,5 +1088,26 @@ struct MCPServerTests {
         result["structuredContent"] = structured
         object["result"] = result
         return try JSONSerialization.data(withJSONObject: object)
+    }
+}
+
+private final class LockedTestClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Date
+
+    init(_ value: Date) {
+        self.value = value
+    }
+
+    func now() -> Date {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+    }
+
+    func advance(seconds: TimeInterval) {
+        lock.lock()
+        value = value.addingTimeInterval(seconds)
+        lock.unlock()
     }
 }

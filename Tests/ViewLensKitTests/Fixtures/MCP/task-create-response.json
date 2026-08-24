@@ -1,0 +1,20 @@
+{
+  "jsonrpc": "2.0",
+  "id": 61,
+  "result": {
+    "resultType": "task",
+    "taskId": "<task-id>",
+    "status": "working",
+    "statusMessage": "ViewLens task is queued for execution.",
+    "createdAt": "<timestamp>",
+    "lastUpdatedAt": "<timestamp>",
+    "ttlMs": 3600000,
+    "pollIntervalMs": 250,
+    "_meta": {
+      "io.modelcontextprotocol/serverInfo": {
+        "name": "viewlens",
+        "version": "0.2.0"
+      }
+    }
+  }
+}

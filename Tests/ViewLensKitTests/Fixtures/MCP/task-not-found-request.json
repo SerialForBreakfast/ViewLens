@@ -1,0 +1,16 @@
+{
+  "jsonrpc": "2.0",
+  "id": 69,
+  "method": "tasks/get",
+  "params": {
+    "taskId": "00000000-0000-4000-8000-000000000000",
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientCapabilities": {
+        "extensions": {
+          "io.modelcontextprotocol/tasks": {}
+        }
+      }
+    }
+  }
+}

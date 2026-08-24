@@ -142,22 +142,50 @@ actor MCPProtocolRuntime {
 }
 
 struct MCPExecutionContext: Sendable {
-    let requestID: JSONRPCRequest.RequestID
-    let runtime: MCPProtocolRuntime
+    private let requestID: JSONRPCRequest.RequestID?
+    private let runtime: MCPProtocolRuntime?
+    private let taskID: String?
+    private let taskStore: MCPTaskStore?
+
+    init(requestID: JSONRPCRequest.RequestID, runtime: MCPProtocolRuntime) {
+        self.requestID = requestID
+        self.runtime = runtime
+        self.taskID = nil
+        self.taskStore = nil
+    }
+
+    init(taskID: String, taskStore: MCPTaskStore) {
+        self.requestID = nil
+        self.runtime = nil
+        self.taskID = taskID
+        self.taskStore = taskStore
+    }
 
     func checkpoint() async -> Bool {
         guard !Task.isCancelled else { return false }
-        return !(await runtime.isCancelled(requestID: requestID))
+        if let requestID, let runtime {
+            return !(await runtime.isCancelled(requestID: requestID))
+        }
+        if let taskID, let taskStore {
+            return !(await taskStore.isCancellationRequested(taskID: taskID))
+        }
+        return false
     }
 
     func report(progress: Double, total: Double = 100, message: String) async -> Bool {
         guard await checkpoint() else { return false }
-        return await runtime.report(
-            requestID: requestID,
-            progress: progress,
-            total: total,
-            message: message
-        )
+        if let requestID, let runtime {
+            return await runtime.report(
+                requestID: requestID,
+                progress: progress,
+                total: total,
+                message: message
+            )
+        }
+        if let taskID, let taskStore {
+            return await taskStore.report(taskID: taskID, progress: progress, message: message)
+        }
+        return false
     }
 }
 
