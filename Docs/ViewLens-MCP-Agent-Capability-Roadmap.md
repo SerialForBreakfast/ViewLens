@@ -37,7 +37,7 @@ M14 Protocol foundation
 
 M14 is a hard dependency for every later milestone. M15 and M16 may use fake runtime backends during development, but production runtime tools cannot ship without M14 compatibility and cancellation coverage. M17 instrumentation can be prototyped in parallel with M16 after the session and element identity contracts stabilize.
 
-The cross-cutting **NV Nonvisual Authoring Experience** workstream begins during M14 and reuses the same evidence, runtime, provenance, and MCP App contracts through M18. Its detailed blind-developer journeys, dependency-ordered tasks, and release criteria are maintained in [ViewLens Nonvisual Authoring Experience Plan](ViewLens-Nonvisual-Authoring-Experience-Plan.md). The first slice, NV-A, establishes the shared nonvisual evidence model before live runtime automation.
+The cross-cutting **NV Nonvisual Authoring Experience** workstream begins during M14 and reuses the same evidence, runtime, provenance, and MCP App contracts through M18. Its detailed blind-developer journeys, dependency-ordered tasks, and release criteria are maintained in [ViewLens Nonvisual Authoring Experience Plan](ViewLens-Nonvisual-Authoring-Experience-Plan.md). NV-1 now provides the shared model, deterministic summaries, speech/braille/developer presentations, statement-level provenance, schema validation, and migration boundaries; NV-2 integrates that representation into the Mac authoring experience.
 
 ## 3. Shared definitions of done
 

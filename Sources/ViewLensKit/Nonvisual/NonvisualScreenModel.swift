@@ -309,4 +309,19 @@ public struct NonvisualScreenModel: Codable, Sendable, Equatable, Hashable {
         self.navigationSequences = navigationSequences.sorted { $0.id < $1.id }
         self.mismatches = mismatches.sorted { $0.id < $1.id }
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            schemaVersion: try container.decode(String.self, forKey: .schemaVersion),
+            id: try container.decode(NonvisualID.self, forKey: .id),
+            title: try container.decodeIfPresent(String.self, forKey: .title),
+            sourceMode: try container.decode(NonvisualSourceMode.self, forKey: .sourceMode),
+            regions: try container.decode([NonvisualRegion].self, forKey: .regions),
+            elements: try container.decode([NonvisualElement].self, forKey: .elements),
+            relationships: try container.decode([SpatialRelationship].self, forKey: .relationships),
+            navigationSequences: try container.decode([NavigationSequence].self, forKey: .navigationSequences),
+            mismatches: try container.decode([SemanticMismatch].self, forKey: .mismatches)
+        )
+    }
 }

@@ -27,7 +27,7 @@ This document provides the master task breakdown, milestone roadmap, user storie
 | **M16: Interaction & Accessibility Graph** | Agent Sprint 6–8 | Allowlisted UI actions, focus traversal, state crawling, accommodations, localization and replay | ⬜ Planned |
 | **M17: Source Provenance & Fix Verification** | Agent Sprint 9–11 | Visual-to-source mapping, before/after verification, regression generation, CI evidence | ⬜ Planned |
 | **M18: Interactive MCP App & Remote Collaboration** | Agent Sprint 12–14 | Sandboxed review UI, approvals, remote transport, authorization, packaging and agent skills | ⬜ Planned |
-| **NV: Nonvisual Authoring Experience** | Cross-cutting M14–M18 | Text-first screen model, semantic/visual mismatch analysis, VoiceOver navigation intelligence, braille-efficient output, source-linked verification | ⬜ Planned — NV-A shared evidence slice first |
+| **NV: Nonvisual Authoring Experience** | Cross-cutting M14–M18 | Text-first screen model, semantic/visual mismatch analysis, VoiceOver navigation intelligence, braille-efficient output, source-linked verification | 🟨 In Progress — NV-1 model and presentation slices complete; stable-ID propagation and NV-2 Mac integration next |
 
 ---
 
