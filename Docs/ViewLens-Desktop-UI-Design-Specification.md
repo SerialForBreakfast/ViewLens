@@ -533,8 +533,13 @@ All menus and shortcuts must disable appropriately when their action is unavaila
 - Scores announce both score and completeness.
 - Charts provide summaries and accessible data children.
 - Canvas elements expose type, bounds, confidence, and issue count.
+- Every review provides a hierarchical nonvisual outline synchronized with the canvas and findings; the outline is an equal review representation, not a fallback or reduced mode.
+- Essential visual relationships and design differences have deterministic text equivalents with evidence provenance and uncertainty.
+- Custom rotors provide direct navigation to critical findings, semantic mismatches, headings, interactive elements, and not-evaluated evidence.
 - Finding selection changes move visual focus but do not unexpectedly move VoiceOver focus.
 - Progress announcements are throttled to meaningful phase changes.
+
+Detailed implementation tasks, blind-developer journeys, speech and braille presentation profiles, and release gates are maintained in [ViewLens Nonvisual Authoring Experience Plan](ViewLens-Nonvisual-Authoring-Experience-Plan.md).
 
 ### Focus and selection
 

@@ -1,0 +1,141 @@
+{
+  "schemaVersion": "1.0",
+  "id": "screen:checkout",
+  "title": "Checkout",
+  "sourceMode": "runtime",
+  "regions": [
+    {
+      "id": "region:form",
+      "label": "Payment form",
+      "role": "form",
+      "bounds": { "x": 0.08, "y": 0.12, "width": 0.84, "height": 0.76 },
+      "elementIDs": ["element:heading", "element:email", "element:password", "element:remember", "element:pay", "element:ghost", "element:clipped"],
+      "evidence": { "kind": "measured", "source": "fixture.runtime_hierarchy" }
+    }
+  ],
+  "elements": [
+    {
+      "id": "element:heading",
+      "visualIndex": 0,
+      "type": "heading",
+      "visibleLabel": "Checkout",
+      "bounds": { "x": 0.10, "y": 0.14, "width": 0.80, "height": 0.08 },
+      "regionID": "region:form",
+      "findingIDs": [],
+      "semantics": { "runtimeIdentifier": "checkout.heading", "accessibleName": "Checkout", "role": "heading", "states": [], "actions": [], "isHeading": true },
+      "isInteractive": false,
+      "requiresValueOrState": false,
+      "requiresAction": false,
+      "visualEvidence": { "kind": "measured", "source": "fixture.pixels" },
+      "semanticEvidence": { "kind": "measured", "source": "fixture.runtime_hierarchy" }
+    },
+    {
+      "id": "element:email",
+      "visualIndex": 1,
+      "type": "textField",
+      "visibleLabel": "Email",
+      "bounds": { "x": 0.10, "y": 0.28, "width": 0.80, "height": 0.10 },
+      "regionID": "region:form",
+      "findingIDs": [],
+      "semantics": { "runtimeIdentifier": "checkout.email", "accessibleName": "Email", "role": "text field", "states": [], "actions": ["focus"], "isHeading": false },
+      "isInteractive": true,
+      "requiresValueOrState": false,
+      "requiresAction": true,
+      "visualEvidence": { "kind": "measured", "source": "fixture.pixels" },
+      "semanticEvidence": { "kind": "measured", "source": "fixture.runtime_hierarchy" }
+    },
+    {
+      "id": "element:password",
+      "visualIndex": 2,
+      "type": "textField",
+      "visibleLabel": "Password",
+      "bounds": { "x": 0.10, "y": 0.42, "width": 0.80, "height": 0.10 },
+      "regionID": "region:form",
+      "findingIDs": ["finding:name-conflict"],
+      "semantics": { "runtimeIdentifier": "checkout.password", "accessibleName": "Secret code", "role": "text field", "states": [], "actions": ["focus"], "isHeading": false },
+      "isInteractive": true,
+      "requiresValueOrState": false,
+      "requiresAction": true,
+      "visualEvidence": { "kind": "measured", "source": "fixture.pixels" },
+      "semanticEvidence": { "kind": "measured", "source": "fixture.runtime_hierarchy" }
+    },
+    {
+      "id": "element:remember",
+      "visualIndex": 3,
+      "type": "toggle",
+      "visibleLabel": "Remember me",
+      "bounds": { "x": 0.10, "y": 0.56, "width": 0.50, "height": 0.08 },
+      "regionID": "region:form",
+      "findingIDs": ["finding:missing-state"],
+      "semantics": { "runtimeIdentifier": "checkout.remember", "accessibleName": "Remember me", "role": "switch", "states": [], "actions": ["toggle"], "isHeading": false },
+      "isInteractive": true,
+      "requiresValueOrState": true,
+      "requiresAction": true,
+      "visualEvidence": { "kind": "measured", "source": "fixture.pixels" },
+      "semanticEvidence": { "kind": "measured", "source": "fixture.runtime_hierarchy" }
+    },
+    {
+      "id": "element:pay",
+      "visualIndex": 4,
+      "type": "primaryButton",
+      "visibleLabel": "Pay now",
+      "bounds": { "x": 0.10, "y": 0.70, "width": 0.80, "height": 0.10 },
+      "regionID": "region:form",
+      "findingIDs": ["finding:missing-semantics"],
+      "isInteractive": true,
+      "requiresValueOrState": false,
+      "requiresAction": true,
+      "visualEvidence": { "kind": "measured", "source": "fixture.pixels" },
+      "semanticEvidence": { "kind": "measured", "source": "fixture.runtime_hierarchy", "detail": "Hierarchy capture completed and contained no matching node." }
+    },
+    {
+      "id": "element:ghost",
+      "type": "button",
+      "regionID": "region:form",
+      "findingIDs": ["finding:missing-visual"],
+      "semantics": { "runtimeIdentifier": "checkout.ghost", "accessibleName": "Old checkout action", "role": "button", "states": [], "actions": ["activate"], "isHeading": false },
+      "isInteractive": true,
+      "requiresValueOrState": false,
+      "requiresAction": true,
+      "visualEvidence": { "kind": "measured", "source": "fixture.pixels", "detail": "Full-screen visual capture completed and contained no matching element." },
+      "semanticEvidence": { "kind": "measured", "source": "fixture.runtime_hierarchy" }
+    },
+    {
+      "id": "element:clipped",
+      "visualIndex": 5,
+      "type": "button",
+      "visibleLabel": "Help",
+      "bounds": { "x": 0.94, "y": 0.84, "width": 0.14, "height": 0.08 },
+      "regionID": "region:form",
+      "findingIDs": ["finding:clipped"],
+      "semantics": { "runtimeIdentifier": "checkout.help", "accessibleName": "Help", "role": "button", "states": [], "actions": ["activate"], "isHeading": false },
+      "isInteractive": true,
+      "requiresValueOrState": false,
+      "requiresAction": true,
+      "visualEvidence": { "kind": "measured", "source": "fixture.pixels" },
+      "semanticEvidence": { "kind": "measured", "source": "fixture.runtime_hierarchy" }
+    }
+  ],
+  "relationships": [],
+  "navigationSequences": [
+    {
+      "id": "navigation:reading",
+      "kind": "reading_order",
+      "elementIDs": ["element:heading", "element:email", "element:password", "element:remember", "element:pay"],
+      "evidence": { "kind": "measured", "source": "fixture.visual_reading_order" }
+    },
+    {
+      "id": "navigation:focus",
+      "kind": "keyboard_focus",
+      "elementIDs": ["element:email", "element:remember", "element:password", "element:pay"],
+      "evidence": { "kind": "measured", "source": "fixture.keyboard_focus" }
+    },
+    {
+      "id": "navigation:voiceover",
+      "kind": "predicted_voiceover",
+      "elementIDs": ["element:heading", "element:password", "element:email", "element:remember"],
+      "evidence": { "kind": "derived", "source": "fixture.runtime_hierarchy" }
+    }
+  ],
+  "mismatches": []
+}

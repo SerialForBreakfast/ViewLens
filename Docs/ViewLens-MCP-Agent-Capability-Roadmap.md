@@ -37,6 +37,8 @@ M14 Protocol foundation
 
 M14 is a hard dependency for every later milestone. M15 and M16 may use fake runtime backends during development, but production runtime tools cannot ship without M14 compatibility and cancellation coverage. M17 instrumentation can be prototyped in parallel with M16 after the session and element identity contracts stabilize.
 
+The cross-cutting **NV Nonvisual Authoring Experience** workstream begins during M14 and reuses the same evidence, runtime, provenance, and MCP App contracts through M18. Its detailed blind-developer journeys, dependency-ordered tasks, and release criteria are maintained in [ViewLens Nonvisual Authoring Experience Plan](ViewLens-Nonvisual-Authoring-Experience-Plan.md). The first slice, NV-A, establishes the shared nonvisual evidence model before live runtime automation.
+
 ## 3. Shared definitions of done
 
 Every task is complete only when:
@@ -45,6 +47,7 @@ Every task is complete only when:
 - Unit tests cover success, invalid input, unavailable evidence, cancellation, expiry, and authorization/scope rejection where applicable.
 - Integration tests use a deterministic fixture app or fake backend; hardware- or permission-dependent tests are explicitly gated.
 - Results report evidence completeness and never silently omit a requested check.
+- Every essential visual artifact has a stable text equivalent, and nonvisual output identifies measured, derived, inferred, and unavailable evidence.
 - New tools and workflows are added to `.agents/skills/viewlens/SKILL.md` and CLI/MCP help where applicable.
 - `swift test`, MCP protocol fixtures, and relevant Xcode builds pass.
 - Security-sensitive behavior is recorded in a threat-model or ADR update before release.
