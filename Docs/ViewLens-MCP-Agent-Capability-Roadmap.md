@@ -108,18 +108,18 @@ M14A deliberately excludes runtime control and remote transport. It proves compa
 
 - [x] **MCP-15.1** Define `RuntimeSession`, opaque `session_id`, ownership, TTL, lease renewal, expiry, cleanup, and reconnect behavior.
 - [x] **MCP-15.2** Implement destination discovery for supported macOS apps and booted/available Apple simulators with stable IDs and readiness diagnostics.
-- [ ] **MCP-15.3** Define a scoped launch descriptor: workspace root, project/workspace, scheme, configuration, destination, bundle identifier, launch arguments, and approved environment keys.
-- [ ] **MCP-15.4** Build a process abstraction with allowlisted `xcodebuild`/`simctl` operations; reject arbitrary executable names, shell fragments, unresolved paths, and out-of-scope targets.
+- [x] **MCP-15.3** Define a scoped launch descriptor: workspace root, project/workspace, scheme, configuration, destination, bundle identifier, launch arguments, and approved environment keys.
+- [x] **MCP-15.4** Build a process abstraction with allowlisted `xcodebuild`/`simctl` operations; reject arbitrary executable names, shell fragments, unresolved paths, and out-of-scope targets.
 - [x] **MCP-15.5** Add `viewlens_session_create`, `viewlens_session_get`, `viewlens_session_close`, and `viewlens_destinations_list` tools.
 
 ### Native capture and queries
 
-- [ ] **MCP-15.6** Add `viewlens_app_launch` and bounded relaunch/terminate behavior with explicit target verification.
+- [x] **MCP-15.6** Add `viewlens_app_launch` and bounded relaunch/terminate behavior with explicit target verification.
 - [ ] **MCP-15.7** Capture the current screenshot, window/scene metadata, orientation, scale, appearance, content size, safe-area data, and timestamp as one atomic state artifact.
 - [ ] **MCP-15.8** Capture the available accessibility hierarchy with stable per-capture element IDs, names, roles, values, states, actions, frames, focus, and hierarchy relationships.
 - [ ] **MCP-15.9** Correlate detected visual elements with accessibility nodes and report match confidence, conflicts, and unmatched nodes in both directions.
-- [ ] **MCP-15.10** Add token-efficient queries: element by ID, element at point, nearest element, descendants, ancestors, text search, role search, alignment, spacing, collision, and viewport containment.
-- [ ] **MCP-15.11** Add `viewlens_capture_state`, `viewlens_query_hierarchy`, and `viewlens_query_spatial` tools with structured outputs and resource links.
+- [x] **MCP-15.10** Add token-efficient queries: element by ID, element at point, nearest element, descendants, ancestors, text search, role search, alignment, spacing, collision, and viewport containment.
+- [x] **MCP-15.11** Add `viewlens_capture_state`, `viewlens_query_hierarchy`, and `viewlens_query_spatial` tools with structured outputs and resource links.
 
 ### Reliability and safety
 

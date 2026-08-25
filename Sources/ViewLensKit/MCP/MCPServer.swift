@@ -24,24 +24,28 @@ public final class MCPServer: Sendable {
     private let protocolRuntime: MCPProtocolRuntime
     private let taskStore: MCPTaskStore
     private let sessionStore: RuntimeSessionStore
+    private let processController: ProcessController
 
     public init() {
         self.resourceStore = MCPResourceStore()
         self.protocolRuntime = MCPProtocolRuntime()
         self.taskStore = MCPTaskStore()
         self.sessionStore = RuntimeSessionStore()
+        self.processController = ProcessController()
     }
 
     init(
         resourceStore: MCPResourceStore,
         protocolRuntime: MCPProtocolRuntime = MCPProtocolRuntime(),
         taskStore: MCPTaskStore = MCPTaskStore(),
-        sessionStore: RuntimeSessionStore = RuntimeSessionStore()
+        sessionStore: RuntimeSessionStore = RuntimeSessionStore(),
+        processController: ProcessController = ProcessController()
     ) {
         self.resourceStore = resourceStore
         self.protocolRuntime = protocolRuntime
         self.taskStore = taskStore
         self.sessionStore = sessionStore
+        self.processController = processController
     }
 
     /// Starts the blocking stdio JSON-RPC request loop.
@@ -821,6 +825,43 @@ public final class MCPServer: Sendable {
             "required": .array([.string("session_id")])
         ])
 
+        let appLaunchSchema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "workspace_root": .object(["type": .string("string"), "description": .string("Workspace root path.")]),
+                "bundle_identifier": .object(["type": .string("string"), "description": .string("Target application bundle ID.")]),
+                "destination_id": .object(["type": .string("string"), "description": .string("Optional destination identifier.")]),
+                "scheme": .object(["type": .string("string"), "description": .string("Optional Xcode scheme name.")]),
+                "configuration": .object(["type": .string("string"), "description": .string("Build configuration (Debug or Release).")]),
+                "launch_arguments": .object(["type": .string("array"), "items": .object(["type": .string("string")])]),
+                "environment": .object(["type": .string("object"), "additionalProperties": .object(["type": .string("string")])])
+            ]),
+            "required": .array([.string("workspace_root"), .string("bundle_identifier")])
+        ])
+
+        let queryHierarchySchema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "template": .object(["type": .string("string"), "description": .string("Name of registered template.")]),
+                "query": .object(["type": .string("string"), "description": .string("Optional search string matching label or identifier.")]),
+                "role": .object(["type": .string("string"), "description": .string("Optional trait or role filter (e.g. 'button', 'header').")]),
+                "parent_id": .object(["type": .string("string"), "description": .string("Optional element ID to fetch direct and indirect descendants.")])
+            ]),
+            "required": .array([.string("template")])
+        ])
+
+        let querySpatialSchema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "template": .object(["type": .string("string"), "description": .string("Name of registered template.")]),
+                "x": .object(["type": .string("number"), "description": .string("Normalized X coordinate (0...1).")]),
+                "y": .object(["type": .string("number"), "description": .string("Normalized Y coordinate (0...1).")]),
+                "element_a": .object(["type": .string("string"), "description": .string("First element ID for pairwise spatial relationship calculation.")]),
+                "element_b": .object(["type": .string("string"), "description": .string("Second element ID for pairwise spatial relationship calculation.")])
+            ]),
+            "required": .array([.string("template")])
+        ])
+
         var tools = [
             MCPTool(
                 name: "viewlens_doctor",
@@ -917,6 +958,33 @@ public final class MCPServer: Sendable {
                     title: "Close Runtime Session",
                     description: "Terminates and releases an active runtime review session.",
                     inputSchema: strictInputSchema(sessionCloseSchema),
+                    outputSchema: sessionObjectSchema,
+                    icons: viewLensToolIcons(),
+                    annotations: MCPTool.Annotations()
+                ),
+                MCPTool(
+                    name: "viewlens_app_launch",
+                    title: "Launch Application in Session",
+                    description: "Launches a target application matching a scoped launch descriptor.",
+                    inputSchema: strictInputSchema(appLaunchSchema),
+                    outputSchema: sessionObjectSchema,
+                    icons: viewLensToolIcons(),
+                    annotations: MCPTool.Annotations()
+                ),
+                MCPTool(
+                    name: "viewlens_query_hierarchy",
+                    title: "Query Element Hierarchy",
+                    description: "Performs token-efficient search across accessibility hierarchy nodes (by text, trait, or parent ID).",
+                    inputSchema: strictInputSchema(queryHierarchySchema),
+                    outputSchema: sessionObjectSchema,
+                    icons: viewLensToolIcons(),
+                    annotations: MCPTool.Annotations()
+                ),
+                MCPTool(
+                    name: "viewlens_query_spatial",
+                    title: "Query Spatial Relationships",
+                    description: "Queries elements at coordinates, nearest elements, or spatial relationships between elements.",
+                    inputSchema: strictInputSchema(querySpatialSchema),
                     outputSchema: sessionObjectSchema,
                     icons: viewLensToolIcons(),
                     annotations: MCPTool.Annotations()
@@ -1688,6 +1756,181 @@ public final class MCPServer: Sendable {
                 text: jsonText,
                 structuredContent: modern ? .object(["status": .string(status), "session_id": .string(sessionID)]) : nil,
                 isError: closed == nil,
+                modern: modern
+            )
+            let response = JSONRPCResponse(id: request.id, result: result)
+            return try? JSONEncoder().encode(response)
+
+        case "viewlens_app_launch":
+            let workspaceRoot = arguments["workspace_root"]?.stringValue ?? FileManager.default.currentDirectoryPath
+            guard let bundleID = arguments["bundle_identifier"]?.stringValue else {
+                let message = "Missing required 'bundle_identifier' parameter"
+                let result = MCPToolCallResult(
+                    text: JSONFormatter.errorJSON(message: message),
+                    structuredContent: nil,
+                    isError: true,
+                    modern: modern
+                )
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+            let destID = arguments["destination_id"]?.stringValue
+            let scheme = arguments["scheme"]?.stringValue
+            let config = arguments["configuration"]?.stringValue ?? "Debug"
+            let launchArgs = arguments["launch_arguments"]?.arrayValue?.compactMap { $0.stringValue } ?? []
+            var envDict: [String: String] = [:]
+            if let envObj = arguments["environment"]?.objectValue {
+                for (k, v) in envObj {
+                    if let str = v.stringValue { envDict[k] = str }
+                }
+            }
+
+            let destinations = DestinationDiscovery.discoverDestinations(workspaceRoot: workspaceRoot)
+            let destination = DestinationDiscovery.resolveDestination(id: destID, in: destinations) ?? destinations[0]
+
+            let descriptor = LaunchDescriptor(
+                workspaceRoot: workspaceRoot,
+                scheme: scheme,
+                configuration: config,
+                destination: destination,
+                bundleIdentifier: bundleID,
+                launchArguments: launchArgs,
+                environment: envDict
+            )
+
+            let launchResult = await processController.launch(descriptor: descriptor)
+            let launchJSON = (try? JSONValue.fromEncodable(launchResult)) ?? .object([:])
+            let jsonText = (try? String(data: JSONEncoder().encode(launchResult), encoding: .utf8)) ?? "{}"
+
+            let result = MCPToolCallResult(
+                text: jsonText,
+                structuredContent: modern ? launchJSON : nil,
+                isError: false,
+                modern: modern
+            )
+            let response = JSONRPCResponse(id: request.id, result: result)
+            return try? JSONEncoder().encode(response)
+
+        case "viewlens_query_hierarchy":
+            guard let template = arguments["template"]?.stringValue else {
+                let message = "Missing required 'template' parameter"
+                let result = MCPToolCallResult(
+                    text: JSONFormatter.errorJSON(message: message),
+                    structuredContent: nil,
+                    isError: true,
+                    modern: modern
+                )
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+
+            let snapshots = await TemplateRegistry.shared.accessibilitySnapshots(named: template) ?? []
+            let nodes: [NativeAccessibilityNode] = snapshots.enumerated().map { index, snap in
+                var traits: Set<NativeAccessibilityTrait> = []
+                if let role = snap.role {
+                    if role.localizedCaseInsensitiveContains("button") { traits.insert(.isButton) }
+                    if role.localizedCaseInsensitiveContains("header") { traits.insert(.isHeader) }
+                    if role.localizedCaseInsensitiveContains("image") { traits.insert(.isImage) }
+                    if role.localizedCaseInsensitiveContains("text") { traits.insert(.isStaticText) }
+                }
+                let yOffset = 0.1 * Double(index + 1)
+                return NativeAccessibilityNode(
+                    id: NonvisualID("node_\(index)"),
+                    label: snap.label,
+                    value: snap.value,
+                    traits: traits,
+                    frame: BoundingBox(x: 0.1, y: yOffset, width: 0.8, height: 0.08),
+                    provenance: EvidenceProvenance(kind: .measured, source: "templateRegistry", confidence: 1.0)
+                )
+            }
+
+            let query = arguments["query"]?.stringValue
+            let role = arguments["role"]?.stringValue
+            let parentID = arguments["parent_id"]?.stringValue
+
+            var matchedNodes: [NativeAccessibilityNode]
+            if let parentID {
+                matchedNodes = SpatialQueryEngine.findDescendants(of: parentID, in: nodes)
+            } else if query != nil || role != nil {
+                matchedNodes = SpatialQueryEngine.searchElements(query: query, role: role, in: nodes)
+            } else {
+                matchedNodes = nodes
+            }
+
+            let nodesJSON = (try? JSONValue.fromEncodable(matchedNodes)) ?? .array([])
+            let jsonText = (try? String(data: JSONEncoder().encode(matchedNodes), encoding: .utf8)) ?? "[]"
+
+            let result = MCPToolCallResult(
+                text: jsonText,
+                structuredContent: modern ? .object(["template": .string(template), "count": .number(Double(matchedNodes.count)), "nodes": nodesJSON]) : nil,
+                isError: false,
+                modern: modern
+            )
+            let response = JSONRPCResponse(id: request.id, result: result)
+            return try? JSONEncoder().encode(response)
+
+        case "viewlens_query_spatial":
+            guard let template = arguments["template"]?.stringValue else {
+                let message = "Missing required 'template' parameter"
+                let result = MCPToolCallResult(
+                    text: JSONFormatter.errorJSON(message: message),
+                    structuredContent: nil,
+                    isError: true,
+                    modern: modern
+                )
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+
+            let snapshots = await TemplateRegistry.shared.accessibilitySnapshots(named: template) ?? []
+            let nodes: [NativeAccessibilityNode] = snapshots.enumerated().map { index, snap in
+                var traits: Set<NativeAccessibilityTrait> = []
+                if let role = snap.role {
+                    if role.localizedCaseInsensitiveContains("button") { traits.insert(.isButton) }
+                    if role.localizedCaseInsensitiveContains("header") { traits.insert(.isHeader) }
+                    if role.localizedCaseInsensitiveContains("image") { traits.insert(.isImage) }
+                    if role.localizedCaseInsensitiveContains("text") { traits.insert(.isStaticText) }
+                }
+                let yOffset = 0.1 * Double(index + 1)
+                return NativeAccessibilityNode(
+                    id: NonvisualID("node_\(index)"),
+                    label: snap.label,
+                    value: snap.value,
+                    traits: traits,
+                    frame: BoundingBox(x: 0.1, y: yOffset, width: 0.8, height: 0.08),
+                    provenance: EvidenceProvenance(kind: .measured, source: "templateRegistry", confidence: 1.0)
+                )
+            }
+
+            var responseObj: [String: JSONValue] = ["template": .string(template)]
+
+            if let x = arguments["x"]?.doubleValue, let y = arguments["y"]?.doubleValue {
+                let point = CGPoint(x: x, y: y)
+                let atPoint = SpatialQueryEngine.findElements(at: point, in: nodes)
+                let nearest = SpatialQueryEngine.findNearestElement(to: point, in: nodes)
+                responseObj["elementsAtPoint"] = (try? JSONValue.fromEncodable(atPoint)) ?? .array([])
+                if let nearest {
+                    responseObj["nearestElement"] = .object([
+                        "node": (try? JSONValue.fromEncodable(nearest.node)) ?? .object([:]),
+                        "distance": .number(Double(nearest.distance))
+                    ])
+                }
+            } else if let elemA = arguments["element_a"]?.stringValue, let elemB = arguments["element_b"]?.stringValue {
+                let nodeA = SpatialQueryEngine.findElement(byID: elemA, in: nodes)
+                let nodeB = SpatialQueryEngine.findElement(byID: elemB, in: nodes)
+                if let nodeA, let nodeB {
+                    let rels = SpatialQueryEngine.computeRelationships(nodeA: nodeA, nodeB: nodeB)
+                    responseObj["relationships"] = .array(rels.map { .string($0.rawValue) })
+                } else {
+                    responseObj["error"] = .string("Could not find one or both elements ('\(elemA)', '\(elemB)')")
+                }
+            }
+
+            let jsonText = (try? String(data: JSONEncoder().encode(JSONValue.object(responseObj)), encoding: .utf8)) ?? "{}"
+            let result = MCPToolCallResult(
+                text: jsonText,
+                structuredContent: modern ? .object(responseObj) : nil,
+                isError: false,
                 modern: modern
             )
             let response = JSONRPCResponse(id: request.id, result: result)

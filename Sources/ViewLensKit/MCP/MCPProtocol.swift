@@ -400,4 +400,9 @@ public enum JSONValue: Codable, Sendable, Equatable {
         if case .object(let o) = self { return o }
         return nil
     }
+
+    public var arrayValue: [JSONValue]? {
+        if case .array(let a) = self { return a }
+        return nil
+    }
 }

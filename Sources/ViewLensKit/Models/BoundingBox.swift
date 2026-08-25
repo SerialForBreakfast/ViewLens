@@ -80,4 +80,22 @@ public struct BoundingBox: Codable, Sendable, Equatable, Hashable {
         guard interWidth > 0 && interHeight > 0 else { return nil }
         return BoundingBox(x: interMinX, y: interMinY, width: interWidth, height: interHeight)
     }
+
+    /// Checks if a point in normalized coordinates is inside the bounding box.
+    public func contains(point: CGPoint) -> Bool {
+        Double(point.x) >= minX && Double(point.x) <= maxX &&
+        Double(point.y) >= minY && Double(point.y) <= maxY
+    }
+
+    /// Checks if another bounding box is fully contained within this box.
+    public func contains(other: BoundingBox) -> Bool {
+        minX <= other.minX && maxX >= other.maxX &&
+        minY <= other.minY && maxY >= other.maxY
+    }
+
+    /// Checks if another bounding box intersects with this box.
+    public func intersects(other: BoundingBox) -> Bool {
+        minX < other.maxX && maxX > other.minX &&
+        minY < other.maxY && maxY > other.minY
+    }
 }
