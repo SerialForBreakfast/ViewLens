@@ -115,9 +115,9 @@ M14A deliberately excludes runtime control and remote transport. It proves compa
 ### Native capture and queries
 
 - [x] **MCP-15.6** Add `viewlens_app_launch` and bounded relaunch/terminate behavior with explicit target verification.
-- [ ] **MCP-15.7** Capture the current screenshot, window/scene metadata, orientation, scale, appearance, content size, safe-area data, and timestamp as one atomic state artifact.
-- [ ] **MCP-15.8** Capture the available accessibility hierarchy with stable per-capture element IDs, names, roles, values, states, actions, frames, focus, and hierarchy relationships.
-- [ ] **MCP-15.9** Correlate detected visual elements with accessibility nodes and report match confidence, conflicts, and unmatched nodes in both directions.
+- [x] **MCP-15.7** Capture the current screenshot, window/scene metadata, orientation, scale, appearance, content size, safe-area data, and timestamp as one atomic state artifact.
+- [x] **MCP-15.8** Capture the available accessibility hierarchy with stable per-capture element IDs, names, roles, values, states, actions, frames, focus, and hierarchy relationships.
+- [x] **MCP-15.9** Correlate detected visual elements with accessibility nodes and report match confidence, conflicts, and unmatched nodes in both directions.
 - [x] **MCP-15.10** Add token-efficient queries: element by ID, element at point, nearest element, descendants, ancestors, text search, role search, alignment, spacing, collision, and viewport containment.
 - [x] **MCP-15.11** Add `viewlens_capture_state`, `viewlens_query_hierarchy`, and `viewlens_query_spatial` tools with structured outputs and resource links.
 
@@ -138,9 +138,9 @@ M14A deliberately excludes runtime control and remote transport. It proves compa
 
 ### Controlled interaction
 
-- [ ] **MCP-16.1** Define an allowlisted action vocabulary: activate element, type non-sensitive fixture text, clear, scroll, swipe, keyboard shortcut, move focus, resize window, rotate, wait for condition, and capture.
-- [ ] **MCP-16.2** Add `viewlens_ui_perform` with element-ID-first targeting, optional coordinate fallback, preconditions, timeout, postcondition, and automatic before/after captures.
-- [ ] **MCP-16.3** Redact secure fields and reject secrets, credentials, purchases, account deletion, permission escalation, and other high-impact actions unless a future separately reviewed policy allows them.
+- [x] **MCP-16.1** Define an allowlisted action vocabulary: activate element, type non-sensitive fixture text, clear, scroll, swipe, keyboard shortcut, move focus, resize window, rotate, wait for condition, and capture.
+- [x] **MCP-16.2** Add `viewlens_ui_perform` with element-ID-first targeting, optional coordinate fallback, preconditions, timeout, postcondition, and automatic before/after captures.
+- [x] **MCP-16.3** Redact secure fields and reject secrets, credentials, purchases, account deletion, permission escalation, and other high-impact actions unless a future separately reviewed policy allows them.
 - [ ] **MCP-16.4** Record deterministic replay scripts with schema version, target state, actions, assertions, and artifact references.
 
 ### Accessibility and focus intelligence

@@ -190,7 +190,7 @@ struct MCPServerTests {
     func testAllModernAuditToolsHaveOutputSchemas() throws {
         let data = try JSONEncoder().encode(MCPServer().defineTools(modern: true))
         let tools = try #require(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
-        #expect(tools.count == 12)
+        #expect(tools.count == 14)
         #expect(tools.allSatisfy { $0["outputSchema"] != nil })
     }
 

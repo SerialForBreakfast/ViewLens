@@ -862,6 +862,29 @@ public final class MCPServer: Sendable {
             "required": .array([.string("template")])
         ])
 
+        let captureStateSchema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "template": .object(["type": .string("string"), "description": .string("Registered template to capture state for.")]),
+                "appearance": .object(["type": .string("string"), "description": .string("Appearance ('light' or 'dark').")]),
+                "scale": .object(["type": .string("number"), "description": .string("Display scale.")])
+            ]),
+            "required": .array([.string("template")])
+        ])
+
+        let uiPerformSchema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "action": .object(["type": .string("string"), "description": .string("Action to perform: 'activate', 'type_text', 'clear', 'scroll', 'swipe', 'key_shortcut', 'move_focus'.")]),
+                "element_id": .object(["type": .string("string"), "description": .string("Target accessibility element identifier.")]),
+                "text": .object(["type": .string("string"), "description": .string("Text string to type.")]),
+                "direction": .object(["type": .string("string"), "description": .string("Direction for scroll or swipe ('up', 'down', 'left', 'right').")]),
+                "shortcut": .object(["type": .string("string"), "description": .string("Keyboard shortcut sequence.")]),
+                "coordinate": .object(["type": .string("array"), "items": .object(["type": .string("number")]), "description": .string("Normalized coordinate [x, y].")])
+            ]),
+            "required": .array([.string("action")])
+        ])
+
         var tools = [
             MCPTool(
                 name: "viewlens_doctor",
@@ -985,6 +1008,24 @@ public final class MCPServer: Sendable {
                     title: "Query Spatial Relationships",
                     description: "Queries elements at coordinates, nearest elements, or spatial relationships between elements.",
                     inputSchema: strictInputSchema(querySpatialSchema),
+                    outputSchema: sessionObjectSchema,
+                    icons: viewLensToolIcons(),
+                    annotations: MCPTool.Annotations()
+                ),
+                MCPTool(
+                    name: "viewlens_capture_state",
+                    title: "Capture Atomic UI State",
+                    description: "Captures atomic visual, layout, and accessibility state including bi-directional semantic correlation.",
+                    inputSchema: strictInputSchema(captureStateSchema),
+                    outputSchema: sessionObjectSchema,
+                    icons: viewLensToolIcons(),
+                    annotations: MCPTool.Annotations()
+                ),
+                MCPTool(
+                    name: "viewlens_ui_perform",
+                    title: "Perform Controlled UI Action",
+                    description: "Executes an allowlisted UI action on a runtime session subject to strict security policies.",
+                    inputSchema: strictInputSchema(uiPerformSchema),
                     outputSchema: sessionObjectSchema,
                     icons: viewLensToolIcons(),
                     annotations: MCPTool.Annotations()
@@ -1931,6 +1972,87 @@ public final class MCPServer: Sendable {
                 text: jsonText,
                 structuredContent: modern ? .object(responseObj) : nil,
                 isError: false,
+                modern: modern
+            )
+            let response = JSONRPCResponse(id: request.id, result: result)
+            return try? JSONEncoder().encode(response)
+
+        case "viewlens_capture_state":
+            guard let template = arguments["template"]?.stringValue else {
+                let message = "Missing required 'template' parameter"
+                let result = MCPToolCallResult(
+                    text: JSONFormatter.errorJSON(message: message),
+                    structuredContent: nil,
+                    isError: true,
+                    modern: modern
+                )
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+
+            let app = arguments["appearance"]?.stringValue ?? "light"
+            let scale = arguments["scale"]?.doubleValue ?? 3.0
+            let snapshots = await TemplateRegistry.shared.accessibilitySnapshots(named: template) ?? []
+
+            let state = StateCaptureEngine.captureState(
+                templateName: template,
+                appearance: app,
+                scale: scale,
+                snapshots: snapshots
+            )
+
+            let stateJSON = (try? JSONValue.fromEncodable(state)) ?? .object([:])
+            let jsonText = (try? String(data: JSONEncoder().encode(state), encoding: .utf8)) ?? "{}"
+
+            let result = MCPToolCallResult(
+                text: jsonText,
+                structuredContent: modern ? stateJSON : nil,
+                isError: false,
+                modern: modern
+            )
+            let response = JSONRPCResponse(id: request.id, result: result)
+            return try? JSONEncoder().encode(response)
+
+        case "viewlens_ui_perform":
+            guard let actionStr = arguments["action"]?.stringValue,
+                  let actionKind = UIActionKind(rawValue: actionStr) else {
+                let message = "Missing or invalid 'action' parameter"
+                let result = MCPToolCallResult(
+                    text: JSONFormatter.errorJSON(message: message),
+                    structuredContent: nil,
+                    isError: true,
+                    modern: modern
+                )
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+
+            let elemID = arguments["element_id"]?.stringValue
+            let text = arguments["text"]?.stringValue
+            let dir = arguments["direction"]?.stringValue
+            let sc = arguments["shortcut"]?.stringValue
+            var coords: [Double]?
+            if let arr = arguments["coordinate"]?.arrayValue {
+                coords = arr.compactMap { $0.doubleValue }
+            }
+
+            let action = UIAction(
+                kind: actionKind,
+                elementID: elemID,
+                coordinate: coords,
+                text: text,
+                direction: dir,
+                shortcut: sc
+            )
+
+            let interactionRes = InteractionEngine.performAction(action)
+            let resJSON = (try? JSONValue.fromEncodable(interactionRes)) ?? .object([:])
+            let jsonText = (try? String(data: JSONEncoder().encode(interactionRes), encoding: .utf8)) ?? "{}"
+
+            let result = MCPToolCallResult(
+                text: jsonText,
+                structuredContent: modern ? resJSON : nil,
+                isError: !interactionRes.success,
                 modern: modern
             )
             let response = JSONRPCResponse(id: request.id, result: result)
