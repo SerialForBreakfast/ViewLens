@@ -126,10 +126,10 @@ NV-1 is the contract shared by every later surface. NV-2 and NV-3 may proceed in
 - [x] **NV-4.2** Build reading-order, keyboard-focus, and predicted VoiceOver traversal sequences as separate graphs; report divergences only when they affect understanding or operation.
 - [x] **NV-4.3** Capture rotor candidates and custom actions, and detect missing headings, unusable grouping, action-name conflicts, duplicate exposure, and excessive announcement text.
 - [x] **NV-4.4** Record focus before and after modal presentation, dismissal, validation errors, navigation, async updates, and state restoration; detect loss, traps, hidden focus, and background escape.
-- [ ] **NV-4.5** Capture accessibility announcements and status changes in fixture workflows with throttling, ordering, and duplicate-announcement analysis.
+- [x] **NV-4.5** Capture accessibility announcements and status changes in fixture workflows with throttling, ordering, and duplicate-announcement analysis.
 - [x] **NV-4.6** Produce a predicted VoiceOver transcript clearly labeled as API-derived evidence, not a recording or proof of complete VoiceOver behavior.
 - [x] **NV-4.7** Generate bounded manual verification steps for gestures, speech timing, pronunciation, braille output, rotor behavior, and platform behavior that cannot be automated reliably.
-- [ ] **NV-4.8** Run declared flows under VoiceOver-relevant states plus Dynamic Type, Increase Contrast, Differentiate Without Color, Reduce Motion, RTL, orientation, and window-size variants.
+- [x] **NV-4.8** Run declared flows under VoiceOver-relevant states plus Dynamic Type, Increase Contrast, Differentiate Without Color, Reduce Motion, RTL, orientation, and window-size variants.
 - [x] **NV-4.9** Redact secure fields and fixture secrets before hierarchy, transcript, logs, task state, resources, or exports are persisted.
 
 **Acceptance:** A fixture workflow exports reproducible semantic and navigation graphs, identifies seeded traversal and focus defects, and marks unsupported assistive-technology behavior not evaluated.
@@ -142,7 +142,7 @@ NV-1 is the contract shared by every later surface. NV-2 and NV-3 may proceed in
 - [x] **NV-5.4** Connect nonvisual nodes and mismatches to file, line, symbol, runtime identity, and relevant SwiftUI/UIKit accessibility modifiers where provenance exists.
 - [x] **NV-5.5** Provide remediation context that includes current semantics, expected behavior, cited requirement, deterministic guidance, and a bounded source excerpt suitable for speech or braille.
 - [x] **NV-5.6** Add patch-preview handoff with explicit affected nodes, expected semantic changes, scope, and rollback instructions; ViewLens does not apply the patch itself.
-- [ ] **NV-5.7** Add targeted verification that reruns affected states and announces resolved, remaining, introduced, not-evaluated, and visually changed results.
+- [x] **NV-5.7** Add targeted verification that reruns affected states and announces resolved, remaining, introduced, not-evaluated, and visually changed results.
 - [x] **NV-5.8** Generate accessible regression tests for hierarchy, focus order, names, roles, values, and critical visual relationships when deterministic assertions are possible.
 
 **Acceptance:** A developer can move from a seeded defect to responsible source context and obtain a deterministic before/after verification without interpreting a screenshot or heatmap.
@@ -156,7 +156,7 @@ NV-1 is the contract shared by every later surface. NV-2 and NV-3 may proceed in
 - [ ] **NV-6.5** Add automated regression gates for keyboard reachability, accessibility labels/values/actions, rotor inventories, focus restoration, nonvisual golden output, and visual/text artifact parity.
 - [ ] **NV-6.6** Audit ViewLens against applicable WCAG, Apple accessibility guidance, and the ATAG Part A/Part B model; document supported, partially supported, and not-evaluated requirements.
 - [ ] **NV-6.7** Complete privacy and threat review for captured accessibility values, screen text, source excerpts, transcripts, task persistence, and exported collaboration artifacts.
-- [ ] **NV-6.8** Publish accessible documentation and end-to-end examples for Mac app, CLI, MCP agent, report handoff, and manual VoiceOver verification workflows.
+- [x] **NV-6.8** Publish accessible documentation and end-to-end examples for Mac app, CLI, MCP agent, report handoff, and manual VoiceOver verification workflows.
 
 **Acceptance:** Blind developers complete all six primary journeys without sighted assistance in the release study; no blocking issue remains; unsupported evidence is never reported as passed; release documentation states tested assistive technologies and limitations.
 
