@@ -17,13 +17,12 @@
 
 **ViewLens** is a single, standalone native macOS CLI and Model Context Protocol (MCP) server that connects AI coding agents (Claude Code, Cursor, Windsurf, Xcode AI) and software engineers—**including blind and low-vision developers**—to native Apple UI layouts, W3C WCAG 2.2 accessibility validation, and Apple HIG compliance.
 
-**100% Pure Swift**: ViewLens contains **zero Python or pip dependencies**. The MCP server runs directly inside the native `viewlens` binary (`viewlens mcp`) using in-process Swift JSON-RPC 2.0.
+**100% Pure Swift**: The MCP server runs directly inside the native `viewlens` binary (`viewlens mcp`) using in-process Swift JSON-RPC 2.0.
 
 By combining an ultra-fast **dual-tier headless canvas renderer** with the fine-tuned CoreML vision models trained in [NativeUIAuditKit](https://github.com/SerialForBreakfast/NativeUIAuditKit), ViewLens detects UI elements, evaluates Apple Human Interface Guidelines (HIG), and performs programmatic Auto Layout introspection **without burning multimodal LLM tokens on raw image uploads or waiting for multiple iOS simulator boots**.
 
 ### Why ViewLens?
 
-- ⚡ **Zero Python / 100% Pure Swift**: Single native macOS binary. No `pip`, no Python runtime, no virtual environments.
 - ♿ **Pioneering Nonvisual Authoring for Blind Developers**: Transforms visual Xcode canvas previews and simulators into VoiceOver-accessible hierarchies, spoken speech streams, 40-cell braille simulations, and semantic spatial queries.
 - 🎯 **W3C WCAG 2.2 Level A/AA/AAA Auditing**: Enforces programmatic Name/Role/Value (4.1.2), level-aware Touch Target sizing (2.5.8 AA / 2.5.5 AAA), Light/Dark contrast (1.4.3 / 1.4.6), and Dynamic Type AX1–AX5 reflow.
 - 🧠 **Token-Free UI Audits**: LLMs receive structured JSON coordinate geometry (`x`, `y`, `width`, `height` in normalized top-left space) and semantic issue classifications rather than raw image pixels.
