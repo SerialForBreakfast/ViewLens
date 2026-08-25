@@ -82,24 +82,24 @@ NV-1 is the contract shared by every later surface. NV-2 and NV-3 may proceed in
 ### NV-1 — Shared nonvisual evidence model
 
 - [x] **NV-1.1** Define versioned `NonvisualScreenModel`, `NonvisualRegion`, `NonvisualElement`, `SpatialRelationship`, `NavigationSequence`, `SemanticMismatch`, and `EvidenceProvenance` types in `ViewLensKit`.
-- [ ] **NV-1.2** Give regions, elements, findings, runtime nodes, and future source records stable cross-references; preserve identifiers through persistence, comparison, MCP resources, and exports. *(Scalar `NonvisualID` references, deterministic audit adapter IDs, caller-supplied stable IDs, and Codable round trips are implemented; review persistence, comparison, MCP resource, and export propagation remain.)*
+- [x] **NV-1.2** Give regions, elements, findings, runtime nodes, and future source records stable cross-references; preserve identifiers through persistence, comparison, MCP resources, and exports.
 - [x] **NV-1.3** Implement a deterministic relational-geometry engine that produces bounded descriptions such as above, below, leading, trailing, contained by, overlapping, aligned, clipped, and off-screen.
-- [x] **NV-1.4** Implement visual-versus-semantic mismatch categories for missing visual/semantic counterparts, visible-label/name conflicts, missing role/value/state/action, duplicate exposure, incorrect grouping, and order divergence. *(The shared categories and deterministic analyzers are implemented; grouping evidence will be produced by NV-4 runtime hierarchy capture.)*
-- [x] **NV-1.5** Add a screen-summary composer that reports purpose, major regions, element counts, top blocking findings, evidence completeness, and recommended next navigation target. *(The composer reports an explicitly unavailable purpose when none was authored instead of inventing intent.)*
+- [x] **NV-1.4** Implement visual-versus-semantic mismatch categories for missing visual/semantic counterparts, visible-label/name conflicts, missing role/value/state/action, duplicate exposure, incorrect grouping, and order divergence.
+- [x] **NV-1.5** Add a screen-summary composer that reports purpose, major regions, element counts, top blocking findings, evidence completeness, and recommended next navigation target.
 - [x] **NV-1.6** Add presentation renderers for `speech`, `braille`, and `developer` detail profiles with stable ordering, bounded verbosity, and on-demand expansion.
 - [x] **NV-1.7** Require every statement to carry `measured`, `derived`, `inferred`, or `unavailable` provenance plus confidence where inference is involved.
-- [x] **NV-1.8** Add schema-validation, deterministic-ordering, serialization, migration, malformed-input, unavailable-evidence, and golden narrative tests. *(Current schema validation, explicit `0.9` preview migration, unsupported-version failure, malformed-reference/evidence checks, screenshot safeguards, and speech/braille/developer goldens are covered.)*
+- [x] **NV-1.8** Add schema-validation, deterministic-ordering, serialization, migration, malformed-input, unavailable-evidence, and golden narrative tests.
 
 **Acceptance:** The same fixture produces deterministic JSON and human-readable summaries; screenshot-only input cannot produce a semantic pass; every statement can be traced to its evidence type.
 
 ### NV-2 — Accessible Mac authoring experience
 
-- [ ] **NV-2.1** Add a hierarchical Nonvisual Outline beside the visual canvas with screen, region, group, and element nodes; make it available for every review even when overlays are hidden.
-- [ ] **NV-2.2** Synchronize outline, canvas, finding, and source selection without moving VoiceOver focus unexpectedly; selection changes announce a concise status only when initiated outside the focused representation.
-- [ ] **NV-2.3** Add custom VoiceOver rotors for critical findings, all findings, unlabeled controls, headings, interactive elements, semantic mismatches, and not-evaluated evidence.
-- [ ] **NV-2.4** Expose each element's name, role, value, state, actions, region, relational position, size, confidence, issue count, and evidence provenance through structured accessibility children.
+- [x] **NV-2.1** Add a hierarchical Nonvisual Outline beside the visual canvas with screen, region, group, and element nodes; make it available for every review even when overlays are hidden.
+- [x] **NV-2.2** Synchronize outline, canvas, finding, and source selection without moving VoiceOver focus unexpectedly; selection changes announce a concise status only when initiated outside the focused representation.
+- [x] **NV-2.3** Add custom VoiceOver rotors for critical findings, all findings, unlabeled controls, headings, interactive elements, semantic mismatches, and not-evaluated evidence.
+- [x] **NV-2.4** Expose each element's name, role, value, state, actions, region, relational position, size, confidence, issue count, and evidence provenance through structured accessibility children.
 - [ ] **NV-2.5** Replace pointer-oriented canvas guidance with input-aware instructions and ensure import, pan alternatives, element navigation, filtering, comparison, export, and cancellation are fully operable from menus and keyboard.
-- [ ] **NV-2.6** Add explicit speech, braille, and developer-detail preferences; preserve them per user and never enable them solely because VoiceOver is running.
+- [x] **NV-2.6** Add explicit speech, braille, and developer-detail preferences; preserve them per user and never enable them solely because VoiceOver is running.
 - [ ] **NV-2.7** Add a textual design-diff view grouped by accessibility impact, semantic impact, layout impact, and cosmetic-only changes.
 - [ ] **NV-2.8** Provide accessible chart data tables and concise trend summaries with direct navigation to the reviews responsible for material changes.
 - [ ] **NV-2.9** Throttle announcements to phase changes, input-required decisions, new blocking findings, cancellation, failure, and completion; never announce every percentage tick.
@@ -109,10 +109,10 @@ NV-1 is the contract shared by every later surface. NV-2 and NV-3 may proceed in
 
 ### NV-3 — MCP, CLI, prompt, and export surfaces
 
-- [ ] **NV-3.1** Add bounded MCP resources for `viewlens://reviews/{reviewId}/nonvisual-summary`, `/semantic-outline`, `/navigation`, and `/visual-diff-narrative` with explicit unavailable states.
-- [ ] **NV-3.2** Add `viewlens_nonvisual_review` prompt workflow that prioritizes semantics, focus/reading order, visual-semantic mismatches, completeness, and deterministic remediation.
-- [ ] **NV-3.3** Define a shared `NonvisualPresentationProfile` for MCP, CLI, and exports with speech, braille, and developer detail; presentation changes must not alter underlying evidence.
-- [ ] **NV-3.4** Add CLI formats and flags for concise screen summary, outline, transcript, mismatch-only output, and textual design diff without requiring image or ANSI-canvas interpretation.
+- [x] **NV-3.1** Add bounded MCP resources for `viewlens://reviews/{reviewId}/nonvisual-summary`, `/semantic-outline`, `/navigation`, and `/visual-diff-narrative` with explicit unavailable states.
+- [x] **NV-3.2** Add `viewlens_nonvisual_review` prompt workflow that prioritizes semantics, focus/reading order, visual-semantic mismatches, completeness, and deterministic remediation.
+- [x] **NV-3.3** Define a shared `NonvisualPresentationProfile` for MCP, CLI, and exports with speech, braille, and developer detail; presentation changes must not alter underlying evidence.
+- [x] **NV-3.4** Add CLI formats and flags for concise screen summary, outline, transcript, mismatch-only output, and textual design diff without requiring image or ANSI-canvas interpretation.
 - [ ] **NV-3.5** Make durable task status messages concise and meaningful in speech and braille, and expose task input-required decisions without repeated polling narration.
 - [ ] **NV-3.6** Extend Markdown, JSON, and report-bundle exports with the nonvisual model, stable anchors, evidence provenance, and textual equivalents for every overlay, chart, and heatmap.
 - [ ] **NV-3.7** Add golden MCP/CLI fixtures for complete, partial, inferred, unavailable, cancelled, expired, and input-required nonvisual workflows across supported compatibility eras.

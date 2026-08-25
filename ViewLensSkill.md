@@ -100,6 +100,7 @@ When executing commands in the terminal, use the `viewlens` CLI binary:
 
 | Command | Purpose | Example |
 |---|---|---|
+| `viewlens nonvisual` | Screen-reader optimized nonvisual summary and outline | `viewlens nonvisual --template LoginForm --profile speech` |
 | `viewlens design-diff` | Figma design-to-code visual & structural verification | `viewlens design-diff --reference figma.png --template LoginForm` |
 | `viewlens accessibility` | Comprehensive W3C / WCAG 2.2 accessibility audit | `viewlens accessibility --template LoginForm --level AA` |
 | `viewlens doctor` | Model readiness and system check | `viewlens doctor --json` |
@@ -115,7 +116,30 @@ When executing commands in the terminal, use the `viewlens` CLI binary:
 
 ---
 
-## 4. Agentic Workflow: Autonomous Figma-to-Code Implementation
+## 5. Nonvisual MCP Resources & Prompt Workflows (NV-1.2 / NV-2.1 / NV-3.1 / NV-3.2)
+
+ViewLens provides structured, token-efficient nonvisual representations via MCP resource URIs and prompt workflows:
+
+| Resource URI | Description | MIME Type |
+|---|---|---|
+| `viewlens://reviews/{reviewId}/nonvisual-summary` | Concise screen summary for speech and braille | `application/json` |
+| `viewlens://reviews/{reviewId}/semantic-outline` | Hierarchical nonvisual model with stable IDs | `application/json` |
+| `viewlens://reviews/{reviewId}/navigation` | Reading order and focus navigation sequences | `application/json` |
+| `viewlens://reviews/{reviewId}/visual-diff-narrative` | Textual narrative of spatial and visual relationships | `text/plain` |
+
+### MCP Prompt Workflows:
+- `viewlens_nonvisual_review`: Guides LLMs in conducting semantic-first code reviews evaluating reading order, visual-semantic counterparts, touch target sizes, contrast, and Dynamic Type reflow with deterministic code remediations.
+- `viewlens_screenshot_audit`: Audits static screenshot for visual and WCAG risks.
+- `viewlens_design_verification`: Verifies SwiftUI code against Figma design baselines.
+- `viewlens_release_accessibility_audit`: Runs matrix audits across devices and font scales.
+- `viewlens_regression_triage`: Triages new vs resolved findings between review runs.
+- `viewlens_fix_verification`: Confirms issue resolution after code edits.
+
+The synchronized macOS workbench **Nonvisual Outline** (`NV-2.1`) enables VoiceOver and keyboard-driven inspection of regions, elements, and findings across all review runs.
+
+---
+
+## 6. Agentic Workflow: Autonomous Figma-to-Code Implementation
 
 When asked to build or match a Figma design in SwiftUI:
 

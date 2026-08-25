@@ -85,14 +85,20 @@ struct ViewLensSettingsView: View {
     }
 
     private var accessibilitySection: some View {
-        Section("Accessibility") {
+        Section("Accessibility & Nonvisual") {
+            Picker("Nonvisual presentation detail", selection: $preferences.nonvisualProfile) {
+                Text("Speech (Concise narrative)").tag("Speech")
+                Text("Braille (Formatted code lines)").tag("Braille")
+                Text("Developer (Full provenance & IDs)").tag("Developer")
+            }
+            Toggle("Announce review phase changes in VoiceOver", isOn: $preferences.announcePhaseChanges)
             Toggle("Differentiate overlays without color", isOn: $preferences.differentiateWithoutColor)
             HStack(spacing: 16) {
                 Label("Error · solid", systemImage: "xmark.octagon.fill").foregroundStyle(.red)
                 Label("Warning · dashed", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                 Label("Info · dotted", systemImage: "info.circle.fill").foregroundStyle(.blue)
             }.accessibilityElement(children: .combine).accessibilityLabel("Overlay palette: error solid, warning dashed, information dotted")
-            Text("Reduce Motion removes selection-reveal animations. Keyboard navigation and textual status remain available in every appearance.")
+            Text("VoiceOver users can use the custom 'Findings', 'Interactive Controls', and 'Regions' rotors inside the Nonvisual Outline.")
                 .font(.caption).foregroundStyle(.secondary)
             Button("Reset Panel Layout") { model.showOverlays = true; model.showElementLabels = true; model.showSafeAreaGuides = true }
         }

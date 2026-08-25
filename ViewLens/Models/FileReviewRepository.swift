@@ -23,7 +23,7 @@ public enum ReviewPersistenceState: Equatable, Sendable {
 
 @MainActor
 public final class FileReviewRepository: ReviewRepository {
-    static let currentSchemaVersion = 2
+    static let currentSchemaVersion = 3
 
     public private(set) var persistenceState: ReviewPersistenceState = .ready
     public let storageURL: URL?
@@ -166,6 +166,7 @@ private struct PersistedReview: Codable {
     let score: PersistedScore?
     let findings: [PersistedFinding]
     let elements: [DetectedElement]
+    let nonvisualScreenModel: NonvisualScreenModel?
     let startedAt: Date
     let finishedAt: Date?
     let duration: TimeInterval?
@@ -178,6 +179,7 @@ private struct PersistedReview: Codable {
         if let reviewScore = review.score { score = PersistedScore(reviewScore) } else { score = nil }
         findings = review.findings.map { PersistedFinding(id: $0.id, issue: $0.issue) }
         elements = review.elements
+        nonvisualScreenModel = review.nonvisualScreenModel
         startedAt = review.startedAt
         finishedAt = review.finishedAt
         duration = review.duration
@@ -193,6 +195,7 @@ private struct PersistedReview: Codable {
             findings: findings.map { ReviewFinding(id: $0.id, issue: $0.issue) },
             elements: elements,
             previewImage: previewImage,
+            nonvisualScreenModel: nonvisualScreenModel,
             startedAt: startedAt,
             finishedAt: finishedAt,
             duration: duration

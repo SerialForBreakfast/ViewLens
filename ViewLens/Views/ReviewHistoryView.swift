@@ -182,8 +182,20 @@ private struct ReviewComparisonView: View {
     @Environment(\.dismiss) private var dismiss
     let older: ReviewRecord
     let newer: ReviewRecord
-    private var olderKeys: Set<String> { Set(older.findings.map { "\($0.issue.kind.rawValue)|\($0.issue.wcagCriterion ?? "HIG")" }) }
-    private var newerKeys: Set<String> { Set(newer.findings.map { "\($0.issue.kind.rawValue)|\($0.issue.wcagCriterion ?? "HIG")" }) }
+
+    private var olderFindingMap: [String: ReviewFinding] { Dictionary(uniqueKeysWithValues: older.findings.map { ($0.id, $0) }) }
+    private var newerFindingMap: [String: ReviewFinding] { Dictionary(uniqueKeysWithValues: newer.findings.map { ($0.id, $0) }) }
+
+    private var resolvedFindingIDs: [String] {
+        olderFindingMap.keys.filter { !newerFindingMap.keys.contains($0) }.sorted()
+    }
+    private var introducedFindingIDs: [String] {
+        newerFindingMap.keys.filter { !olderFindingMap.keys.contains($0) }.sorted()
+    }
+    private var persistentFindingIDs: [String] {
+        newerFindingMap.keys.filter { olderFindingMap.keys.contains($0) }.sorted()
+    }
+
     private var visualDiff: VisualDiffResult? {
         guard let first = older.previewImage, let second = newer.previewImage else { return nil }
         return VisualDiffEngine.compare(reference: first, candidate: second)
@@ -201,10 +213,55 @@ private struct ReviewComparisonView: View {
                     HStack(spacing: 20) { comparisonCard("Earlier", older); comparisonCard("Later", newer) }
                     HStack(spacing: 24) {
                         comparisonMetric("Score change", scoreChange)
-                        comparisonMetric("Introduced", "\(newerKeys.subtracting(olderKeys).count) findings")
-                        comparisonMetric("Resolved", "\(olderKeys.subtracting(newerKeys).count) findings")
+                        comparisonMetric("Introduced", "\(introducedFindingIDs.count) findings")
+                        comparisonMetric("Resolved", "\(resolvedFindingIDs.count) findings")
                         if let visualDiff { comparisonMetric("Visual similarity", visualDiff.ssimScore.formatted(.percent.precision(.fractionLength(2)))) }
                     }
+
+                    if !resolvedFindingIDs.isEmpty || !introducedFindingIDs.isEmpty {
+                        GroupBox("Semantic Findings Diff (by Stable ID)") {
+                            VStack(alignment: .leading, spacing: 10) {
+                                if !resolvedFindingIDs.isEmpty {
+                                    Text("✅ Resolved Findings (\(resolvedFindingIDs.count))")
+                                        .font(.subheadline.bold()).foregroundStyle(.green)
+                                    ForEach(resolvedFindingIDs, id: \.self) { id in
+                                        if let finding = olderFindingMap[id] {
+                                            HStack(alignment: .top) {
+                                                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    Text(finding.issue.displayTitle).fontWeight(.medium)
+                                                    Text("ID: `\(id)` · \(finding.issue.wcagCriterion ?? "Apple HIG")")
+                                                        .font(.caption2).foregroundStyle(.secondary)
+                                                }
+                                            }
+                                            .padding(.leading, 8)
+                                        }
+                                    }
+                                }
+                                if !introducedFindingIDs.isEmpty {
+                                    if !resolvedFindingIDs.isEmpty { Divider() }
+                                    Text("❌ Introduced Findings (\(introducedFindingIDs.count))")
+                                        .font(.subheadline.bold()).foregroundStyle(.red)
+                                    ForEach(introducedFindingIDs, id: \.self) { id in
+                                        if let finding = newerFindingMap[id] {
+                                            HStack(alignment: .top) {
+                                                Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.red)
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    Text(finding.issue.displayTitle).fontWeight(.medium)
+                                                    Text("ID: `\(id)` · \(finding.issue.wcagCriterion ?? "Apple HIG")")
+                                                        .font(.caption2).foregroundStyle(.secondary)
+                                                }
+                                            }
+                                            .padding(.leading, 8)
+                                        }
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(8)
+                        }
+                    }
+
                     GroupBox("Environment differences") {
                         VStack(alignment: .leading) {
                             comparisonRow("Device", older.environment.deviceName, newer.environment.deviceName)

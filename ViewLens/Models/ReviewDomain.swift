@@ -177,6 +177,7 @@ public struct ReviewRecord: Identifiable, Sendable {
     public var findings: [ReviewFinding]
     public var elements: [DetectedElement]
     public var previewImage: CGImage?
+    public var nonvisualScreenModel: NonvisualScreenModel?
     public let startedAt: Date
     public var finishedAt: Date?
     public var duration: TimeInterval?
@@ -190,6 +191,7 @@ public struct ReviewRecord: Identifiable, Sendable {
         findings: [ReviewFinding] = [],
         elements: [DetectedElement] = [],
         previewImage: CGImage? = nil,
+        nonvisualScreenModel: NonvisualScreenModel? = nil,
         startedAt: Date = Date(),
         finishedAt: Date? = nil,
         duration: TimeInterval? = nil
@@ -202,6 +204,7 @@ public struct ReviewRecord: Identifiable, Sendable {
         self.findings = findings
         self.elements = elements
         self.previewImage = previewImage
+        self.nonvisualScreenModel = nonvisualScreenModel
         self.startedAt = startedAt
         self.finishedAt = finishedAt
         self.duration = duration

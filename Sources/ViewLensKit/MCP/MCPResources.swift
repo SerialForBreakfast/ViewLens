@@ -233,6 +233,38 @@ actor MCPResourceStore {
                     description: "Underlying typed tool report",
                     mimeType: "application/json",
                     annotations: annotations
+                ),
+                MCPResource(
+                    uri: "viewlens://reviews/\(reviewID)/nonvisual-summary",
+                    name: "review-nonvisual-summary-\(reviewID)",
+                    title: "Nonvisual Summary",
+                    description: "Concise screen summary for speech and braille",
+                    mimeType: "application/json",
+                    annotations: annotations
+                ),
+                MCPResource(
+                    uri: "viewlens://reviews/\(reviewID)/semantic-outline",
+                    name: "review-semantic-outline-\(reviewID)",
+                    title: "Semantic Outline",
+                    description: "Hierarchical nonvisual outline with stable element and finding IDs",
+                    mimeType: "application/json",
+                    annotations: annotations
+                ),
+                MCPResource(
+                    uri: "viewlens://reviews/\(reviewID)/navigation",
+                    name: "review-navigation-\(reviewID)",
+                    title: "Navigation Sequences",
+                    description: "Reading order and focus navigation sequences",
+                    mimeType: "application/json",
+                    annotations: annotations
+                ),
+                MCPResource(
+                    uri: "viewlens://reviews/\(reviewID)/visual-diff-narrative",
+                    name: "review-visual-diff-narrative-\(reviewID)",
+                    title: "Visual Diff Narrative",
+                    description: "Textual narrative of spatial and visual relationships",
+                    mimeType: "application/json",
+                    annotations: annotations
                 )
             ]
             resources.append(contentsOf: record.artifactSnapshots.enumerated().map { index, snapshot in
@@ -278,8 +310,32 @@ actor MCPResourceStore {
         if path.count == 2, path[1] == "report" {
             return jsonContent(uri: uri, jsonValue: record.envelope.data)
         }
+        if path.count == 2, path[1] == "nonvisual-summary" {
+            let model = nonvisualScreenModel(for: record)
+            let summary = NonvisualSummaryComposer.compose(model)
+            return jsonContent(uri: uri, value: summary)
+        }
+        if path.count == 2, path[1] == "semantic-outline" {
+            let model = nonvisualScreenModel(for: record)
+            return jsonContent(uri: uri, value: model)
+        }
+        if path.count == 2, path[1] == "navigation" {
+            let model = nonvisualScreenModel(for: record)
+            return jsonContent(uri: uri, value: model.navigationSequences)
+        }
+        if path.count == 2, path[1] == "visual-diff-narrative" {
+            let model = nonvisualScreenModel(for: record)
+            let summary = NonvisualSummaryComposer.compose(model)
+            let narrative = NonvisualPresentationRenderer.render(summary, profile: .developer)
+            return MCPResourceContent(
+                uri: uri,
+                mimeType: "text/plain",
+                text: narrative,
+                annotations: MCPResourceAnnotations(priority: 0.8, lastModified: Self.dateString(record.createdAt))
+            )
+        }
         if path.count == 3, path[1] == "artifacts",
-           let index = Int(path[2]), record.artifactSnapshots.indices.contains(index) {
+            let index = Int(path[2]), record.artifactSnapshots.indices.contains(index) {
             let snapshot = record.artifactSnapshots[index]
             guard let data = snapshot.data else {
                 throw ReadError.artifactUnavailable
@@ -295,6 +351,56 @@ actor MCPResourceStore {
             )
         }
         throw ReadError.notFound
+    }
+
+    private func nonvisualScreenModel(for record: ReviewRecord) -> NonvisualScreenModel {
+        let screenID = NonvisualID("screen:\(record.envelope.reviewID)")
+        if let dataBytes = try? JSONEncoder().encode(record.envelope.data),
+           let auditReport = try? JSONDecoder().decode(AuditReport.self, from: dataBytes) {
+            return NonvisualScreenBuilder.fromAuditReport(
+                auditReport,
+                screenID: screenID,
+                title: record.envelope.target.identifier
+            )
+        }
+
+        let sourceMode: NonvisualSourceMode = record.envelope.sourceMode == "rendered" ? .rendered : .screenshot
+        let elements = record.envelope.findings.enumerated().map { index, finding in
+            NonvisualElement(
+                id: NonvisualID("\(screenID.rawValue):element:\(String(format: "%04d", index))"),
+                visualIndex: index,
+                type: finding.objectValue?["type"]?.stringValue ?? "element",
+                visibleLabel: finding.objectValue?["label"]?.stringValue,
+                bounds: nil,
+                regionID: NonvisualID("\(screenID.rawValue):region:screen"),
+                findingIDs: [NonvisualID("\(screenID.rawValue):finding:\(String(format: "%04d", index))")],
+                visualEvidence: EvidenceProvenance(kind: .inferred, source: "viewlens.envelope"),
+                semanticEvidence: .unavailable(source: "viewlens.envelope", detail: "Derived from MCP envelope")
+            )
+        }
+        let regions = [NonvisualRegion(
+            id: NonvisualID("\(screenID.rawValue):region:screen"),
+            label: record.envelope.target.identifier,
+            role: "screen",
+            bounds: BoundingBox(x: 0, y: 0, width: 1, height: 1),
+            elementIDs: elements.map(\.id),
+            evidence: EvidenceProvenance(kind: .derived, source: "viewlens.envelope")
+        )]
+        return NonvisualScreenModel(
+            id: screenID,
+            title: record.envelope.target.identifier,
+            sourceMode: sourceMode,
+            regions: regions,
+            elements: elements,
+            relationships: NonvisualAnalyzer.deriveSpatialRelationships(screenID: screenID, elements: elements),
+            navigationSequences: [NavigationSequence(
+                id: NonvisualID("\(screenID.rawValue):navigation:predicted_voiceover"),
+                kind: .predictedVoiceOver,
+                elementIDs: [],
+                evidence: .unavailable(source: "viewlens.envelope", detail: "VoiceOver sequence not evaluated in envelope")
+            )],
+            mismatches: []
+        )
     }
 
     static let templates: [MCPResourceTemplate] = [
@@ -318,6 +424,35 @@ actor MCPResourceStore {
             title: "ViewLens Typed Report",
             description: "Read the underlying doctor, audit, accessibility, matrix, or design report",
             priority: 0.8
+        ),
+        MCPResourceTemplate(
+            uriTemplate: "viewlens://reviews/{reviewId}/nonvisual-summary",
+            name: "viewlens-review-nonvisual-summary",
+            title: "ViewLens Nonvisual Summary",
+            description: "Read concise speech and braille summary for a review",
+            priority: 0.9
+        ),
+        MCPResourceTemplate(
+            uriTemplate: "viewlens://reviews/{reviewId}/semantic-outline",
+            name: "viewlens-review-semantic-outline",
+            title: "ViewLens Semantic Outline",
+            description: "Read hierarchical nonvisual outline with stable element and finding IDs",
+            priority: 0.9
+        ),
+        MCPResourceTemplate(
+            uriTemplate: "viewlens://reviews/{reviewId}/navigation",
+            name: "viewlens-review-navigation",
+            title: "ViewLens Navigation Sequences",
+            description: "Read reading order and focus traversal sequences",
+            priority: 0.7
+        ),
+        MCPResourceTemplate(
+            uriTemplate: "viewlens://reviews/{reviewId}/visual-diff-narrative",
+            name: "viewlens-review-visual-diff-narrative",
+            title: "ViewLens Visual Diff Narrative",
+            description: "Read textual narrative of visual and spatial relationships",
+            mimeType: "text/plain",
+            priority: 0.7
         ),
         MCPResourceTemplate(
             uriTemplate: "viewlens://reviews/{reviewId}/artifacts/{artifactId}",

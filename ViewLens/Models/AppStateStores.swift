@@ -212,7 +212,7 @@ final class CurrentStatusStore {
 
 @MainActor
 @Observable
-final class PreferenceStore {
+public final class PreferenceStore {
     private enum Key {
         static let appearance = "viewlens.appearance"
         static let wcagLevel = "viewlens.defaultWCAGLevel"
@@ -228,6 +228,8 @@ final class PreferenceStore {
         static let requiredMatrix = "viewlens.requiredMatrix"
         static let customRulePath = "viewlens.customRulePath"
         static let differentiateWithoutColor = "viewlens.differentiateWithoutColor"
+        static let nonvisualProfile = "viewlens.nonvisualProfile"
+        static let announcePhaseChanges = "viewlens.announcePhaseChanges"
     }
 
     var appearance: String { didSet { defaults.set(appearance, forKey: Key.appearance) } }
@@ -244,6 +246,8 @@ final class PreferenceStore {
     var requiredMatrix: String { didSet { defaults.set(requiredMatrix, forKey: Key.requiredMatrix) } }
     var customRulePath: String { didSet { defaults.set(customRulePath, forKey: Key.customRulePath) } }
     var differentiateWithoutColor: Bool { didSet { defaults.set(differentiateWithoutColor, forKey: Key.differentiateWithoutColor) } }
+    var nonvisualProfile: String { didSet { defaults.set(nonvisualProfile, forKey: Key.nonvisualProfile) } }
+    var announcePhaseChanges: Bool { didSet { defaults.set(announcePhaseChanges, forKey: Key.announcePhaseChanges) } }
 
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -263,6 +267,8 @@ final class PreferenceStore {
         requiredMatrix = defaults.string(forKey: Key.requiredMatrix) ?? "Standard"
         customRulePath = defaults.string(forKey: Key.customRulePath) ?? ""
         differentiateWithoutColor = defaults.object(forKey: Key.differentiateWithoutColor) as? Bool ?? true
+        nonvisualProfile = defaults.string(forKey: Key.nonvisualProfile) ?? "Speech"
+        announcePhaseChanges = defaults.object(forKey: Key.announcePhaseChanges) as? Bool ?? true
     }
 
     var retentionDays: Int? {

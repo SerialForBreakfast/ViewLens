@@ -102,6 +102,24 @@ public final class ReviewStore {
         review.duration = review.finishedAt?.timeIntervalSince(review.startedAt)
         review.status = score.isComplete ? .completed : .incomplete(reason: "Some criteria require a rendered semantic hierarchy.")
 
+        let sourceMode: AuditSourceMode = switch review.source {
+        case .template: .rendered
+        case .image: .screenshot
+        }
+        let report = activity.auditReport ?? AuditReport(
+            sourceMode: sourceMode,
+            target: review.source.displayName,
+            dimensions: AuditDimensions(width: Double(image.width), height: Double(image.height), scale: 1.0),
+            elements: elements,
+            issues: issues
+        )
+        let screenID = NonvisualID("screen:\(reviewID.uuidString)")
+        review.nonvisualScreenModel = NonvisualScreenBuilder.fromAuditReport(
+            report,
+            screenID: screenID,
+            title: review.source.displayName
+        )
+
         activeReview = review
         activeActivity = activity
         activityHistory.removeAll { $0.reviewID == reviewID }

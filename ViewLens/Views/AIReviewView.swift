@@ -6,6 +6,22 @@ struct AIReviewView: View {
     @Bindable var model: AppModel
     @Binding var showsInspector: Bool
     let onImport: () -> Void
+    enum WorkbenchDisplayMode: String, CaseIterable, Identifiable {
+        case canvas = "Canvas"
+        case outline = "Outline"
+        case split = "Split"
+
+        var id: String { rawValue }
+        var symbol: String {
+            switch self {
+            case .canvas: "photo"
+            case .outline: "list.bullet.indent"
+            case .split: "rectangle.split.2x1"
+            }
+        }
+    }
+
+    @State private var displayMode: WorkbenchDisplayMode = .split
     @State private var exportDocument: ReviewExportDocument?
     @State private var exportFormat: ReviewExportFormat = .json
     @State private var showsExporter = false
@@ -27,9 +43,11 @@ struct AIReviewView: View {
             Divider()
             if hasResult {
                 HSplitView {
-                    VisualInspectorView(model: model).frame(minWidth: 520)
+                    workbenchMainView
+                        .frame(minWidth: 520)
                     if showsInspector {
-                        AIReviewInspector(model: model).frame(minWidth: 320, idealWidth: 360, maxWidth: 460)
+                        AIReviewInspector(model: model)
+                            .frame(minWidth: 320, idealWidth: 360, maxWidth: 460)
                     }
                 }
             } else {
@@ -111,6 +129,15 @@ struct AIReviewView: View {
                         .help("Cancel the active review and preserve the previous completed result")
                 }
                 if hasResult {
+                    Picker("View Mode", selection: $displayMode) {
+                        ForEach(WorkbenchDisplayMode.allCases) { mode in
+                            Label(mode.rawValue, systemImage: mode.symbol).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 220)
+                    .accessibilityLabel("Workbench view mode")
+
                     Menu {
                         ForEach(ReviewExportFormat.allCases) { format in Button(format.rawValue) { prepareExport(format) } }
                     } label: { Label("Export", systemImage: "square.and.arrow.up") }
@@ -130,6 +157,23 @@ struct AIReviewView: View {
             }
         }
         .padding(.horizontal, 20).padding(.vertical, 16).background(ViewLensTheme.elevatedBackground)
+    }
+
+    @ViewBuilder
+    private var workbenchMainView: some View {
+        switch displayMode {
+        case .canvas:
+            VisualInspectorView(model: model)
+        case .outline:
+            NonvisualOutlineView(model: model)
+        case .split:
+            HSplitView {
+                VisualInspectorView(model: model)
+                    .frame(minWidth: 380)
+                NonvisualOutlineView(model: model)
+                    .frame(minWidth: 280)
+            }
+        }
     }
 
     private var scoreSummary: some View {

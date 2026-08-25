@@ -18,6 +18,7 @@ struct ViewLensCLI: AsyncParsableCommand {
             InitConfigCommand.self,
             AccessibilityCommand.self,
             DesignDiffCommand.self,
+            NonvisualCommand.self,
             ExportSkillCommand.self,
             MCPCommand.self
         ],

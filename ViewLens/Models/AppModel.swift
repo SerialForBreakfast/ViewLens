@@ -72,6 +72,8 @@ public final class AppModel {
 
     // MARK: Compatibility accessors while views migrate to focused stores
 
+    public var preferences: PreferenceStore { preferenceStore }
+
     public var activeActivity: MCPAgentActivity? {
         get { reviewStore.activeActivity }
         set { reviewStore.activeActivity = newValue }
@@ -134,12 +136,27 @@ public final class AppModel {
         set { canvasStore.selectedElementIndex = newValue }
     }
 
+    public var selectedFindingID: ReviewFinding.ID? {
+        get { canvasStore.selectedFindingID }
+        set {
+            canvasStore.selectedFindingID = newValue
+            reviewStore.selectedFindingID = newValue
+            if let newValue, let issue = canvasStore.findings.first(where: { $0.id == newValue })?.issue {
+                canvasStore.selectedElementIndex = issue.elementIndex
+            }
+        }
+    }
+
     public var selectedIssue: ViewLensIssue? {
         get { canvasStore.selectedIssue }
         set {
             canvasStore.selectedIssue = newValue
             reviewStore.selectedFindingID = canvasStore.selectedFindingID
         }
+    }
+
+    public func selectIssue(_ issue: ViewLensIssue?) {
+        selectedIssue = issue
     }
 
     public var showOverlays: Bool {

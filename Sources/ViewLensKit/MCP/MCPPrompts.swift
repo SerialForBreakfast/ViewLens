@@ -303,6 +303,33 @@ enum MCPPromptRegistry {
             4. Confirm resolved, still present, unverifiable, or regressed. Report new findings separately and preserve evidence gaps.
             """,
             resourceArguments: ["review_id"]
+        ),
+        Workflow(
+            prompt: MCPPrompt(
+                name: "viewlens_nonvisual_review",
+                title: "Run Nonvisual Semantic Review",
+                description: "Review a SwiftUI template or screenshot with nonvisual reading order, focus navigation, visual-semantic mismatches, and structured remediation.",
+                arguments: [
+                    .init(name: "template", title: "Template Name", description: "Registered ViewLens template name.", required: false),
+                    .init(name: "image_path", title: "Screenshot Path", description: "Local PNG/JPEG path authorized by the user.", required: false),
+                    .init(name: "profile", title: "Detail Profile", description: "Presentation detail: 'speech', 'braille', or 'developer'. Defaults to 'speech'.", required: false),
+                    .init(name: "wcag_level", title: "WCAG Level", description: "Target A, AA, or AAA level. Defaults to AA.", required: false)
+                ]
+            ),
+            instructions: """
+            1. Call viewlens_doctor once if system readiness is unknown.
+            2. Run viewlens_accessibility_audit with either template or image_path, and the specified wcag_level (default AA).
+            3. Read the review's semantic-outline (viewlens://reviews/{reviewId}/semantic-outline) and nonvisual-summary (viewlens://reviews/{reviewId}/nonvisual-summary).
+            4. Prioritize evaluation of:
+               - Predicted reading order vs VoiceOver traversal order.
+               - Visual elements lacking semantic counterparts and semantic nodes without visible labels.
+               - Interactive controls violating WCAG 2.5.8/2.5.5 touch target size minimums.
+               - Luminance contrast failures in light and dark modes.
+               - Content clipping or collision under Dynamic Type reflow (AX1–AX5).
+            5. Provide deterministic remediation snippets for every detected failure, citing exact WCAG/HIG criteria and stable NonvisualIDs.
+            6. Distinguish measured facts from inferred conclusions and mark unavailable programmatic tree evidence explicitly.
+            """,
+            resourceArguments: []
         )
     ]
 }

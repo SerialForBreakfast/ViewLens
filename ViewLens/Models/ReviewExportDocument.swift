@@ -63,6 +63,13 @@ struct ReviewExportDocument: FileDocument {
                 "report.json": FileWrapper(regularFileWithContents: try jsonData()),
                 "report.md": FileWrapper(regularFileWithContents: Data(markdown().utf8))
             ]
+            if let nonvisual = review.nonvisualScreenModel,
+               let nonvisualData = try? JSONEncoder().encode(nonvisual) {
+                files["nonvisual-screen.json"] = FileWrapper(regularFileWithContents: nonvisualData)
+                let summary = NonvisualSummaryComposer.compose(nonvisual)
+                let summaryText = NonvisualPresentationRenderer.render(summary, profile: .developer)
+                files["nonvisual-summary.txt"] = FileWrapper(regularFileWithContents: Data(summaryText.utf8))
+            }
             if let preview = annotatedPNGData() {
                 files["annotated-preview.png"] = FileWrapper(regularFileWithContents: preview)
             }
@@ -73,8 +80,8 @@ struct ReviewExportDocument: FileDocument {
     func jsonData() throws -> Data {
         let score = review.score
         let unevaluatedCount = max(0, (score?.totalCriteria ?? 0) - (score?.evaluatedCriteria ?? 0))
-        let payload: [String: Any] = [
-            "schemaVersion": 1,
+        var payload: [String: Any] = [
+            "schemaVersion": 2,
             "reviewID": review.id.uuidString,
             "source": ["name": review.source.displayName, "type": review.source.sourceType],
             "status": review.status.displayName,
@@ -109,6 +116,13 @@ struct ReviewExportDocument: FileDocument {
             },
             "events": events.map { ["timestamp": ISO8601DateFormatter().string(from: $0.timestamp), "phase": jsonValue($0.phase?.rawValue), "message": $0.message, "error": $0.isError] }
         ]
+
+        if let nonvisual = review.nonvisualScreenModel,
+           let nonvisualData = try? JSONEncoder().encode(nonvisual),
+           let nonvisualObj = try? JSONSerialization.jsonObject(with: nonvisualData) {
+            payload["nonvisualScreenModel"] = nonvisualObj
+        }
+
         return try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys])
     }
 
@@ -139,7 +153,7 @@ struct ReviewExportDocument: FileDocument {
             for finding in review.findings {
                 let issue = finding.issue
                 lines += [
-                    "### \(issue.displayTitle)",
+                    "### \(issue.displayTitle) <a id=\"finding-\(finding.id)\"></a>",
                     "",
                     "- Severity: \(issue.severity.rawValue.capitalized)",
                     "- Criterion: \(issue.wcagCriterion ?? "Apple HIG")",
@@ -155,6 +169,42 @@ struct ReviewExportDocument: FileDocument {
                 }
             }
         }
+
+        if let nonvisual = review.nonvisualScreenModel {
+            lines += [
+                "",
+                "## Nonvisual Screen Outline & Hierarchy",
+                "",
+                "- **Screen ID:** `\(nonvisual.id.rawValue)`",
+                "- **Source Mode:** \(nonvisual.sourceMode.rawValue)",
+                "- **Regions:** \(nonvisual.regions.count)",
+                "- **Elements:** \(nonvisual.elements.count)",
+                "- **Interactive Elements:** \(nonvisual.elements.filter(\.isInteractive).count)",
+                "",
+                "### Regions & Elements",
+                ""
+            ]
+            for region in nonvisual.regions {
+                lines.append("#### Region: \(region.label) (`\(region.id.rawValue)`)")
+                let regionElements = nonvisual.elements.filter { $0.regionID == region.id }
+                for el in regionElements {
+                    let name = el.visibleLabel ?? el.semantics?.accessibleName ?? "Element \(el.visualIndex ?? 0)"
+                    lines.append("- **\(el.type.capitalized)**: \(name) <a id=\"element-\(el.id.rawValue)\"></a> (`\(el.id.rawValue)`)")
+                }
+                lines.append("")
+            }
+
+            let summary = NonvisualSummaryComposer.compose(nonvisual)
+            lines += [
+                "### Screen Summary Statements",
+                ""
+            ]
+            for statement in summary.statements {
+                lines.append("- [\(statement.category.rawValue.capitalized)] \(statement.text)")
+            }
+            lines.append("")
+        }
+
         return lines.joined(separator: "\n")
     }
 

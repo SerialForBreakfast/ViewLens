@@ -393,6 +393,7 @@ struct MCPServerTests {
         #expect(Set(names) == Set([
             "viewlens_design_verification",
             "viewlens_fix_verification",
+            "viewlens_nonvisual_review",
             "viewlens_regression_triage",
             "viewlens_release_accessibility_audit",
             "viewlens_screenshot_audit"
@@ -410,7 +411,8 @@ struct MCPServerTests {
             ("viewlens_design_verification", "{\"reference_image\":\"/private/tmp/reference.png\",\"template\":\"LoginForm\"}"),
             ("viewlens_release_accessibility_audit", "{\"template\":\"LoginForm\"}"),
             ("viewlens_regression_triage", "{\"review_id\":\"review-123\",\"baseline_review_id\":\"baseline-456\"}"),
-            ("viewlens_fix_verification", "{\"review_id\":\"review-123\",\"change_summary\":\"Increased the button target size\"}")
+            ("viewlens_fix_verification", "{\"review_id\":\"review-123\",\"change_summary\":\"Increased the button target size\"}"),
+            ("viewlens_nonvisual_review", "{\"template\":\"LoginForm\",\"profile\":\"speech\"}")
         ]
 
         for (offset, item) in cases.enumerated() {
