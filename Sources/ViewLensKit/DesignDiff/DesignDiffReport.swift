@@ -114,4 +114,114 @@ public struct DesignDiffReport: Sendable, Codable, Equatable {
 
         return md
     }
+
+    public var textualDiff: TextualDesignDiff {
+        TextualDesignDiff.from(report: self)
+    }
+}
+
+public enum TextualDiffImpactCategory: String, Codable, Sendable, CaseIterable {
+    case accessibilityImpact = "Accessibility Impact"
+    case semanticImpact = "Semantic Impact"
+    case layoutImpact = "Layout Impact"
+    case cosmeticShift = "Cosmetic Shift"
+}
+
+public struct TextualDiffImpact: Codable, Sendable, Equatable, Identifiable {
+    public var id: String { "\(category.rawValue):\(title)" }
+    public let category: TextualDiffImpactCategory
+    public let title: String
+    public let detail: String
+    public let severity: ViewLensSeverity
+    public let remediationSnippet: String?
+
+    public init(
+        category: TextualDiffImpactCategory,
+        title: String,
+        detail: String,
+        severity: ViewLensSeverity = .warning,
+        remediationSnippet: String? = nil
+    ) {
+        self.category = category
+        self.title = title
+        self.detail = detail
+        self.severity = severity
+        self.remediationSnippet = remediationSnippet
+    }
+}
+
+public struct TextualDesignDiff: Codable, Sendable, Equatable {
+    public let impacts: [TextualDiffImpact]
+
+    public var accessibilityImpacts: [TextualDiffImpact] {
+        impacts.filter { $0.category == .accessibilityImpact }
+    }
+
+    public var semanticImpacts: [TextualDiffImpact] {
+        impacts.filter { $0.category == .semanticImpact }
+    }
+
+    public var layoutImpacts: [TextualDiffImpact] {
+        impacts.filter { $0.category == .layoutImpact }
+    }
+
+    public var cosmeticShifts: [TextualDiffImpact] {
+        impacts.filter { $0.category == .cosmeticShift }
+    }
+
+    public init(impacts: [TextualDiffImpact]) {
+        self.impacts = impacts
+    }
+
+    public static func from(report: DesignDiffReport) -> TextualDesignDiff {
+        var impacts: [TextualDiffImpact] = []
+
+        // 1. Accessibility Impacts
+        if let a11y = report.accessibilityReport {
+            for issue in a11y.issues {
+                let title = issue.wcagCriterion.map { "[\($0)] \(issue.description)" } ?? issue.description
+                impacts.append(TextualDiffImpact(
+                    category: .accessibilityImpact,
+                    title: title,
+                    detail: issue.description,
+                    severity: issue.severity,
+                    remediationSnippet: issue.remediation?.codeSnippet
+                ))
+            }
+        }
+
+        // 2. Token Mismatches -> Semantic Impacts
+        for token in report.tokenMismatches {
+            impacts.append(TextualDiffImpact(
+                category: .semanticImpact,
+                title: "Token Mismatch: \(token.token)",
+                detail: "Expected Figma '\(token.expectedFigma)', found SwiftUI '\(token.actualSwiftUI)'",
+                severity: .warning,
+                remediationSnippet: token.remediationSnippet
+            ))
+        }
+
+        // 3. Geometry Deltas -> Layout Impacts
+        for geo in report.geometryDeltas {
+            let desc = "Offset Δ(\(String(format: "%.1f", geo.deltaX)), \(String(format: "%.1f", geo.deltaY))) pt, Size Δ(\(String(format: "%.1f", geo.deltaWidth)), \(String(format: "%.1f", geo.deltaHeight))) pt (IoU: \(String(format: "%.2f", geo.iou)))"
+            impacts.append(TextualDiffImpact(
+                category: .layoutImpact,
+                title: "Layout Shift: \(geo.elementName)",
+                detail: desc,
+                severity: geo.iou < 0.70 ? .error : .warning
+            ))
+        }
+
+        // 4. Visual Pixel Diff -> Cosmetic Shifts
+        if report.visualDiff.mismatchPercentage > 0 {
+            impacts.append(TextualDiffImpact(
+                category: .cosmeticShift,
+                title: "Perceptual Diff (SSIM \(String(format: "%.4f", report.visualDiff.ssimScore)))",
+                detail: "\(String(format: "%.2f", report.visualDiff.mismatchPercentage))% pixel delta (\(report.visualDiff.differingPixelsCount) differing pixels)",
+                severity: report.visualDiff.passed ? .info : .warning
+            ))
+        }
+
+        return TextualDesignDiff(impacts: impacts)
+    }
 }

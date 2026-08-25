@@ -106,36 +106,69 @@ struct ReviewHistoryView: View {
 
     private var historyContent: some View {
         HSplitView {
-            Table(reviews, selection: $historyStore.selectedReviewIDs) {
-                TableColumn("Target") { review in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(review.source.displayName).fontWeight(.medium)
-                        Text(review.source.sourceType).font(.caption).foregroundStyle(.secondary)
+            VStack(spacing: 8) {
+                trendSummaryBanner
+                Table(reviews, selection: $historyStore.selectedReviewIDs) {
+                    TableColumn("Target") { review in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(review.source.displayName).fontWeight(.medium)
+                            Text(review.source.sourceType).font(.caption).foregroundStyle(.secondary)
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Review of \(review.source.displayName), \(review.source.sourceType), score \(review.score?.value ?? 0) out of 100, status \(review.status.displayName)")
                     }
+                    TableColumn("Score") { review in
+                        Text(review.score.map { "\($0.value)" } ?? "—").monospacedDigit()
+                            .accessibilityLabel(review.score.map { "Score \($0.value) out of 100" } ?? "Score unavailable")
+                    }.width(54)
+                    TableColumn("Coverage") { review in Text(review.score?.completenessText ?? "Unavailable").font(.caption) }
+                    TableColumn("Status") { review in ReviewStatusLabel(status: review.status) }
+                    TableColumn("Date") { review in Text(review.startedAt, style: .date) }
+                    TableColumn("Duration") { review in Text(review.duration.map { String(format: "%.0f ms", $0 * 1000) } ?? "—").monospacedDigit() }
                 }
-                TableColumn("Score") { review in
-                    Text(review.score.map { "\($0.value)" } ?? "—").monospacedDigit()
-                        .accessibilityLabel(review.score.map { "Score \($0.value) out of 100" } ?? "Score unavailable")
-                }.width(54)
-                TableColumn("Coverage") { review in Text(review.score?.completenessText ?? "Unavailable").font(.caption) }
-                TableColumn("Status") { review in ReviewStatusLabel(status: review.status) }
-                TableColumn("Date") { review in Text(review.startedAt, style: .date) }
-                TableColumn("Duration") { review in Text(review.duration.map { String(format: "%.0f ms", $0 * 1000) } ?? "—").monospacedDigit() }
-            }
-            .contextMenu(forSelectionType: UUID.self) { selection in
-                if selection.count == 1, let id = selection.first, let review = model.reviewStore.reviews.first(where: { $0.id == id }) {
-                    Button("Open") { open(review) }
-                    Button("Re-run") { model.rerunReview(review); onOpenReview() }
-                    Menu("Export") { ForEach(ReviewExportFormat.allCases) { format in Button(format.rawValue) { export(review, as: format) } } }
-                    Divider(); Button("Delete", role: .destructive) { historyStore.reviewPendingDeletion = review }
+                .contextMenu(forSelectionType: UUID.self) { selection in
+                    if selection.count == 1, let id = selection.first, let review = model.reviewStore.reviews.first(where: { $0.id == id }) {
+                        Button("Open") { open(review) }
+                        Button("Re-run") { model.rerunReview(review); onOpenReview() }
+                        Menu("Export") { ForEach(ReviewExportFormat.allCases) { format in Button(format.rawValue) { export(review, as: format) } } }
+                        Divider(); Button("Delete", role: .destructive) { historyStore.reviewPendingDeletion = review }
+                    }
+                } primaryAction: { selection in
+                    if let id = selection.first, let review = model.reviewStore.reviews.first(where: { $0.id == id }) { open(review) }
                 }
-            } primaryAction: { selection in
-                if let id = selection.first, let review = model.reviewStore.reviews.first(where: { $0.id == id }) { open(review) }
             }
             .frame(minWidth: 600)
 
             if selectedReviews.count == 1 { ReviewHistoryDetail(review: selectedReviews[0], onOpen: { open(selectedReviews[0]) }) }
             else { ContentUnavailableView("Select a Review", systemImage: "sidebar.right", description: Text("Choose one row for details or two rows to compare.")) }
+        }
+    }
+
+    @ViewBuilder
+    private var trendSummaryBanner: some View {
+        let completed = reviews.filter { $0.score != nil }
+        if completed.count >= 2 {
+            let latest = completed[0]
+            let previous = completed[1]
+            let delta = (latest.score?.value ?? 0) - (previous.score?.value ?? 0)
+            let deltaText = delta > 0 ? "+\(delta) pts" : "\(delta) pts"
+            let deltaColor: Color = delta >= 0 ? .green : .red
+
+            HStack(spacing: 12) {
+                Image(systemName: delta >= 0 ? "chart.line.uptrend.xyaxis" : "chart.line.downtrend.xyaxis")
+                    .foregroundStyle(deltaColor)
+                Text("Latest Trend:")
+                    .font(.caption.bold())
+                Text("Score \(latest.score?.value ?? 0)% (\(deltaText) vs previous review)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Compliance score trend: latest review score \(latest.score?.value ?? 0) percent, delta \(deltaText) compared to previous review")
         }
     }
 

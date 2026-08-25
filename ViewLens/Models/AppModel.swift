@@ -618,6 +618,22 @@ public final class AppModel {
         selectElement(at: next)
     }
 
+    public func moveFindingSelection(by offset: Int) {
+        let findings = canvasStore.findings
+        guard !findings.isEmpty else { return }
+        let currentIndex = findings.firstIndex { $0.id == reviewStore.selectedFindingID } ?? (offset > 0 ? -1 : findings.count)
+        let nextIndex = min(max(currentIndex + offset, 0), findings.count - 1)
+        selectFinding(findings[nextIndex])
+    }
+
+    public func copySelectedRemediation() {
+        guard let findingID = reviewStore.selectedFindingID,
+              let finding = canvasStore.findings.first(where: { $0.id == findingID }),
+              let snippet = finding.issue.remediation?.codeSnippet else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(snippet, forType: .string)
+    }
+
     private func cancelRunningReviewIfNeeded() {
         guard reviewStore.activeReview?.status.isRunning == true else { return }
         cancelActiveReview()

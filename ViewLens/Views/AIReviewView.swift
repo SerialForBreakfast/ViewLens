@@ -2,26 +2,29 @@ import AppKit
 import SwiftUI
 import ViewLensKit
 
+public enum WorkbenchViewMode: String, CaseIterable, Identifiable, Sendable {
+    case canvas = "Canvas"
+    case outline = "Outline"
+    case split = "Split"
+
+    public var id: String { rawValue }
+    public var symbol: String {
+        switch self {
+        case .canvas: "photo"
+        case .outline: "list.bullet.indent"
+        case .split: "rectangle.split.2x1"
+        }
+    }
+}
+
+typealias WorkbenchDisplayMode = WorkbenchViewMode
+
 struct AIReviewView: View {
     @Bindable var model: AppModel
     @Binding var showsInspector: Bool
     let onImport: () -> Void
-    enum WorkbenchDisplayMode: String, CaseIterable, Identifiable {
-        case canvas = "Canvas"
-        case outline = "Outline"
-        case split = "Split"
 
-        var id: String { rawValue }
-        var symbol: String {
-            switch self {
-            case .canvas: "photo"
-            case .outline: "list.bullet.indent"
-            case .split: "rectangle.split.2x1"
-            }
-        }
-    }
-
-    @State private var displayMode: WorkbenchDisplayMode = .split
+    @State private var displayMode: WorkbenchViewMode = .split
     @State private var exportDocument: ReviewExportDocument?
     @State private var exportFormat: ReviewExportFormat = .json
     @State private var showsExporter = false
@@ -57,6 +60,11 @@ struct AIReviewView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle("AI Review")
         .accessibilityIdentifier("screen.aiReview")
+        .onReceive(NotificationCenter.default.publisher(for: .viewLensSetWorkbenchMode)) { notification in
+            if let mode = notification.object as? WorkbenchViewMode {
+                displayMode = mode
+            }
+        }
         .fileExporter(isPresented: $showsExporter, document: exportDocument, contentType: exportFormat.contentType, defaultFilename: exportFilename) { result in
             exportMessage = switch result {
             case .success: "Export completed."

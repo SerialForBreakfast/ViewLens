@@ -19,26 +19,15 @@ struct ContentView: View {
         .fileImporter(
             isPresented: $navigation.showsImporter,
             allowedContentTypes: [.png, .jpeg, .heic, .image],
-            allowsMultipleSelection: false
-        ) { result in
-            if case .success(let urls) = result, let url = urls.first {
-                model.auditDroppedImage(url: url)
-                navigation.destination = .aiReview
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .viewLensNavigate)) { notification in
-            guard let rawValue = notification.object as? String,
-                  let newDestination = AppDestination(rawValue: rawValue) else { return }
-            navigation.destination = newDestination
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .viewLensImport)) { _ in
-            navigation.showsImporter = true
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .viewLensToggleInspector)) { _ in
-            navigation.showsInspector.toggle()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .viewLensRerun)) { _ in
-            model.renderPlaygroundTemplate()
+            allowsMultipleSelection: false,
+            onCompletion: handleImport
+        )
+        .modifier(AppNotificationHandlerModifier(model: model, navigation: navigation))
+    }
+
+    private func handleImport(result: Result<[URL], Error>) {
+        if case .success(let urls) = result, let url = urls.first {
+            model.auditDroppedImage(url: url)
             navigation.destination = .aiReview
         }
     }
@@ -167,6 +156,54 @@ struct ContentView: View {
         case .history: return "Shows previous review activity"
         case .settings: return "Configures ViewLens preferences and diagnostics"
         }
+    }
+}
+
+private struct AppNotificationHandlerModifier: ViewModifier {
+    @Bindable var model: AppModel
+    @Bindable var navigation: NavigationStore
+
+    func body(content: Content) -> some View {
+        content
+            .onReceive(NotificationCenter.default.publisher(for: .viewLensNavigate)) { notification in
+                guard let rawValue = notification.object as? String,
+                      let newDestination = AppDestination(rawValue: rawValue) else { return }
+                navigation.destination = newDestination
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .viewLensImport)) { _ in
+                navigation.showsImporter = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .viewLensToggleInspector)) { _ in
+                navigation.showsInspector.toggle()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .viewLensRerun)) { _ in
+                model.renderPlaygroundTemplate()
+                navigation.destination = .aiReview
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .viewLensSelectNextElement)) { _ in
+                model.moveElementSelection(by: 1)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .viewLensSelectPreviousElement)) { _ in
+                model.moveElementSelection(by: -1)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .viewLensSelectNextFinding)) { _ in
+                model.moveFindingSelection(by: 1)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .viewLensSelectPreviousFinding)) { _ in
+                model.moveFindingSelection(by: -1)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .viewLensToggleOverlays)) { _ in
+                model.showOverlays.toggle()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .viewLensToggleLabels)) { _ in
+                model.showElementLabels.toggle()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .viewLensToggleSafeAreas)) { _ in
+                model.showSafeAreaGuides.toggle()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .viewLensCopyRemediation)) { _ in
+                model.copySelectedRemediation()
+            }
     }
 }
 

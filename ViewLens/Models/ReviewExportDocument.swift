@@ -72,6 +72,8 @@ struct ReviewExportDocument: FileDocument {
             }
             if let preview = annotatedPNGData() {
                 files["annotated-preview.png"] = FileWrapper(regularFileWithContents: preview)
+                let overlayDesc = previewOverlayTextualDescription()
+                files["annotated-preview-description.txt"] = FileWrapper(regularFileWithContents: Data(overlayDesc.utf8))
             }
             return FileWrapper(directoryWithFileWrappers: files)
         }
@@ -205,6 +207,39 @@ struct ReviewExportDocument: FileDocument {
             lines.append("")
         }
 
+        lines += [
+            "## Visual Overlay Equivalents",
+            "",
+            previewOverlayTextualDescription(),
+            ""
+        ]
+
+        return lines.joined(separator: "\n")
+    }
+
+    func previewOverlayTextualDescription() -> String {
+        var lines = [
+            "Textual Overlay Equivalent & Spatial Layout",
+            "Target: \(review.source.displayName)",
+            "Review ID: \(review.id.uuidString)",
+            "Status: \(review.status.displayName)",
+            ""
+        ]
+        if review.findings.isEmpty {
+            lines.append("No visual overlay highlights (all evaluated criteria passed without finding annotations).")
+        } else {
+            lines.append("Visual Finding Overlays (\(review.findings.count)):")
+            for finding in review.findings {
+                let loc: String
+                if let index = finding.issue.elementIndex, review.elements.indices.contains(index) {
+                    let box = review.elements[index].boundingBox
+                    loc = "at box [x: \(String(format: "%.2f", box.x)), y: \(String(format: "%.2f", box.y)), w: \(String(format: "%.2f", box.width)), h: \(String(format: "%.2f", box.height))]"
+                } else {
+                    loc = "at screen scope"
+                }
+                lines.append("- [\(finding.issue.severity.rawValue.uppercased())] \(finding.issue.displayTitle) \(loc) (Finding ID: \(finding.id))")
+            }
+        }
         return lines.joined(separator: "\n")
     }
 

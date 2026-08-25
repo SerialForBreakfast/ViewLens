@@ -98,10 +98,10 @@ NV-1 is the contract shared by every later surface. NV-2 and NV-3 may proceed in
 - [x] **NV-2.2** Synchronize outline, canvas, finding, and source selection without moving VoiceOver focus unexpectedly; selection changes announce a concise status only when initiated outside the focused representation.
 - [x] **NV-2.3** Add custom VoiceOver rotors for critical findings, all findings, unlabeled controls, headings, interactive elements, semantic mismatches, and not-evaluated evidence.
 - [x] **NV-2.4** Expose each element's name, role, value, state, actions, region, relational position, size, confidence, issue count, and evidence provenance through structured accessibility children.
-- [ ] **NV-2.5** Replace pointer-oriented canvas guidance with input-aware instructions and ensure import, pan alternatives, element navigation, filtering, comparison, export, and cancellation are fully operable from menus and keyboard.
+- [x] **NV-2.5** Replace pointer-oriented canvas guidance with input-aware instructions and ensure import, pan alternatives, element navigation, filtering, comparison, export, and cancellation are fully operable from menus and keyboard.
 - [x] **NV-2.6** Add explicit speech, braille, and developer-detail preferences; preserve them per user and never enable them solely because VoiceOver is running.
-- [ ] **NV-2.7** Add a textual design-diff view grouped by accessibility impact, semantic impact, layout impact, and cosmetic-only changes.
-- [ ] **NV-2.8** Provide accessible chart data tables and concise trend summaries with direct navigation to the reviews responsible for material changes.
+- [x] **NV-2.7** Add a textual design-diff view grouped by accessibility impact, semantic impact, layout impact, and cosmetic-only changes.
+- [x] **NV-2.8** Provide accessible chart data tables and concise trend summaries with direct navigation to the reviews responsible for material changes.
 - [ ] **NV-2.9** Throttle announcements to phase changes, input-required decisions, new blocking findings, cancellation, failure, and completion; never announce every percentage tick.
 - [ ] **NV-2.10** Add Mac UI tests for complete keyboard and VoiceOver execution of NV-J1 through NV-J4, including minimum window size, Increase Contrast, Reduce Motion, and Differentiate Without Color.
 
@@ -114,7 +114,7 @@ NV-1 is the contract shared by every later surface. NV-2 and NV-3 may proceed in
 - [x] **NV-3.3** Define a shared `NonvisualPresentationProfile` for MCP, CLI, and exports with speech, braille, and developer detail; presentation changes must not alter underlying evidence.
 - [x] **NV-3.4** Add CLI formats and flags for concise screen summary, outline, transcript, mismatch-only output, and textual design diff without requiring image or ANSI-canvas interpretation.
 - [ ] **NV-3.5** Make durable task status messages concise and meaningful in speech and braille, and expose task input-required decisions without repeated polling narration.
-- [ ] **NV-3.6** Extend Markdown, JSON, and report-bundle exports with the nonvisual model, stable anchors, evidence provenance, and textual equivalents for every overlay, chart, and heatmap.
+- [x] **NV-3.6** Extend Markdown, JSON, and report-bundle exports with the nonvisual model, stable anchors, evidence provenance, and textual equivalents for every overlay, chart, and heatmap.
 - [ ] **NV-3.7** Add golden MCP/CLI fixtures for complete, partial, inferred, unavailable, cancelled, expired, and input-required nonvisual workflows across supported compatibility eras.
 - [ ] **NV-3.8** Add token and output-size budgets with summary-first pagination so screen-reader users and LLM clients can request detail without receiving an unbounded transcript.
 
