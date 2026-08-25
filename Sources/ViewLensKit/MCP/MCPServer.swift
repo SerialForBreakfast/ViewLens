@@ -917,6 +917,37 @@ public final class MCPServer: Sendable {
             "required": .array([.string("template")])
         ])
 
+        let flowCrawlSchema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "template": .object(["type": .string("string"), "description": .string("Target registered template to crawl.")]),
+                "max_depth": .object(["type": .string("number"), "description": .string("Maximum state crawl depth.")]),
+                "max_states": .object(["type": .string("number"), "description": .string("Maximum states to discover.")]),
+                "max_duration_ms": .object(["type": .string("number"), "description": .string("Maximum wall-clock crawl duration in milliseconds.")])
+            ]),
+            "required": .array([.string("template")])
+        ])
+
+        let traceToSourceSchema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "element_id": .object(["type": .string("string"), "description": .string("Target element identifier.")]),
+                "template": .object(["type": .string("string"), "description": .string("Target template name.")]),
+                "workspace_root": .object(["type": .string("string"), "description": .string("Root path of the workspace.")])
+            ]),
+            "required": .array([.string("element_id"), .string("template")])
+        ])
+
+        let verifyChangesSchema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "template": .object(["type": .string("string"), "description": .string("Target registered template.")]),
+                "changed_files": .object(["type": .string("array"), "items": .object(["type": .string("string")]), "description": .string("Paths of modified source files.")]),
+                "baseline_issues": .object(["type": .string("array"), "items": .object(["type": .string("string")]), "description": .string("Issue identifiers before fix.")])
+            ]),
+            "required": .array([.string("template"), .string("changed_files")])
+        ])
+
         var tools = [
             MCPTool(
                 name: "viewlens_doctor",
@@ -1076,6 +1107,33 @@ public final class MCPServer: Sendable {
                     title: "Analyze Accessibility Focus Graph",
                     description: "Analyzes keyboard focus order, reading order, and detects accessibility traps.",
                     inputSchema: strictInputSchema(accessibilityGraphSchema),
+                    outputSchema: sessionObjectSchema,
+                    icons: viewLensToolIcons(),
+                    annotations: MCPTool.Annotations()
+                ),
+                MCPTool(
+                    name: "viewlens_flow_crawl",
+                    title: "Crawl UI State Space",
+                    description: "Performs bounded exploration of reachable UI states with loop detection and state classification.",
+                    inputSchema: strictInputSchema(flowCrawlSchema),
+                    outputSchema: sessionObjectSchema,
+                    icons: viewLensToolIcons(),
+                    annotations: MCPTool.Annotations()
+                ),
+                MCPTool(
+                    name: "viewlens_trace_to_source",
+                    title: "Trace Element to Source Code",
+                    description: "Traces a visual/accessibility element or template back to responsible source file and symbol.",
+                    inputSchema: strictInputSchema(traceToSourceSchema),
+                    outputSchema: sessionObjectSchema,
+                    icons: viewLensToolIcons(),
+                    annotations: MCPTool.Annotations()
+                ),
+                MCPTool(
+                    name: "viewlens_verify_changes",
+                    title: "Verify Source Changes (Closed-Loop)",
+                    description: "Verifies agent-applied source changes against baseline findings to classify resolved issues and regressions.",
+                    inputSchema: strictInputSchema(verifyChangesSchema),
                     outputSchema: sessionObjectSchema,
                     icons: viewLensToolIcons(),
                     annotations: MCPTool.Annotations()
@@ -2212,6 +2270,131 @@ public final class MCPServer: Sendable {
                 text: jsonText,
                 structuredContent: modern ? graphJSON : nil,
                 isError: false,
+                modern: modern
+            )
+            let response = JSONRPCResponse(id: request.id, result: result)
+            return try? JSONEncoder().encode(response)
+
+        case "viewlens_flow_crawl":
+            guard let template = arguments["template"]?.stringValue else {
+                let message = "Missing required 'template' parameter"
+                let result = MCPToolCallResult(
+                    text: JSONFormatter.errorJSON(message: message),
+                    structuredContent: nil,
+                    isError: true,
+                    modern: modern
+                )
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+
+            let maxDepth = Int(arguments["max_depth"]?.doubleValue ?? 3.0)
+            let maxStates = Int(arguments["max_states"]?.doubleValue ?? 10.0)
+            let maxDurationMs = arguments["max_duration_ms"]?.doubleValue ?? 5000.0
+
+            let snapshots = await TemplateRegistry.shared.accessibilitySnapshots(named: template) ?? []
+            let nodes: [NativeAccessibilityNode] = snapshots.enumerated().map { index, snap in
+                var traits: Set<NativeAccessibilityTrait> = []
+                if let role = snap.role {
+                    if role.localizedCaseInsensitiveContains("button") { traits.insert(.isButton) }
+                    if role.localizedCaseInsensitiveContains("header") { traits.insert(.isHeader) }
+                    if role.localizedCaseInsensitiveContains("image") { traits.insert(.isImage) }
+                    if role.localizedCaseInsensitiveContains("text") { traits.insert(.isStaticText) }
+                }
+                let yOffset = 0.1 * Double(index + 1)
+                return NativeAccessibilityNode(
+                    id: NonvisualID("node_\(index)"),
+                    label: snap.label,
+                    value: snap.value,
+                    traits: traits,
+                    frame: BoundingBox(x: 0.1, y: yOffset, width: 0.8, height: 0.08),
+                    provenance: EvidenceProvenance(kind: .measured, source: "flowCrawl", confidence: 1.0)
+                )
+            }
+
+            let crawlReport = StateCrawler.crawl(templateName: template, nodes: nodes, maxDepth: maxDepth, maxStates: maxStates, maxDurationMs: maxDurationMs)
+            let crawlJSON = (try? JSONValue.fromEncodable(crawlReport)) ?? .object([:])
+            let jsonText = (try? String(data: JSONEncoder().encode(crawlReport), encoding: .utf8)) ?? "{}"
+
+            let result = MCPToolCallResult(
+                text: jsonText,
+                structuredContent: modern ? crawlJSON : nil,
+                isError: false,
+                modern: modern
+            )
+            let response = JSONRPCResponse(id: request.id, result: result)
+            return try? JSONEncoder().encode(response)
+
+        case "viewlens_trace_to_source":
+            guard let elementID = arguments["element_id"]?.stringValue,
+                  let template = arguments["template"]?.stringValue else {
+                let message = "Missing required 'element_id' or 'template' parameter"
+                let result = MCPToolCallResult(
+                    text: JSONFormatter.errorJSON(message: message),
+                    structuredContent: nil,
+                    isError: true,
+                    modern: modern
+                )
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+
+            let root = arguments["workspace_root"]?.stringValue ?? FileManager.default.currentDirectoryPath
+            let sourceRecord = SourceProvenanceEngine.traceSource(elementID: elementID, templateName: template, workspaceRoot: root)
+            let srcJSON = (try? JSONValue.fromEncodable(sourceRecord)) ?? .object([:])
+            let jsonText = (try? String(data: JSONEncoder().encode(sourceRecord), encoding: .utf8)) ?? "{}"
+
+            let result = MCPToolCallResult(
+                text: jsonText,
+                structuredContent: modern ? srcJSON : nil,
+                isError: false,
+                modern: modern
+            )
+            let response = JSONRPCResponse(id: request.id, result: result)
+            return try? JSONEncoder().encode(response)
+
+        case "viewlens_verify_changes":
+            guard let template = arguments["template"]?.stringValue else {
+                let message = "Missing required 'template' parameter"
+                let result = MCPToolCallResult(
+                    text: JSONFormatter.errorJSON(message: message),
+                    structuredContent: nil,
+                    isError: true,
+                    modern: modern
+                )
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+
+            var changedFiles: [String] = []
+            if let arr = arguments["changed_files"]?.arrayValue {
+                changedFiles = arr.compactMap(\.stringValue)
+            }
+
+            var baselineIssues: [String] = []
+            if let arr = arguments["baseline_issues"]?.arrayValue {
+                baselineIssues = arr.compactMap(\.stringValue)
+            }
+
+            let changeSet = ChangeSet(changedFiles: changedFiles, targetTemplate: template)
+            // Audit current state of the template
+            let auditResult = await runAuditView(
+                templateName: template,
+                deviceNames: ["iPhoneSE"],
+                dtSizes: ["large"],
+                schemes: ["light"],
+                execution: execution
+            )
+            let currentIssues = auditResult?.report?.permutations.values.flatMap(\.issues).map { $0.kind.rawValue } ?? []
+
+            let fixReport = FixVerifier.verify(changeSet: changeSet, baselineIssues: baselineIssues, currentIssues: currentIssues)
+            let fixJSON = (try? JSONValue.fromEncodable(fixReport)) ?? .object([:])
+            let jsonText = (try? String(data: JSONEncoder().encode(fixReport), encoding: .utf8)) ?? "{}"
+
+            let result = MCPToolCallResult(
+                text: jsonText,
+                structuredContent: modern ? fixJSON : nil,
+                isError: !fixReport.passed,
                 modern: modern
             )
             let response = JSONRPCResponse(id: request.id, result: result)

@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 /// Native accessibility traits modeled after UIAccessibilityTraits and NSAccessibility roles.
 public enum NativeAccessibilityTrait: String, Codable, Sendable, Equatable, Hashable, CaseIterable {
@@ -30,6 +31,11 @@ public struct NativeAccessibilityNode: Codable, Sendable, Equatable, Hashable, I
     public let isAccessibilityElement: Bool
     public let children: [NonvisualID]
     public let provenance: EvidenceProvenance
+    /// Explicit accessibility activation point (e.g. `accessibilityActivationPoint`), in the same
+    /// normalized coordinate space as `frame`. Only set when instrumented from a real accessibility
+    /// override; `nil` means no override was reported, not that one is absent, so callers must not
+    /// infer a value (e.g. the frame's center) when this is `nil`.
+    public let activationPoint: CGPoint?
 
     public init(
         id: NonvisualID,
@@ -42,7 +48,8 @@ public struct NativeAccessibilityNode: Codable, Sendable, Equatable, Hashable, I
         headingLevel: Int? = nil,
         isAccessibilityElement: Bool = true,
         children: [NonvisualID] = [],
-        provenance: EvidenceProvenance
+        provenance: EvidenceProvenance,
+        activationPoint: CGPoint? = nil
     ) {
         self.id = id
         self.label = label
@@ -55,6 +62,7 @@ public struct NativeAccessibilityNode: Codable, Sendable, Equatable, Hashable, I
         self.isAccessibilityElement = isAccessibilityElement
         self.children = children.sorted()
         self.provenance = provenance
+        self.activationPoint = activationPoint
     }
 }
 
