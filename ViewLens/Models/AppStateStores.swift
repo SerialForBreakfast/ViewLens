@@ -230,6 +230,7 @@ public final class PreferenceStore {
         static let differentiateWithoutColor = "viewlens.differentiateWithoutColor"
         static let nonvisualProfile = "viewlens.nonvisualProfile"
         static let announcePhaseChanges = "viewlens.announcePhaseChanges"
+        static let redactNonvisualSecrets = "viewlens.redactNonvisualSecrets"
     }
 
     var appearance: String { didSet { defaults.set(appearance, forKey: Key.appearance) } }
@@ -248,6 +249,7 @@ public final class PreferenceStore {
     var differentiateWithoutColor: Bool { didSet { defaults.set(differentiateWithoutColor, forKey: Key.differentiateWithoutColor) } }
     var nonvisualProfile: String { didSet { defaults.set(nonvisualProfile, forKey: Key.nonvisualProfile) } }
     var announcePhaseChanges: Bool { didSet { defaults.set(announcePhaseChanges, forKey: Key.announcePhaseChanges) } }
+    var redactNonvisualSecrets: Bool { didSet { defaults.set(redactNonvisualSecrets, forKey: Key.redactNonvisualSecrets) } }
 
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -269,6 +271,7 @@ public final class PreferenceStore {
         differentiateWithoutColor = defaults.object(forKey: Key.differentiateWithoutColor) as? Bool ?? true
         nonvisualProfile = defaults.string(forKey: Key.nonvisualProfile) ?? "Speech"
         announcePhaseChanges = defaults.object(forKey: Key.announcePhaseChanges) as? Bool ?? true
+        redactNonvisualSecrets = defaults.object(forKey: Key.redactNonvisualSecrets) as? Bool ?? false
     }
 
     var retentionDays: Int? {

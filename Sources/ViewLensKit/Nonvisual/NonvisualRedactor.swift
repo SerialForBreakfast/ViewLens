@@ -9,7 +9,8 @@ public enum NonvisualRedactor {
         "bearer", "authorization", "ssn", "creditcard", "cvv"
     ]
 
-    public static func redact(_ model: NonvisualScreenModel) -> NonvisualScreenModel {
+    public static func redact(_ model: NonvisualScreenModel, enabled: Bool = true) -> NonvisualScreenModel {
+        guard enabled else { return model }
         let redactedElements = model.elements.map(redact(element:))
         return NonvisualScreenModel(
             schemaVersion: model.schemaVersion,

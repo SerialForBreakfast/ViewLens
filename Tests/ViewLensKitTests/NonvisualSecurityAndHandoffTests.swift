@@ -28,20 +28,24 @@ struct NonvisualSecurityAndHandoffTests {
             elements: [passwordElement, tokenElement]
         )
 
-        let redacted = NonvisualRedactor.redact(screen)
+        // 1. When redaction is disabled (default), secrets are preserved intact
+        let unredacted = NonvisualRedactor.redact(screen, enabled: false)
+        let unredactedPwd = unredacted.elements.first { $0.id == NonvisualID("el:pwd") }
+        #expect(unredactedPwd?.visibleLabel == "MySecretPassword123")
+        #expect(unredactedPwd?.semantics?.value == "SuperSecret99!")
 
-        // 1. Password elements should have masked values
+        // 2. When redaction is enabled, secrets are scrubbed
+        let redacted = NonvisualRedactor.redact(screen, enabled: true)
+
         let redactedPwd = redacted.elements.first { $0.id == NonvisualID("el:pwd") }
         #expect(redactedPwd?.visibleLabel == "••••••••")
         #expect(redactedPwd?.semantics?.value == "••••••••")
 
-        // 2. Token element should have masked token pattern
         let redactedToken = redacted.elements.first { $0.id == NonvisualID("el:label_token") }
         #expect(redactedToken?.visibleLabel?.contains("[REDACTED_SECRET]") == true)
         #expect(redactedToken?.visibleLabel?.contains("secret_payload") == false)
         #expect(redactedToken?.semantics?.accessibleName?.contains("[REDACTED_SECRET]") == true)
 
-        // 3. Screen title should have masked Bearer pattern
         #expect(redacted.title?.contains("Bearer [REDACTED_SECRET]") == true)
     }
 

@@ -93,6 +93,7 @@ struct ViewLensSettingsView: View {
             }
             Toggle("Announce review phase changes in VoiceOver", isOn: $preferences.announcePhaseChanges)
             Toggle("Differentiate overlays without color", isOn: $preferences.differentiateWithoutColor)
+            Toggle("Redact secure input values in nonvisual exports", isOn: $preferences.redactNonvisualSecrets)
             HStack(spacing: 16) {
                 Label("Error · solid", systemImage: "xmark.octagon.fill").foregroundStyle(.red)
                 Label("Warning · dashed", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
