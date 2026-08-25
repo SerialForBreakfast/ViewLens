@@ -23,21 +23,25 @@ public final class MCPServer: Sendable {
     private let resourceStore: MCPResourceStore
     private let protocolRuntime: MCPProtocolRuntime
     private let taskStore: MCPTaskStore
+    private let sessionStore: RuntimeSessionStore
 
     public init() {
         self.resourceStore = MCPResourceStore()
         self.protocolRuntime = MCPProtocolRuntime()
         self.taskStore = MCPTaskStore()
+        self.sessionStore = RuntimeSessionStore()
     }
 
     init(
         resourceStore: MCPResourceStore,
         protocolRuntime: MCPProtocolRuntime = MCPProtocolRuntime(),
-        taskStore: MCPTaskStore = MCPTaskStore()
+        taskStore: MCPTaskStore = MCPTaskStore(),
+        sessionStore: RuntimeSessionStore = RuntimeSessionStore()
     ) {
         self.resourceStore = resourceStore
         self.protocolRuntime = protocolRuntime
         self.taskStore = taskStore
+        self.sessionStore = sessionStore
     }
 
     /// Starts the blocking stdio JSON-RPC request loop.
@@ -762,7 +766,62 @@ public final class MCPServer: Sendable {
             "required": .array([.string("reference_image"), .string("template")])
         ])
 
-        return [
+        let destinationsListSchema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "workspace_root": .object([
+                    "type": .string("string"),
+                    "description": .string("Optional workspace root directory to scan for local app targets.")
+                ])
+            ])
+        ])
+
+        let sessionCreateSchema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "destination_id": .object([
+                    "type": .string("string"),
+                    "description": .string("Target destination identifier (e.g. 'macos_host' or 'sim_iphone_16_pro').")
+                ]),
+                "workspace_root": .object([
+                    "type": .string("string"),
+                    "description": .string("Absolute path to workspace root.")
+                ]),
+                "bundle_identifier": .object([
+                    "type": .string("string"),
+                    "description": .string("Optional bundle identifier of target application.")
+                ]),
+                "ttl_seconds": .object([
+                    "type": .string("number"),
+                    "description": .string("Session lease time-to-live in seconds (default 1800s / 30m).")
+                ])
+            ]),
+            "required": .array([.string("workspace_root")])
+        ])
+
+        let sessionGetSchema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "session_id": .object([
+                    "type": .string("string"),
+                    "description": .string("Unique session handle.")
+                ])
+            ]),
+            "required": .array([.string("session_id")])
+        ])
+
+        let sessionCloseSchema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "session_id": .object([
+                    "type": .string("string"),
+                    "description": .string("Unique session handle to close.")
+                ])
+            ]),
+            "required": .array([.string("session_id")])
+        ])
+
+        var tools = [
             MCPTool(
                 name: "viewlens_doctor",
                 title: modern ? "Check ViewLens Readiness" : nil,
@@ -817,6 +876,55 @@ public final class MCPServer: Sendable {
                 annotations: modern ? MCPTool.Annotations() : nil
             )
         ]
+
+        if modern {
+            let sessionObjectSchema: JSONValue = .object([
+                "$schema": .string("https://json-schema.org/draft/2020-12/schema"),
+                "type": .string("object"),
+                "additionalProperties": .bool(true)
+            ])
+
+            tools.append(contentsOf: [
+                MCPTool(
+                    name: "viewlens_destinations_list",
+                    title: "List Inspection Destinations",
+                    description: "Discovers available macOS running host applications and Apple iOS Simulators.",
+                    inputSchema: strictInputSchema(destinationsListSchema),
+                    outputSchema: sessionObjectSchema,
+                    icons: viewLensToolIcons(),
+                    annotations: MCPTool.Annotations()
+                ),
+                MCPTool(
+                    name: "viewlens_session_create",
+                    title: "Create Runtime Review Session",
+                    description: "Creates an isolated, bounded review session on a macOS app or iOS Simulator destination with an expiring lease.",
+                    inputSchema: strictInputSchema(sessionCreateSchema),
+                    outputSchema: sessionObjectSchema,
+                    icons: viewLensToolIcons(),
+                    annotations: MCPTool.Annotations()
+                ),
+                MCPTool(
+                    name: "viewlens_session_get",
+                    title: "Get Runtime Session Status",
+                    description: "Queries the active status and TTL lease of a runtime review session.",
+                    inputSchema: strictInputSchema(sessionGetSchema),
+                    outputSchema: sessionObjectSchema,
+                    icons: viewLensToolIcons(),
+                    annotations: MCPTool.Annotations()
+                ),
+                MCPTool(
+                    name: "viewlens_session_close",
+                    title: "Close Runtime Session",
+                    description: "Terminates and releases an active runtime review session.",
+                    inputSchema: strictInputSchema(sessionCloseSchema),
+                    outputSchema: sessionObjectSchema,
+                    icons: viewLensToolIcons(),
+                    annotations: MCPTool.Annotations()
+                )
+            ])
+        }
+
+        return tools
     }
 
     private func strictInputSchema(_ schema: JSONValue) -> JSONValue {
@@ -1474,6 +1582,114 @@ public final class MCPServer: Sendable {
                 modern: modern
             )
             guard await execution.report(progress: 100, message: "Design verification complete") else { return nil }
+            let response = JSONRPCResponse(id: request.id, result: result)
+            return try? JSONEncoder().encode(response)
+
+        case "viewlens_destinations_list":
+            let workspaceRoot = arguments["workspace_root"]?.stringValue
+            let destinations = DestinationDiscovery.discoverDestinations(workspaceRoot: workspaceRoot)
+            let destJSON = (try? JSONValue.fromEncodable(destinations)) ?? .array([])
+            let jsonText = (try? String(data: JSONEncoder().encode(destinations), encoding: .utf8)) ?? "[]"
+            let result = MCPToolCallResult(
+                text: jsonText,
+                structuredContent: modern ? .object(["destinations": destJSON]) : nil,
+                isError: false,
+                modern: modern
+            )
+            let response = JSONRPCResponse(id: request.id, result: result)
+            return try? JSONEncoder().encode(response)
+
+        case "viewlens_session_create":
+            let workspaceRoot = arguments["workspace_root"]?.stringValue ?? FileManager.default.currentDirectoryPath
+            let destID = arguments["destination_id"]?.stringValue
+            let bundleID = arguments["bundle_identifier"]?.stringValue
+            let ttl = arguments["ttl_seconds"]?.doubleValue ?? RuntimeSessionStore.defaultTTL
+
+            let destinations = DestinationDiscovery.discoverDestinations(workspaceRoot: workspaceRoot)
+            guard let destination = DestinationDiscovery.resolveDestination(id: destID, in: destinations) else {
+                let message = "Destination '\(destID ?? "default")' not found or unavailable"
+                let result = MCPToolCallResult(
+                    text: JSONFormatter.errorJSON(message: message),
+                    structuredContent: nil,
+                    isError: true,
+                    modern: modern
+                )
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+
+            let session = await sessionStore.createSession(
+                destination: destination,
+                workspaceRoot: workspaceRoot,
+                bundleIdentifier: bundleID,
+                ttlSeconds: ttl
+            )
+            let sessionJSON = (try? JSONValue.fromEncodable(session)) ?? .object([:])
+            let jsonText = (try? String(data: JSONEncoder().encode(session), encoding: .utf8)) ?? "{}"
+            let result = MCPToolCallResult(
+                text: jsonText,
+                structuredContent: modern ? sessionJSON : nil,
+                isError: false,
+                modern: modern
+            )
+            let response = JSONRPCResponse(id: request.id, result: result)
+            return try? JSONEncoder().encode(response)
+
+        case "viewlens_session_get":
+            guard let sessionID = arguments["session_id"]?.stringValue else {
+                let message = "Missing required 'session_id' parameter"
+                let result = MCPToolCallResult(
+                    text: JSONFormatter.errorJSON(message: message),
+                    structuredContent: nil,
+                    isError: true,
+                    modern: modern
+                )
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+            guard let session = await sessionStore.getSession(id: sessionID) else {
+                let message = "Session '\(sessionID)' not found or expired"
+                let result = MCPToolCallResult(
+                    text: JSONFormatter.errorJSON(message: message),
+                    structuredContent: nil,
+                    isError: true,
+                    modern: modern
+                )
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+            let sessionJSON = (try? JSONValue.fromEncodable(session)) ?? .object([:])
+            let jsonText = (try? String(data: JSONEncoder().encode(session), encoding: .utf8)) ?? "{}"
+            let result = MCPToolCallResult(
+                text: jsonText,
+                structuredContent: modern ? sessionJSON : nil,
+                isError: false,
+                modern: modern
+            )
+            let response = JSONRPCResponse(id: request.id, result: result)
+            return try? JSONEncoder().encode(response)
+
+        case "viewlens_session_close":
+            guard let sessionID = arguments["session_id"]?.stringValue else {
+                let message = "Missing required 'session_id' parameter"
+                let result = MCPToolCallResult(
+                    text: JSONFormatter.errorJSON(message: message),
+                    structuredContent: nil,
+                    isError: true,
+                    modern: modern
+                )
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+            let closed = await sessionStore.closeSession(id: sessionID)
+            let status = closed != nil ? "closed" : "not_found"
+            let jsonText = "{\"status\": \"\(status)\", \"session_id\": \"\(sessionID)\"}"
+            let result = MCPToolCallResult(
+                text: jsonText,
+                structuredContent: modern ? .object(["status": .string(status), "session_id": .string(sessionID)]) : nil,
+                isError: closed == nil,
+                modern: modern
+            )
             let response = JSONRPCResponse(id: request.id, result: result)
             return try? JSONEncoder().encode(response)
 

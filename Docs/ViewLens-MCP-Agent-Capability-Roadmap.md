@@ -106,11 +106,11 @@ M14A deliberately excludes runtime control and remote transport. It proves compa
 
 ### Session and destination model
 
-- [ ] **MCP-15.1** Define `RuntimeSession`, opaque `session_id`, ownership, TTL, lease renewal, expiry, cleanup, and reconnect behavior.
-- [ ] **MCP-15.2** Implement destination discovery for supported macOS apps and booted/available Apple simulators with stable IDs and readiness diagnostics.
+- [x] **MCP-15.1** Define `RuntimeSession`, opaque `session_id`, ownership, TTL, lease renewal, expiry, cleanup, and reconnect behavior.
+- [x] **MCP-15.2** Implement destination discovery for supported macOS apps and booted/available Apple simulators with stable IDs and readiness diagnostics.
 - [ ] **MCP-15.3** Define a scoped launch descriptor: workspace root, project/workspace, scheme, configuration, destination, bundle identifier, launch arguments, and approved environment keys.
 - [ ] **MCP-15.4** Build a process abstraction with allowlisted `xcodebuild`/`simctl` operations; reject arbitrary executable names, shell fragments, unresolved paths, and out-of-scope targets.
-- [ ] **MCP-15.5** Add `viewlens_session_create`, `viewlens_session_get`, `viewlens_session_close`, and `viewlens_destinations_list` tools.
+- [x] **MCP-15.5** Add `viewlens_session_create`, `viewlens_session_get`, `viewlens_session_close`, and `viewlens_destinations_list` tools.
 
 ### Native capture and queries
 
