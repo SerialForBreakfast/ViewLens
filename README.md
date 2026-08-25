@@ -5,7 +5,8 @@
 [![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B%20%7C%20Mac%20Catalyst-black?logo=apple)](https://developer.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/Swift-6.0-orange?logo=swift)](https://swift.org)
 [![CoreML](https://img.shields.io/badge/Inference-CoreML%20%2F%20ANE-blue)](https://developer.apple.com/documentation/coreml)
-[![Model](https://img.shields.io/badge/Model-NativeUIAuditKit%20YOLO11n-green)](https://github.com/SerialForBreakfast/NativeUIAuditKit)
+[![WCAG 2.2](https://img.shields.io/badge/WCAG-2.2%20Level%20AAA-brightgreen)](https://www.w3.org/WAI/standards-guidelines/wcag/)
+[![VoiceOver](https://img.shields.io/badge/VoiceOver-Nonvisual%20Authoring-blueviolet)](Docs/ViewLens-Nonvisual-Authoring-Guide.md)
 [![MCP](https://img.shields.io/badge/MCP-100%25%20Pure%20Swift%20stdio-purple)](https://modelcontextprotocol.io)
 [![Zero-Dependencies](https://img.shields.io/badge/Dependencies-Zero%20Python-success)](https://swift.org)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -14,7 +15,7 @@
 
 ## Overview
 
-**ViewLens** is a single, standalone native macOS CLI and Model Context Protocol (MCP) server that connects AI coding agents (Claude Code, Cursor, Windsurf, Xcode AI) to native Apple UI layouts.
+**ViewLens** is a single, standalone native macOS CLI and Model Context Protocol (MCP) server that connects AI coding agents (Claude Code, Cursor, Windsurf, Xcode AI) and software engineers—**including blind and low-vision developers**—to native Apple UI layouts, W3C WCAG 2.2 accessibility validation, and Apple HIG compliance.
 
 **100% Pure Swift**: ViewLens contains **zero Python or pip dependencies**. The MCP server runs directly inside the native `viewlens` binary (`viewlens mcp`) using in-process Swift JSON-RPC 2.0.
 
@@ -23,6 +24,8 @@ By combining an ultra-fast **dual-tier headless canvas renderer** with the fine-
 ### Why ViewLens?
 
 - ⚡ **Zero Python / 100% Pure Swift**: Single native macOS binary. No `pip`, no Python runtime, no virtual environments.
+- ♿ **Pioneering Nonvisual Authoring for Blind Developers**: Transforms visual Xcode canvas previews and simulators into VoiceOver-accessible hierarchies, spoken speech streams, 40-cell braille simulations, and semantic spatial queries.
+- 🎯 **W3C WCAG 2.2 Level A/AA/AAA Auditing**: Enforces programmatic Name/Role/Value (4.1.2), level-aware Touch Target sizing (2.5.8 AA / 2.5.5 AAA), Light/Dark contrast (1.4.3 / 1.4.6), and Dynamic Type AX1–AX5 reflow.
 - 🧠 **Token-Free UI Audits**: LLMs receive structured JSON coordinate geometry (`x`, `y`, `width`, `height` in normalized top-left space) and semantic issue classifications rather than raw image pixels.
 - 🏎️ **Dual-Tier Headless Canvas (Zero Simulator Boot Matrix)**:
   - **SwiftUI Views**: Rendered in-process on macOS via `ImageRenderer` in $<5\text{ms}$ with injected device dimensions, Dynamic Type sizes, and color schemes.
@@ -183,6 +186,76 @@ Launches the 100% pure Swift Model Context Protocol (MCP) server over standard I
 ```bash
 viewlens mcp
 ```
+
+---
+
+## ♿ Accessibility & Nonvisual Authoring for Blind Developers
+
+Historically, blind and low-vision Apple platform developers have faced a steep barrier: Xcode's SwiftUI Canvas previews, Interface Builder, and running iOS Simulator windows are visual-only pixels that cannot be meaningfully inspected with a screen reader. 
+
+ViewLens solves this by converting visual UI layouts, device permutations, and accessibility trees into a **structured, VoiceOver-first nonvisual authoring environment and automated WCAG 2.2 / Apple HIG auditing engine**.
+
+For full workflows, keyboard maps, and agent prompts, see the [ViewLens Nonvisual Authoring Guide](Docs/ViewLens-Nonvisual-Authoring-Guide.md).
+
+```mermaid
+flowchart LR
+    subgraph Input["1. Layout Source"]
+        SwiftUI["SwiftUI / UIKit Code"]
+        Shot["Screenshot / Simulator"]
+    end
+
+    subgraph NonvisualEngine["2. Nonvisual Authoring Engine"]
+        Model["🧠 NonvisualScreenModel<br/>(Scalar Stable IDs)"]
+        VOPredict["🗣️ VoiceOverPredictor<br/>(Reading Order & Rotor)"]
+        Braille["⠃⠗⠇ Braille Simulation<br/>(40-Cell Pin Map)"]
+        Correlate["🔬 Visual-Semantic Correlator<br/>(CoreML vs AX Hierarchy)"]
+        Focus["🕸️ Focus Graph Engine<br/>(Trap & Cycle Detection)"]
+    end
+
+    subgraph Output["3. VoiceOver-Accessible Interfaces"]
+        MacApp["🖥️ macOS Dual-Pane Outline (⌥⌘O)"]
+        TUI["📟 Terminal Dashboard (viewlens tui)"]
+        MCP["🤖 AI Coding Agents (16 MCP Tools)"]
+    end
+
+    Input --> NonvisualEngine
+    NonvisualEngine --> Output
+```
+
+### 1. The Nonvisual Screen Model (`NonvisualScreenModel`)
+ViewLens transforms any SwiftUI/UIKit view or screenshot into a structured, scalar `NonvisualScreenModel` with deterministic identifiers (`screen_...`, `elem_...`, `finding_...`). Blind developers can inspect bounds, hierarchical parents, and spatial relationships without sighted assistance.
+
+### 2. Spoken VoiceOver Simulation & Simulated Braille Displays
+- **Spoken Speech Streams**: Predicts the exact text phrases VoiceOver will speak as a user swipes through the screen.
+- **Simulated 40-Cell Braille**: Formats refreshable braille pin displays for braille users.
+- **Rotor Inventory**: Catalogs heading levels, form controls, and custom accessibility actions.
+- **Announcement Storm Detection**: Flags rapid speech bursts ($<0.5\text{s}$) and duplicate announcements.
+
+### 3. Bi-Directional "Visual-Semantic Correlation" (The Invisible Bug Finder)
+Cross-references on-device YOLO CoreML computer vision (what sighted users see) with the native accessibility hierarchy (what VoiceOver reads):
+- **Catches Missing Semantics**: Alerts when an interactive visual button lacks `.accessibilityAddTraits(.isButton)` or `.accessibilityLabel`.
+- **Catches Invisible / Obscured Nodes**: Alerts when an accessibility node exists in code but is clipped off-screen or renders with 0x0 pixels.
+- **Flags Role Conflicts**: Detects when visual styling (e.g. primary button) conflicts with programmatic accessibility traits.
+
+### 4. Keyboard Focus Traps & Sequential Order Graphs
+Constructs the directed graph of sequential keyboard and switch-control navigation:
+- Automatically detects **focus traps** (loops where focus cannot escape a modal or card).
+- Identifies **unreachable elements** that cannot be focused via keyboard or assistive switches.
+
+### 5. Dual-Pane Outline & Terminal Dashboard
+- **macOS Desktop App (`ViewLens.app`)**: Features a VoiceOver-accessible dual-pane outline with dedicated keyboard shortcuts (`⌥⌘O` to toggle outline, `⌥⌘L` for landmarks, `⌥⌘S` for spatial relationships, `⌥⌘I` for findings).
+- **Interactive Terminal UI (`viewlens tui`)**: Provides a full-screen, keyboard-navigable ASCII layout and semantic list that works over SSH and in terminal environments.
+
+### 6. W3C WCAG 2.2 & Apple HIG Compliance Matrix
+
+| WCAG Criterion | Conformance Level | ViewLens Automated Check |
+|---|---|---|
+| **WCAG 4.1.2** (Name, Role, Value) | Level A | Verifies all interactive controls expose programmatic names, roles, and required state values. |
+| **WCAG 2.5.8** (Target Size Minimum) | Level AA | Enforces **24x24pt minimum touch target** with adjacent spacing exceptions. |
+| **WCAG 2.5.5** (Target Size Enhanced) | Level AAA | Enforces **44x44pt Apple HIG enhanced touch target** minimums. |
+| **WCAG 1.4.3** (Contrast Minimum) | Level AA | Verifies **4.5:1 text contrast** across Light and Dark appearance modes. |
+| **WCAG 1.4.6** (Contrast Enhanced) | Level AAA | Verifies **7.0:1 enhanced text contrast**. |
+| **Dynamic Type Reflow** | Level AA / HIG | Tests reflow from **Default (100%) to AX5 (312%)**, flagging text clipping and overflows. |
 
 ---
 
