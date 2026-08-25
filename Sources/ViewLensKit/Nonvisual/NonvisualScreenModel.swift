@@ -112,7 +112,7 @@ public struct NonvisualRegion: Codable, Sendable, Equatable, Hashable {
         role: String? = nil,
         bounds: BoundingBox? = nil,
         elementIDs: [NonvisualID] = [],
-        evidence: EvidenceProvenance
+        evidence: EvidenceProvenance = EvidenceProvenance(kind: .derived, source: "viewlens")
     ) {
         self.id = id
         self.label = label
@@ -150,8 +150,8 @@ public struct NonvisualElement: Codable, Sendable, Equatable, Hashable {
         isInteractive: Bool = false,
         requiresValueOrState: Bool = false,
         requiresAction: Bool = false,
-        visualEvidence: EvidenceProvenance,
-        semanticEvidence: EvidenceProvenance
+        visualEvidence: EvidenceProvenance = EvidenceProvenance(kind: .derived, source: "viewlens"),
+        semanticEvidence: EvidenceProvenance = EvidenceProvenance(kind: .derived, source: "viewlens")
     ) {
         self.id = id
         self.visualIndex = visualIndex

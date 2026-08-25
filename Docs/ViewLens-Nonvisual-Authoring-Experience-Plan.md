@@ -122,10 +122,10 @@ NV-1 is the contract shared by every later surface. NV-2 and NV-3 may proceed in
 
 ### NV-4 — Runtime accessibility and navigation intelligence
 
-- [ ] **NV-4.1** Capture native accessibility hierarchies with names, roles, values, states, hints, headings, groups, landmarks, actions, frames, identifiers, and provenance where platform APIs permit.
-- [ ] **NV-4.2** Build reading-order, keyboard-focus, and predicted VoiceOver traversal sequences as separate graphs; report divergences only when they affect understanding or operation.
-- [ ] **NV-4.3** Capture rotor candidates and custom actions, and detect missing headings, unusable grouping, action-name conflicts, duplicate exposure, and excessive announcement text.
-- [ ] **NV-4.4** Record focus before and after modal presentation, dismissal, validation errors, navigation, async updates, and state restoration; detect loss, traps, hidden focus, and background escape.
+- [x] **NV-4.1** Capture native accessibility hierarchies with names, roles, values, states, hints, headings, groups, landmarks, actions, frames, identifiers, and provenance where platform APIs permit.
+- [x] **NV-4.2** Build reading-order, keyboard-focus, and predicted VoiceOver traversal sequences as separate graphs; report divergences only when they affect understanding or operation.
+- [x] **NV-4.3** Capture rotor candidates and custom actions, and detect missing headings, unusable grouping, action-name conflicts, duplicate exposure, and excessive announcement text.
+- [x] **NV-4.4** Record focus before and after modal presentation, dismissal, validation errors, navigation, async updates, and state restoration; detect loss, traps, hidden focus, and background escape.
 - [ ] **NV-4.5** Capture accessibility announcements and status changes in fixture workflows with throttling, ordering, and duplicate-announcement analysis.
 - [ ] **NV-4.6** Produce a predicted VoiceOver transcript clearly labeled as API-derived evidence, not a recording or proof of complete VoiceOver behavior.
 - [ ] **NV-4.7** Generate bounded manual verification steps for gestures, speech timing, pronunciation, braille output, rotor behavior, and platform behavior that cannot be automated reliably.
@@ -136,11 +136,11 @@ NV-1 is the contract shared by every later surface. NV-2 and NV-3 may proceed in
 
 ### NV-5 — Semantic diff, source remediation, and verification
 
-- [ ] **NV-5.1** Implement semantic before/after diffing for elements, names, roles, values, states, actions, groups, reading order, focus order, and completeness independent of pixel SSIM.
-- [ ] **NV-5.2** Implement narrative visual diffing for added, removed, moved, resized, restyled, clipped, overlapped, and off-screen elements; separate material changes from cosmetic noise.
-- [ ] **NV-5.3** Rank changes by blocking accessibility impact, semantic impact, layout impact, and cosmetic-only impact with deterministic rationale.
-- [ ] **NV-5.4** Connect nonvisual nodes and mismatches to file, line, symbol, runtime identity, and relevant SwiftUI/UIKit accessibility modifiers where provenance exists.
-- [ ] **NV-5.5** Provide remediation context that includes current semantics, expected behavior, cited requirement, deterministic guidance, and a bounded source excerpt suitable for speech or braille.
+- [x] **NV-5.1** Implement semantic before/after diffing for elements, names, roles, values, states, actions, groups, reading order, focus order, and completeness independent of pixel SSIM.
+- [x] **NV-5.2** Implement narrative visual diffing for added, removed, moved, resized, restyled, clipped, overlapped, and off-screen elements; separate material changes from cosmetic noise.
+- [x] **NV-5.3** Rank changes by blocking accessibility impact, semantic impact, layout impact, and cosmetic-only impact with deterministic rationale.
+- [x] **NV-5.4** Connect nonvisual nodes and mismatches to file, line, symbol, runtime identity, and relevant SwiftUI/UIKit accessibility modifiers where provenance exists.
+- [x] **NV-5.5** Provide remediation context that includes current semantics, expected behavior, cited requirement, deterministic guidance, and a bounded source excerpt suitable for speech or braille.
 - [ ] **NV-5.6** Add patch-preview handoff with explicit affected nodes, expected semantic changes, scope, and rollback instructions; ViewLens does not apply the patch itself.
 - [ ] **NV-5.7** Add targeted verification that reruns affected states and announces resolved, remaining, introduced, not-evaluated, and visually changed results.
 - [ ] **NV-5.8** Generate accessible regression tests for hierarchy, focus order, names, roles, values, and critical visual relationships when deterministic assertions are possible.
