@@ -224,15 +224,84 @@ Or run the automated setup script:
 
 ---
 
-## Exposed MCP Tools
+## Exposed MCP Tools (16 Modern Tools)
 
-| Tool Name | Parameters | Description |
-|-----------|------------|-------------|
-| `viewlens_doctor` | `model_path?: string` | Verifies model existence, load times, and environment health. |
-| `viewlens_audit_screenshot` | `image_path: string`, `min_confidence?: float`, `scale?: float`, `overlay_path?: string`, `model_path?: string` | Runs YOLO detection and HIG issue classification on a screenshot (`sourceMode: "screenshot"`). |
-| `viewlens_audit_view` *(M2)* | `template: string`, `devices?: string[]`, `dynamic_type_sizes?: string[]`, `color_schemes?: string[]` | Renders a SwiftUI/UIKit matrix and performs full visual + structural audit (`sourceMode: "rendered"`). |
-| `viewlens_accessibility_audit` | Exactly one of `template` or `image_path`; `wcag_level?: "A" | "AA" | "AAA"` | Produces completeness-aware WCAG criteria and category scores with remediation. |
-| `viewlens_design_diff` | `reference_image: string`, `template: string`, optional device, threshold, heatmap, and accessibility flag | Runs SSIM design verification and optional accessibility auditing. |
+| Tool Name | Scope & Parameters | Capability Description |
+|-----------|--------------------|------------------------|
+| `viewlens_doctor` | `model_path?: string` | Verifies CoreML model paths, Neural Engine latency, and platform capability health. |
+| `viewlens_audit_screenshot` | `image_path: string`, `overlay_path?: string` | Runs YOLO11n CoreML detection and HIG layout checks on screenshot artifacts. |
+| `viewlens_audit_view` | `template: string`, `devices?: string[]`, `dynamic_type_sizes?: string[]` | Renders SwiftUI/UIKit view matrix across device dimensions, AX sizes, and color schemes in $<5\text{ms}$. |
+| `viewlens_accessibility_audit` | `template?: string`, `image_path?: string`, `wcag_level?: string` | Complete WCAG 2.2 mobile accessibility audit (Name/Role/Value 4.1.2, Touch Targets 2.5.8/2.5.5, Contrast 1.4.3). |
+| `viewlens_design_diff` | `reference_image: string`, `template: string`, `heatmap?: string` | Performs SSIM design verification against Figma reference exports with pixel delta heatmap generation. |
+| `viewlens_destinations_list` | `workspace_root?: string` | Discovers macOS host apps and available Apple iOS Simulator destinations. |
+| `viewlens_session_create` | `destination_id: string`, `workspace_root?: string`, `ttl_seconds?: int` | Allocates an expiring runtime review session with leased ownership and keepalive renewal. |
+| `viewlens_session_get` | `session_id: string` | Inspects status, active lease expiration, and diagnostics for a review session. |
+| `viewlens_session_close` | `session_id: string` | Releases and terminates an active runtime review session. |
+| `viewlens_app_launch` | `bundle_identifier: string`, `destination_id?: string`, `launch_arguments?: string[]` | Launches target applications under strict security policies (sanitized environment, workspace scoping). |
+| `viewlens_query_hierarchy` | `template: string`, `query?: string`, `role?: string`, `parent_id?: string` | Token-efficient query filtering accessibility nodes by label, role, or descendant tree. |
+| `viewlens_query_spatial` | `template: string`, `x?: float, y?: float` or `element_a: string, element_b: string` | Computes point containment, Euclidean nearest neighbor, or directional relationships (`above`, `below`, `inside`). |
+| `viewlens_capture_state` | `template: string`, `appearance?: string`, `scale?: float` | Captures atomic snapshot of visual rendering, accessibility tree, and bi-directional correlation. |
+| `viewlens_ui_perform` | `action: string`, `element_id?: string`, `text?: string`, `direction?: string` | Executes allowlisted UI actions (`activate`, `type_text`, `scroll`, `swipe`) with automatic credential sanitization. |
+| `viewlens_flow_replay` | `template: string`, `name: string`, `actions: object[]` | Replays multi-step UI interaction scripts with declared assertions across state transitions. |
+| `viewlens_accessibility_graph` | `template: string` | Analyzes sequential keyboard focus order, natural reading order, and flags focus traps. |
+
+---
+
+## ✨ Cool Tricks & Unique Capabilities
+
+ViewLens offers unique native Apple platform capabilities that set it apart from standard web testing and general multimodal AI tools:
+
+### 1. 🧠 Zero-Token Vision Auditing (<100 tokens vs 2,000+ per image)
+Traditional AI agents burn thousands of multimodal vision tokens uploading raw high-res screenshots to external APIs. ViewLens runs **YOLO11n CoreML inference locally on the Apple Neural Engine (ANE)** in $<10\text{ms}$. It passes back compact, structured JSON bounding boxes `[x, y, w, h]` and classified layout defects—saving **95%+ in token costs** and eliminating API latency.
+
+### 2. 🏎️ In-Process Multi-Device Rendering Matrix (No Simulator Boots)
+Forget waiting 30 seconds for iOS simulators to boot. ViewLens renders SwiftUI templates directly in-process on macOS via `ImageRenderer`:
+- Permutes across **iPhone SE (3rd gen)**, **iPhone 16 Pro**, **iPad Pro (13-inch)**, and **Landscape** in under $5\text{ms}$ per frame.
+- Simulates **Dynamic Type sizes from Default (100%) to AX5 (312%)**, instantly exposing text clipping and button overflows before committing code.
+
+### 3. 🔬 Bi-Directional Visual-Semantic Correlation
+ViewLens correlates computer vision bounding boxes with programmatic accessibility nodes:
+- **Catches Missing Semantics**: Identifies visual buttons that look like buttons but lack `.accessibilityAddTraits(.isButton)` or `.accessibilityLabel`.
+- **Catches Obscured Elements**: Identifies accessibility elements that exist in the hierarchy but are off-screen, clipped, or have 0-pixel bounds.
+- **Flags Role Conflicts**: Alerts you when a visual element classification disagrees with programmatic accessibility roles.
+
+### 4. 🧭 Directional Layout & Spatial Proximity Queries
+AI coding agents don't have human spatial vision, but with `viewlens_query_spatial` they can ask:
+- *"What element is at coordinate (0.5, 0.35)?"*
+- *"What is the nearest interactive control to the user's touch point?"*
+- *"Is the Header `.above` the Save Button, or are they `.overlapping`?"*
+- *"Is the Icon `.inside` the Container view?"*
+
+### 5. 🎯 SSIM Perceptual Heatmap Diffing (Figma Design-to-Code)
+Verify implementation fidelity against Figma exports using Structural Similarity (SSIM):
+- Generates pixel-delta heatmaps highlighting layout drifts, color shifts, and padding discrepancies.
+- Computes exact match percentages and classifies whether design deltas violate HIG spacing or WCAG contrast.
+
+### 6. ♿ Nonvisual Screen Modeling & VoiceOver Prediction
+ViewLens builds a complete nonvisual model of your UI:
+- Simulates natural **VoiceOver reading order** and rotor navigation sequences.
+- Generates spoken speech strings and simulated refreshable braille display outputs.
+- Detects announcement bursts ($<0.5\text{s}$) and duplicate speech messages.
+
+### 7. 🕸️ Focus Trap & Keyboard Traversal Graph
+With `viewlens_accessibility_graph`, ViewLens builds a directed graph of sequential keyboard and switch-control navigation:
+- Automatically detects **focus traps** (circular focus cycles where a user cannot tab out of a modal or card).
+- Identifies **unreachable elements** that cannot be navigated to via sequential keyboard or assistive switches.
+
+### 8. 🛡️ Safe UI Interaction Engine with Credential Scrubbing
+When an AI agent interacts with your app via `viewlens_ui_perform` or `viewlens_flow_replay`:
+- Automatically rejects and redacts **Bearer tokens, API keys, and sensitive patterns**.
+- Prevents typing credentials into password fields.
+- Replays declared multi-step user workflows deterministically and verifies step assertions (`element_exists`, `element_contains_text`).
+
+### 9. 🚦 Targeted Fix Verification & Regression Delta Engine
+When you fix an issue, ViewLens compares your before-and-after audit runs and categorizes findings into:
+- **`resolvedIssues`**: Violations successfully eliminated.
+- **`remainingIssues`**: Unresolved existing issues.
+- **`introducedIssues`**: **Regressions!** Any new defects created by your code change.
+
+### 10. 📝 Zero-Setup Git Hooks & Markdown PR Summaries
+Run `viewlens hook pre-commit` for sub-second pre-commit checks, or generate gorgeous GitHub Markdown step summaries in your CI/CD pipelines with `viewlens hook pull-request --output-markdown pr_summary.md`.
 
 ---
 

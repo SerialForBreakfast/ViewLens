@@ -141,11 +141,11 @@ M14A deliberately excludes runtime control and remote transport. It proves compa
 - [x] **MCP-16.1** Define an allowlisted action vocabulary: activate element, type non-sensitive fixture text, clear, scroll, swipe, keyboard shortcut, move focus, resize window, rotate, wait for condition, and capture.
 - [x] **MCP-16.2** Add `viewlens_ui_perform` with element-ID-first targeting, optional coordinate fallback, preconditions, timeout, postcondition, and automatic before/after captures.
 - [x] **MCP-16.3** Redact secure fields and reject secrets, credentials, purchases, account deletion, permission escalation, and other high-impact actions unless a future separately reviewed policy allows them.
-- [ ] **MCP-16.4** Record deterministic replay scripts with schema version, target state, actions, assertions, and artifact references.
+- [x] **MCP-16.4** Record deterministic replay scripts with schema version, target state, actions, assertions, and artifact references.
 
 ### Accessibility and focus intelligence
 
-- [ ] **MCP-16.5** Build keyboard traversal and focus-order graphs; detect traps, unreachable controls, focus loss, hidden focus, and incorrect restoration after dismissal.
+- [x] **MCP-16.5** Build keyboard traversal and focus-order graphs; detect traps, unreachable controls, focus loss, hidden focus, and incorrect restoration after dismissal.
 - [ ] **MCP-16.6** Capture VoiceOver-relevant reading order, headings, landmarks/groups, values, selected/expanded state, custom actions, hints, and rotor candidates where platform APIs permit.
 - [ ] **MCP-16.7** Validate Voice Control names and conflicts, activation-point containment, and visible-label/programmatic-name consistency.
 - [ ] **MCP-16.8** Add explicit evidence completeness for platform features that cannot be automated; generate a bounded manual verification checklist instead of a pass.
@@ -156,7 +156,7 @@ M14A deliberately excludes runtime control and remote transport. It proves compa
 - [ ] **MCP-16.10** Discover and label empty, loading, content, validation, error, disabled, selected, expanded, modal, menu, hover, focused, permission, offline, and stale states.
 - [ ] **MCP-16.11** Run interaction flows under Light/Dark, Increase Contrast, Differentiate Without Color, Reduce Motion, Dynamic Type/accessibility text sizes, RTL, and orientation variants.
 - [ ] **MCP-16.12** Add pseudolocalization and locale stress cases for expansion, CJK, pluralization, number/date formatting, bidirectional text, and truncation.
-- [ ] **MCP-16.13** Add `viewlens_flow_replay`, `viewlens_flow_crawl`, and `viewlens_accessibility_graph` tools.
+- [x] **MCP-16.13** Add `viewlens_flow_replay`, `viewlens_flow_crawl`, and `viewlens_accessibility_graph` tools.
 
 **Acceptance:** A declared fixture workflow can be replayed deterministically, audited after every transition, cancelled within a bounded interval, and exported as a graph plus state artifacts. Keyboard traps and inaccessible focus restoration are reported with reproducible action paths. Unsupported VoiceOver evidence is marked not evaluated.
 

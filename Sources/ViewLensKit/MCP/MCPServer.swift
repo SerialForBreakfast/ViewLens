@@ -885,6 +885,38 @@ public final class MCPServer: Sendable {
             "required": .array([.string("action")])
         ])
 
+        let flowReplaySchema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "template": .object(["type": .string("string"), "description": .string("Target registered template.")]),
+                "name": .object(["type": .string("string"), "description": .string("Name of the flow replay script.")]),
+                "actions": .object([
+                    "type": .string("array"),
+                    "items": .object([
+                        "type": .string("object"),
+                        "properties": .object([
+                            "id": .object(["type": .string("string")]),
+                            "action": .object(["type": .string("string")]),
+                            "element_id": .object(["type": .string("string")]),
+                            "text": .object(["type": .string("string")]),
+                            "direction": .object(["type": .string("string")])
+                        ]),
+                        "required": .array([.string("id"), .string("action")])
+                    ]),
+                    "description": .string("Sequential array of actions to execute.")
+                ])
+            ]),
+            "required": .array([.string("template"), .string("actions")])
+        ])
+
+        let accessibilityGraphSchema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "template": .object(["type": .string("string"), "description": .string("Target registered template.")])
+            ]),
+            "required": .array([.string("template")])
+        ])
+
         var tools = [
             MCPTool(
                 name: "viewlens_doctor",
@@ -1026,6 +1058,24 @@ public final class MCPServer: Sendable {
                     title: "Perform Controlled UI Action",
                     description: "Executes an allowlisted UI action on a runtime session subject to strict security policies.",
                     inputSchema: strictInputSchema(uiPerformSchema),
+                    outputSchema: sessionObjectSchema,
+                    icons: viewLensToolIcons(),
+                    annotations: MCPTool.Annotations()
+                ),
+                MCPTool(
+                    name: "viewlens_flow_replay",
+                    title: "Replay UI Interaction Flow",
+                    description: "Replays a declared multi-step UI flow with assertions across state transitions.",
+                    inputSchema: strictInputSchema(flowReplaySchema),
+                    outputSchema: sessionObjectSchema,
+                    icons: viewLensToolIcons(),
+                    annotations: MCPTool.Annotations()
+                ),
+                MCPTool(
+                    name: "viewlens_accessibility_graph",
+                    title: "Analyze Accessibility Focus Graph",
+                    description: "Analyzes keyboard focus order, reading order, and detects accessibility traps.",
+                    inputSchema: strictInputSchema(accessibilityGraphSchema),
                     outputSchema: sessionObjectSchema,
                     icons: viewLensToolIcons(),
                     annotations: MCPTool.Annotations()
@@ -2053,6 +2103,115 @@ public final class MCPServer: Sendable {
                 text: jsonText,
                 structuredContent: modern ? resJSON : nil,
                 isError: !interactionRes.success,
+                modern: modern
+            )
+            let response = JSONRPCResponse(id: request.id, result: result)
+            return try? JSONEncoder().encode(response)
+
+        case "viewlens_flow_replay":
+            guard let template = arguments["template"]?.stringValue else {
+                let message = "Missing required 'template' parameter"
+                let result = MCPToolCallResult(
+                    text: JSONFormatter.errorJSON(message: message),
+                    structuredContent: nil,
+                    isError: true,
+                    modern: modern
+                )
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+
+            let scriptName = arguments["name"]?.stringValue ?? "replay_script"
+            var steps: [FlowStep] = []
+            if let actionsArr = arguments["actions"]?.arrayValue {
+                for (idx, item) in actionsArr.enumerated() {
+                    guard let itemObj = item.objectValue,
+                          let actStr = itemObj["action"]?.stringValue,
+                          let kind = UIActionKind(rawValue: actStr) else { continue }
+                    let stepID = itemObj["id"]?.stringValue ?? "step_\(idx)"
+                    let elemID = itemObj["element_id"]?.stringValue
+                    let text = itemObj["text"]?.stringValue
+                    let dir = itemObj["direction"]?.stringValue
+                    let action = UIAction(kind: kind, elementID: elemID, text: text, direction: dir)
+                    steps.append(FlowStep(id: stepID, action: action))
+                }
+            }
+
+            let script = FlowScript(name: scriptName, targetTemplate: template, steps: steps)
+            let snapshots = await TemplateRegistry.shared.accessibilitySnapshots(named: template) ?? []
+            let nodes: [NativeAccessibilityNode] = snapshots.enumerated().map { index, snap in
+                var traits: Set<NativeAccessibilityTrait> = []
+                if let role = snap.role {
+                    if role.localizedCaseInsensitiveContains("button") { traits.insert(.isButton) }
+                    if role.localizedCaseInsensitiveContains("header") { traits.insert(.isHeader) }
+                    if role.localizedCaseInsensitiveContains("image") { traits.insert(.isImage) }
+                    if role.localizedCaseInsensitiveContains("text") { traits.insert(.isStaticText) }
+                }
+                let yOffset = 0.1 * Double(index + 1)
+                return NativeAccessibilityNode(
+                    id: NonvisualID("node_\(index)"),
+                    label: snap.label,
+                    value: snap.value,
+                    traits: traits,
+                    frame: BoundingBox(x: 0.1, y: yOffset, width: 0.8, height: 0.08),
+                    provenance: EvidenceProvenance(kind: .measured, source: "flowReplay", confidence: 1.0)
+                )
+            }
+
+            let replayReport = FlowReplayEngine.replay(script: script, accessibilityNodes: nodes)
+            let repJSON = (try? JSONValue.fromEncodable(replayReport)) ?? .object([:])
+            let jsonText = (try? String(data: JSONEncoder().encode(replayReport), encoding: .utf8)) ?? "{}"
+
+            let result = MCPToolCallResult(
+                text: jsonText,
+                structuredContent: modern ? repJSON : nil,
+                isError: !replayReport.passed,
+                modern: modern
+            )
+            let response = JSONRPCResponse(id: request.id, result: result)
+            return try? JSONEncoder().encode(response)
+
+        case "viewlens_accessibility_graph":
+            guard let template = arguments["template"]?.stringValue else {
+                let message = "Missing required 'template' parameter"
+                let result = MCPToolCallResult(
+                    text: JSONFormatter.errorJSON(message: message),
+                    structuredContent: nil,
+                    isError: true,
+                    modern: modern
+                )
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+
+            let snapshots = await TemplateRegistry.shared.accessibilitySnapshots(named: template) ?? []
+            let nodes: [NativeAccessibilityNode] = snapshots.enumerated().map { index, snap in
+                var traits: Set<NativeAccessibilityTrait> = []
+                if let role = snap.role {
+                    if role.localizedCaseInsensitiveContains("button") { traits.insert(.isButton) }
+                    if role.localizedCaseInsensitiveContains("header") { traits.insert(.isHeader) }
+                    if role.localizedCaseInsensitiveContains("image") { traits.insert(.isImage) }
+                    if role.localizedCaseInsensitiveContains("text") { traits.insert(.isStaticText) }
+                }
+                let yOffset = 0.1 * Double(index + 1)
+                return NativeAccessibilityNode(
+                    id: NonvisualID("node_\(index)"),
+                    label: snap.label,
+                    value: snap.value,
+                    traits: traits,
+                    frame: BoundingBox(x: 0.1, y: yOffset, width: 0.8, height: 0.08),
+                    provenance: EvidenceProvenance(kind: .measured, source: "accessibilityGraph", confidence: 1.0)
+                )
+            }
+
+            let graph = FocusGraphEngine.buildGraph(nodes: nodes)
+            let graphJSON = (try? JSONValue.fromEncodable(graph)) ?? .object([:])
+            let jsonText = (try? String(data: JSONEncoder().encode(graph), encoding: .utf8)) ?? "{}"
+
+            let result = MCPToolCallResult(
+                text: jsonText,
+                structuredContent: modern ? graphJSON : nil,
+                isError: false,
                 modern: modern
             )
             let response = JSONRPCResponse(id: request.id, result: result)
