@@ -226,31 +226,56 @@ public enum NonvisualPresentationRenderer {
     public static func render(
         _ summary: NonvisualScreenSummary,
         profile: NonvisualPresentationProfile,
-        maximumStatements: Int = 12
+        maximumStatements: Int = 12,
+        maximumCharacters: Int? = nil,
+        includeBudgetFooter: Bool = false
     ) -> String {
         let limit = min(max(maximumStatements, 1), 50)
-        let statements: [NonvisualStatement]
+        let candidates: [NonvisualStatement]
         switch profile {
         case .speech:
             let preferred: Set<NonvisualStatementCategory> = [.overview, .finding, .completeness, .recommendation]
             let filtered = summary.statements.filter { preferred.contains($0.category) }
-            statements = Array((filtered.isEmpty ? summary.statements : filtered).prefix(limit))
+            candidates = filtered.isEmpty ? summary.statements : filtered
         case .braille, .developer:
-            statements = Array(summary.statements.prefix(limit))
+            candidates = summary.statements
         }
 
+        let statements = Array(candidates.prefix(limit))
+        let remaining = candidates.count - statements.count
+
+        var rendered: String
         switch profile {
         case .speech:
-            return statements.map(\.text).joined(separator: " ")
+            let text = statements.map(\.text).joined(separator: " ")
+            if includeBudgetFooter && remaining > 0 {
+                rendered = "\(text) (and \(remaining) more \(remaining == 1 ? "statement" : "statements"))."
+            } else {
+                rendered = text
+            }
         case .braille:
-            return statements.map { "\(brailleCode($0.category)) \($0.text)" }.joined(separator: "\n")
+            var lines = statements.map { "\(brailleCode($0.category)) \($0.text)" }
+            if includeBudgetFooter && remaining > 0 {
+                lines.append("TRC [+\(remaining) more]")
+            }
+            rendered = lines.joined(separator: "\n")
         case .developer:
-            return statements.map { statement in
+            var lines = statements.map { statement in
                 let confidence = statement.evidence.confidence.map { String(format: "%.2f", $0) } ?? "-"
                 let related = statement.relatedIDs.map(\.rawValue).joined(separator: ",")
                 return "[\(statement.category.rawValue)] \(statement.id.rawValue) | \(statement.text) | evidence=\(statement.evidence.kind.rawValue):\(statement.evidence.source) confidence=\(confidence) related=\(related.isEmpty ? "-" : related)"
-            }.joined(separator: "\n")
+            }
+            if includeBudgetFooter && remaining > 0 {
+                lines.append("[truncated] \(remaining) statement(s) omitted due to output budget.")
+            }
+            rendered = lines.joined(separator: "\n")
         }
+
+        if let maxChars = maximumCharacters, rendered.count > maxChars, maxChars > 20 {
+            let prefix = String(rendered.prefix(maxChars - 12))
+            return "\(prefix)... [budget]"
+        }
+        return rendered
     }
 
     public static func renderElement(

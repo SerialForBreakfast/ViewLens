@@ -344,11 +344,24 @@ public final class AppModel {
         return context.makeImage()
     }
 
+    public func announceVoiceOverStatus(_ message: String) {
+        guard preferenceStore.announcePhaseChanges else { return }
+        NSAccessibility.post(
+            element: NSApp.mainWindow ?? NSApp,
+            notification: .announcementRequested,
+            userInfo: [
+                .announcement: message,
+                .priority: NSAccessibilityPriorityLevel.medium.rawValue
+            ]
+        )
+    }
+
     public func cancelActiveReview() {
         reviewTask?.cancel()
         reviewTask = nil
         guard let reviewID = reviewStore.activeReview?.id else { return }
         reviewStore.cancel(reviewID: reviewID)
+        announceVoiceOverStatus("Review cancelled.")
     }
 
     public func renderPlaygroundTemplate() {
@@ -373,6 +386,7 @@ public final class AppModel {
             detectorName: doctorReport?.status == "ready" ? "YOLO11n" : nil
         )
         let reviewID = reviewStore.begin(source: .template(name: templateName), environment: environment)
+        announceVoiceOverStatus("Starting matrix review for template \(templateName)...")
 
         guard let view = TemplateRegistry.shared.template(named: templateName) else {
             reviewStore.fail(
@@ -383,6 +397,7 @@ public final class AppModel {
                     recoverySuggestion: "Choose another template in Playground."
                 )
             )
+            announceVoiceOverStatus("Template \(templateName) is unavailable.")
             return
         }
 
@@ -391,6 +406,7 @@ public final class AppModel {
             guard let self else { return }
             do {
                 self.reviewStore.transition(reviewID: reviewID, to: .detecting, message: "Detecting interface elements across the matrix")
+                self.announceVoiceOverStatus("Detecting interface elements across the matrix...")
                 let detector: YOLODetector?
                 if let modelURL = try? ModelLocator.resolve().get() { detector = try? YOLODetector(modelURL: modelURL) } else { detector = nil }
                 let matrix = try await MatrixRenderer.auditMatrix(
@@ -403,6 +419,7 @@ public final class AppModel {
                 )
                 guard !Task.isCancelled, self.reviewStore.activeReview?.id == reviewID else { return }
                 self.reviewStore.transition(reviewID: reviewID, to: .evaluating, message: "Evaluating WCAG and Apple HIG rules")
+                self.announceVoiceOverStatus("Evaluating WCAG and Apple HIG rules...")
                 let representativeKey = matrix.summary.failedPermutations.first ?? primary.key
                 let representative = matrix.permutations[representativeKey] ?? matrix.permutations.values.first
                 let representativePermutation = permutations.first { $0.key == representativeKey } ?? primary
@@ -433,12 +450,20 @@ public final class AppModel {
                 self.reviewStore.complete(reviewID: reviewID, image: image, elements: report.elements, issues: report.issues, score: score, activity: activity)
                 self.applyAssetRetentionPolicy()
                 self.reviewTask = nil
+
+                let errorFindings = report.issues.filter { $0.severity == .error }.count
+                if errorFindings > 0 {
+                    self.announceVoiceOverStatus("Matrix review complete with \(errorFindings) critical finding\(errorFindings == 1 ? "" : "s"). Score \(score.value) out of 100.")
+                } else {
+                    self.announceVoiceOverStatus("Matrix review complete: all permutations passed. Score \(score.value) out of 100.")
+                }
             } catch {
                 self.reviewStore.fail(reviewID: reviewID, failure: ReviewFailure(
                     title: "Matrix audit failed",
                     message: error.localizedDescription,
                     recoverySuggestion: "Reduce the matrix or verify the selected template."
                 ))
+                self.announceVoiceOverStatus("Matrix audit failed: \(error.localizedDescription)")
                 self.reviewTask = nil
             }
         }
@@ -461,6 +486,7 @@ public final class AppModel {
             detectorName: doctorReport?.status == "ready" ? "YOLO11n" : nil
         )
         let reviewID = reviewStore.begin(source: .image(url: url), environment: environment)
+        announceVoiceOverStatus("Starting image review for \(url.lastPathComponent)...")
 
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
@@ -472,6 +498,7 @@ public final class AppModel {
                     recoverySuggestion: "Choose a PNG, JPEG, or HEIC image that can be opened on this Mac."
                 )
             )
+            announceVoiceOverStatus("Image unavailable: ViewLens could not read \(url.lastPathComponent).")
             return
         }
 
@@ -481,10 +508,12 @@ public final class AppModel {
 
         reviewTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            self.announceVoiceOverStatus("Detecting elements in \(url.lastPathComponent)...")
             let elements = await self.detectElements(in: image, minimumConfidence: Float(configuration.minimumConfidence))
             guard !Task.isCancelled, self.reviewStore.activeReview?.id == reviewID else { return }
 
             self.reviewStore.transition(reviewID: reviewID, to: .evaluating, message: "Evaluating screenshot-detectable criteria")
+            self.announceVoiceOverStatus("Evaluating screenshot-detectable criteria...")
             let issues = IssueClassifier.classify(
                 elements: elements,
                 imageSize: imageSize,
@@ -519,6 +548,13 @@ public final class AppModel {
             self.reviewStore.complete(reviewID: reviewID, image: image, elements: elements, issues: issues, score: score, activity: activity)
             self.applyAssetRetentionPolicy()
             self.reviewTask = nil
+
+            let errorCount = issues.filter { $0.severity == .error }.count
+            if errorCount > 0 {
+                self.announceVoiceOverStatus("Image audit complete with \(errorCount) critical finding\(errorCount == 1 ? "" : "s"). Score \(score.value) out of 100.")
+            } else {
+                self.announceVoiceOverStatus("Image audit complete with \(issues.count) finding\(issues.count == 1 ? "" : "s"). Score \(score.value) out of 100.")
+            }
         }
     }
 

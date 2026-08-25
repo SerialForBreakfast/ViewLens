@@ -31,6 +31,27 @@ public struct MCPTaskSnapshot: Encodable, Sendable {
         case ttlMs, pollIntervalMs, inputRequests, result, error
         case metadata = "_meta"
     }
+
+    public func nonvisualStatus(profile: NonvisualPresentationProfile = .speech) -> String {
+        switch status {
+        case .working:
+            return statusMessage ?? "Task in progress."
+        case .inputRequired:
+            if let reqs = inputRequests, !reqs.isEmpty {
+                let keys = reqs.keys.sorted().joined(separator: ", ")
+                let detail = statusMessage.map { " \($0)" } ?? ""
+                return "Input required for \(keys).\(detail)"
+            }
+            return "Input required: \(statusMessage ?? "Awaiting client decision.")"
+        case .completed:
+            let detail = statusMessage.map { " \($0)" } ?? ""
+            return "Task completed.\(detail)"
+        case .failed:
+            return "Task failed: \(error?.message ?? statusMessage ?? "Unknown error.")"
+        case .cancelled:
+            return "Task was cancelled."
+        }
+    }
 }
 
 public struct MCPTaskAcknowledgement: Encodable, Sendable {
