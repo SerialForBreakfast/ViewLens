@@ -205,7 +205,15 @@ actor MCPResourceStore {
     }
 
     func resources() -> [MCPResource] {
-        let indexes = Self.indexResources
+        let appResource = MCPResource(
+            uri: "ui://viewlens/review",
+            name: "viewlens-review-app",
+            title: "ViewLens Interactive Review App",
+            description: "Interactive sandboxed UI review and inspector application",
+            mimeType: "text/html",
+            annotations: MCPResourceAnnotations(priority: 1.0, lastModified: Self.dateString(Date()))
+        )
+        let indexes = [appResource] + Self.indexResources
         let reviewResources = sortedRecords().flatMap { reviewID, record in
             let modified = Self.dateString(record.createdAt)
             let annotations = MCPResourceAnnotations(priority: 0.8, lastModified: modified)
@@ -285,6 +293,17 @@ actor MCPResourceStore {
     }
 
     func read(uri: String) throws -> MCPResourceContent {
+        if uri == "ui://viewlens/review" || uri.hasPrefix("ui://viewlens/review") {
+            let reviewID = uri.components(separatedBy: "/").last ?? "latest"
+            let html = MCPAppRenderer.renderAppHTML(reviewID: reviewID)
+            return MCPResourceContent(
+                uri: uri,
+                mimeType: "text/html",
+                text: html,
+                annotations: MCPResourceAnnotations(priority: 1.0, lastModified: Self.dateString(Date()))
+            )
+        }
+
         guard let components = URLComponents(string: uri),
               components.scheme == "viewlens",
               components.host != nil else {

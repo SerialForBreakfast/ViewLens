@@ -178,9 +178,8 @@ M14A deliberately excludes runtime control and remote transport. It proves compa
 
 - [x] **MCP-17.6** Define a `ChangeSet` input using explicit changed-file paths, diff hash, expected review/session ID, and workspace scope; ViewLens does not edit the files.
 - [x] **MCP-17.7** Add `viewlens_verify_changes` to rebuild, reproduce the saved state/flow, recapture evidence, and compare before/after findings and visuals.
-- [x] **MCP-17.8** Report resolved, remaining, introduced, and not-retested findings with completeness and environment parity.
-- [ ] **MCP-17.9** Detect material visual drift with baselines, heatmaps, structural differences, and configurable region masks.
-- [ ] **MCP-17.10** Require elicited user approval before recording/replacing approved baselines or publishing verification results externally.
+- [x] **MCP-17.9** Detect material visual drift with baselines, heatmaps, structural differences, and configurable region masks.
+- [x] **MCP-17.10** Require elicited user approval before recording/replacing approved baselines or publishing verification results externally.
 
 ### Regression output
 
@@ -199,11 +198,11 @@ M14A deliberately excludes runtime control and remote transport. It proves compa
 
 ### Interactive review application
 
-- [ ] **MCP-18.1** Publish a sandboxed `ui://viewlens/review` MCP App resource bound to review and task resources.
-- [ ] **MCP-18.2** Implement synchronized canvas overlays, hierarchy tree, finding inspector, state graph, before/after slider, heatmap, completeness, environment metadata, and task progress.
-- [ ] **MCP-18.3** Add accessible keyboard/VoiceOver navigation, non-color status encoding, zoom/pan, reduced motion, and responsive layouts to the MCP App itself.
-- [ ] **MCP-18.4** Allow the app to request scoped MCP calls for selecting elements, replaying approved steps, cancelling tasks, exporting evidence, and approving baselines.
-- [ ] **MCP-18.5** Keep consequential actions host-mediated and show resolved target, scope, and expected effect before confirmation.
+- [x] **MCP-18.1** Publish a sandboxed `ui://viewlens/review` MCP App resource bound to review and task resources.
+- [x] **MCP-18.2** Implement synchronized canvas overlays, hierarchy tree, finding inspector, state graph, before/after slider, heatmap, completeness, environment metadata, and task progress.
+- [x] **MCP-18.3** Add accessible keyboard/VoiceOver navigation, non-color status encoding, zoom/pan, reduced motion, and responsive layouts to the MCP App itself.
+- [x] **MCP-18.4** Allow the app to request scoped MCP calls for selecting elements, replaying approved steps, cancelling tasks, exporting evidence, and approving baselines.
+- [x] **MCP-18.5** Keep consequential actions host-mediated and show resolved target, scope, and expected effect before confirmation.
 
 ### Remote service and collaboration
 

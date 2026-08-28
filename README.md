@@ -296,7 +296,7 @@ Or run the automated setup script:
 
 ---
 
-## Exposed MCP Tools (19 Modern Tools)
+## Exposed MCP Tools (21 Modern Tools)
 
 | Tool Name | Scope & Parameters | Capability Description |
 |-----------|--------------------|------------------------|
@@ -319,6 +319,8 @@ Or run the automated setup script:
 | `viewlens_flow_crawl` | `template: string`, `max_depth?: int`, `max_states?: int` | Bounded automated exploration of reachable UI state space discovering loading, empty, and modal states. |
 | `viewlens_trace_to_source` | `element_id: string`, `template: string`, `workspace_root?: string` | Traces a visual/accessibility element or template back to responsible source file and symbol with explicit confidence. |
 | `viewlens_verify_changes` | `template: string`, `changed_files: string[]`, `baseline_issues: string[]` | Closed-loop fix verification comparing before/after findings to classify resolved issues and regressions. |
+| `viewlens_generate_regression_test` | `template: string`, `script_name: string`, `steps: object[]` | Generates marker-scoped Swift Testing regression suites from approved replays without clobbering manual code. |
+| `viewlens_baseline_approve` | `template: string`, `baseline_path: string`, `approved: bool` | Explicitly records human approval to update or reject a reference visual baseline. |
 
 ---
 

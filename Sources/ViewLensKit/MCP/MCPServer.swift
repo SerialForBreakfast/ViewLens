@@ -948,6 +948,17 @@ public final class MCPServer: Sendable {
             "required": .array([.string("template"), .string("changed_files")])
         ])
 
+        let baselineApproveSchema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "template": .object(["type": .string("string"), "description": .string("Target registered template name.")]),
+                "baseline_path": .object(["type": .string("string"), "description": .string("Path of the visual baseline reference.")]),
+                "approved": .object(["type": .string("boolean"), "description": .string("Whether to approve and record the baseline update.")]),
+                "approved_by": .object(["type": .string("string"), "description": .string("Identifier of the approving entity.")])
+            ]),
+            "required": .array([.string("template"), .string("baseline_path"), .string("approved")])
+        ])
+
         let generateRegressionTestSchema: JSONValue = .object([
             "type": .string("object"),
             "properties": .object([
@@ -1187,6 +1198,15 @@ public final class MCPServer: Sendable {
                     title: "Generate Regression Test (Closed-Loop)",
                     description: "Generates a reviewable, marker-scoped swift-testing suite from an approved replay script and its fix verification; never overwrites hand-written code.",
                     inputSchema: strictInputSchema(generateRegressionTestSchema),
+                    outputSchema: sessionObjectSchema,
+                    icons: viewLensToolIcons(),
+                    annotations: MCPTool.Annotations()
+                ),
+                MCPTool(
+                    name: "viewlens_baseline_approve",
+                    title: "Approve Visual Baseline Update",
+                    description: "Explicitly records human approval to update or reject a reference visual baseline.",
+                    inputSchema: strictInputSchema(baselineApproveSchema),
                     outputSchema: sessionObjectSchema,
                     icons: viewLensToolIcons(),
                     annotations: MCPTool.Annotations()
@@ -2613,6 +2633,40 @@ public final class MCPServer: Sendable {
             )
             let response2 = JSONRPCResponse(id: request.id, result: result2)
             return try? JSONEncoder().encode(response2)
+
+        case "viewlens_baseline_approve":
+            guard let template = arguments["template"]?.stringValue,
+                  let baselinePath = arguments["baseline_path"]?.stringValue,
+                  let approved = arguments["approved"]?.boolValue else {
+                let message = "Missing required 'template', 'baseline_path', or 'approved' parameter"
+                let result = MCPToolCallResult(
+                    text: JSONFormatter.errorJSON(message: message),
+                    structuredContent: nil,
+                    isError: true,
+                    modern: modern
+                )
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+
+            let approver = arguments["approved_by"]?.stringValue ?? "developer"
+            let record = BaselineVerifier.processApproval(
+                templateName: template,
+                baselinePath: baselinePath,
+                approved: approved,
+                approvedBy: approver
+            )
+            let recJSON = (try? JSONValue.fromEncodable(record)) ?? .object([:])
+            let jsonText = (try? String(data: JSONEncoder().encode(record), encoding: .utf8)) ?? "{}"
+
+            let result = MCPToolCallResult(
+                text: jsonText,
+                structuredContent: modern ? recJSON : nil,
+                isError: !approved,
+                modern: modern
+            )
+            let response = JSONRPCResponse(id: request.id, result: result)
+            return try? JSONEncoder().encode(response)
 
         default:
             let response = JSONRPCResponse<String>(
