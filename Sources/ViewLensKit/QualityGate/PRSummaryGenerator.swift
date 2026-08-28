@@ -6,7 +6,8 @@ public struct PRSummaryGenerator: Sendable {
         gateName: String,
         config: GateConfig,
         matrixReport: MatrixAuditReport,
-        evaluation: GateEvaluationResult
+        evaluation: GateEvaluationResult,
+        environmentParity: [String: String]? = nil
     ) -> String {
         var lines: [String] = []
 
@@ -70,6 +71,49 @@ public struct PRSummaryGenerator: Sendable {
             lines.append("")
         } else {
             lines.append("✨ **All HIG checks passed across all device and Dynamic Type permutations.**")
+            lines.append("")
+        }
+
+        if let fixVerification = evaluation.fixVerification {
+            lines.append("### \u{1F501} Fix Verification")
+            lines.append("")
+            lines.append("| | Count |")
+            lines.append("|---|---|")
+            lines.append("| \u{2705} Resolved | \(fixVerification.resolvedIssues.count) |")
+            lines.append("| \u{26A0}\u{FE0F} Remaining | \(fixVerification.remainingIssues.count) |")
+            lines.append("| \u{1F6A8} Introduced (regressions) | \(fixVerification.introducedIssues.count) |")
+            lines.append("| \u{23ED}\u{FE0F} Not retested | \(fixVerification.notRetested.count) |")
+            lines.append("")
+
+            if let sourceRecords = evaluation.sourceRecords, !sourceRecords.isEmpty {
+                let available = sourceRecords.filter { $0.confidence != .unavailable }
+                let unavailableCount = sourceRecords.count - available.count
+
+                if !available.isEmpty {
+                    lines.append("**Source-linked evidence:**")
+                    for record in available {
+                        let location = record.filePath.map { path in "\(path)\(record.line.map { ":\($0)" } ?? "")" } ?? "unavailable"
+                        lines.append("- `\(record.elementID)` \u{2192} `\(location)` (confidence: \(record.confidence.rawValue))")
+                    }
+                    lines.append("")
+                }
+                // Uninstrumented targets are never given a fabricated file/line — surfaced only
+                // as a count, matching SourceProvenanceEngine's own honesty guarantee.
+                if unavailableCount > 0 {
+                    lines.append("*\(unavailableCount) finding(s) had no available source location.*")
+                    lines.append("")
+                }
+            }
+        }
+
+        if let environmentParity, !environmentParity.isEmpty {
+            lines.append("### \u{1F5A5}\u{FE0F} Environment Parity")
+            lines.append("")
+            lines.append("| Property | Value |")
+            lines.append("|---|---|")
+            for (key, value) in environmentParity.sorted(by: { $0.key < $1.key }) {
+                lines.append("| \(key) | \(value) |")
+            }
             lines.append("")
         }
 

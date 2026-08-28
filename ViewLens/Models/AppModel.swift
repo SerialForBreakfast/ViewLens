@@ -186,68 +186,11 @@ public final class AppModel {
         doctorTask = Task { @MainActor [weak self] in
             await Task.yield()
             guard let self, !Task.isCancelled else { return }
-            let report = self.runDoctorInternal()
+            let report = await DoctorEngine.run()
             guard !Task.isCancelled else { return }
             self.doctorReport = report
             self.isRunningDoctor = false
         }
-    }
-
-    private func runDoctorInternal() -> DoctorReport {
-        var checks: [DiagnosticCheck] = []
-        var allPassed = true
-
-        let modelResult = ModelLocator.resolve()
-        let resolvedURL: URL?
-
-        switch modelResult {
-        case .success(let url):
-            resolvedURL = url
-            checks.append(DiagnosticCheck(name: "model_found", status: "confirmed", detail: url.path))
-        case .failure(let error):
-            resolvedURL = nil
-            allPassed = false
-            checks.append(DiagnosticCheck(name: "model_found", status: "failed", detail: error.localizedDescription))
-        }
-
-        if let url = resolvedURL {
-            do {
-                let sizeBytes = try ModelLocator.calculateSize(at: url)
-                let sizeMB = Double(sizeBytes) / (1024 * 1024)
-                let formattedMB = String(format: "%.1fMB", sizeMB)
-                if sizeMB <= ModelLocator.maxExpectedSizeMB && sizeMB > 0.1 {
-                    checks.append(DiagnosticCheck(name: "model_size", status: "confirmed", detail: "\(formattedMB) (< \(Int(ModelLocator.maxExpectedSizeMB))MB)"))
-                } else {
-                    allPassed = false
-                    checks.append(DiagnosticCheck(name: "model_size", status: "failed", detail: "\(formattedMB) exceeds expectation"))
-                }
-            } catch {
-                allPassed = false
-                checks.append(DiagnosticCheck(name: "model_size", status: "failed", detail: error.localizedDescription))
-            }
-        } else {
-            checks.append(DiagnosticCheck(name: "model_size", status: "skipped", detail: "Model not found"))
-        }
-
-        if let url = resolvedURL {
-            let start = DispatchTime.now()
-            do {
-                _ = try YOLODetector(modelURL: url)
-                let elapsed = Double(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000_000
-                checks.append(DiagnosticCheck(name: "model_loads", status: "confirmed", detail: String(format: "Cold load: %.2fs", elapsed)))
-            } catch {
-                allPassed = false
-                checks.append(DiagnosticCheck(name: "model_loads", status: "failed", detail: error.localizedDescription))
-            }
-        } else {
-            checks.append(DiagnosticCheck(name: "model_loads", status: "skipped", detail: "Model not found"))
-        }
-
-        return DoctorReport(
-            status: allPassed ? "ready" : "not_ready",
-            checks: checks,
-            recommendedNextCommand: allPassed ? "viewlens scan <image-path>" : "export VIEWLENS_MODEL_PATH=/path/to/best.mlpackage"
-        )
     }
 
     // MARK: Review orchestration

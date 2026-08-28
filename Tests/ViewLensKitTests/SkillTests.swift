@@ -21,4 +21,14 @@ struct SkillTests {
         #expect(md.contains("WCAG 4.1.2 A"))
         #expect(md.contains("viewlens doctor --json"))
     }
+
+    @Test("Skill markdown includes the closed-loop fix verification workflow")
+    func testSkillMarkdownIncludesFixVerificationWorkflow() {
+        let md = SkillGenerator.generateSkillMarkdown()
+
+        #expect(md.contains("viewlens_verify_changes"))
+        #expect(md.contains("viewlens_trace_to_source"))
+        #expect(md.contains("viewlens_generate_regression_test"))
+        #expect(md.contains("ViewLens has no file-write tools"))
+    }
 }

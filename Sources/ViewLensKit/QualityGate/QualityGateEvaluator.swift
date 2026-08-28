@@ -9,6 +9,12 @@ public struct GateEvaluationResult: Sendable, Codable {
     public let totalFilteredIssues: Int
     public let errorCount: Int
     public let warningCount: Int
+    /// Closed-loop fix verification (MCP-17.6-17.8), when the gate is evaluated as part of
+    /// verifying a specific change rather than a plain audit. `nil` when not supplied.
+    public let fixVerification: FixVerificationReport?
+    /// Source-linked evidence (MCP-17.1-17.4) for findings referenced by this evaluation.
+    /// `nil` when not supplied — never fabricated to fill this in.
+    public let sourceRecords: [SourceRecord]?
 
     public init(
         gateName: String,
@@ -17,7 +23,9 @@ public struct GateEvaluationResult: Sendable, Codable {
         totalPermutations: Int,
         totalFilteredIssues: Int,
         errorCount: Int,
-        warningCount: Int
+        warningCount: Int,
+        fixVerification: FixVerificationReport? = nil,
+        sourceRecords: [SourceRecord]? = nil
     ) {
         self.gateName = gateName
         self.passed = passed
@@ -26,6 +34,8 @@ public struct GateEvaluationResult: Sendable, Codable {
         self.totalFilteredIssues = totalFilteredIssues
         self.errorCount = errorCount
         self.warningCount = warningCount
+        self.fixVerification = fixVerification
+        self.sourceRecords = sourceRecords
     }
 }
 
@@ -34,7 +44,9 @@ public struct QualityGateEvaluator: Sendable {
     public static func evaluate(
         gateName: String,
         config: GateConfig,
-        matrixReport: MatrixAuditReport
+        matrixReport: MatrixAuditReport,
+        fixVerification: FixVerificationReport? = nil,
+        sourceRecords: [SourceRecord]? = nil
     ) -> GateEvaluationResult {
         var totalErrors = 0
         var totalWarnings = 0
@@ -55,8 +67,8 @@ public struct QualityGateEvaluator: Sendable {
             }
         }
 
-        let passed: Bool
-        let failureReason: String?
+        var passed: Bool
+        var failureReason: String?
 
         switch config.failOn {
         case .error:
@@ -70,6 +82,15 @@ public struct QualityGateEvaluator: Sendable {
             failureReason = nil
         }
 
+        // A regression detected by closed-loop fix verification is a strictly stronger signal
+        // than any severity threshold config.failOn was ever meant to allow past — it fails
+        // the gate unconditionally, regardless of policy.
+        if let fixVerification, fixVerification.hasRegressions {
+            passed = false
+            let regressionLine = "\(fixVerification.introducedIssues.count) introduced issue(s) detected by fix verification."
+            failureReason = [failureReason, regressionLine].compactMap { $0 }.joined(separator: " ")
+        }
+
         return GateEvaluationResult(
             gateName: gateName,
             passed: passed,
@@ -77,7 +98,9 @@ public struct QualityGateEvaluator: Sendable {
             totalPermutations: matrixReport.summary.totalPermutations,
             totalFilteredIssues: totalFilteredIssues,
             errorCount: totalErrors,
-            warningCount: totalWarnings
+            warningCount: totalWarnings,
+            fixVerification: fixVerification,
+            sourceRecords: sourceRecords
         )
     }
 

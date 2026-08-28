@@ -123,10 +123,10 @@ M14A deliberately excludes runtime control and remote transport. It proves compa
 
 ### Reliability and safety
 
-- [ ] **MCP-15.12** Extend doctor diagnostics for Xcode, simulator, Accessibility, Screen Recording, Automation, signing, destination, and fixture readiness.
-- [ ] **MCP-15.13** Create a deterministic fixture application covering navigation, forms, scroll content, dialogs, menus, validation, loading, failure, and accessibility states.
-- [ ] **MCP-15.14** Implement fake runtime backends for unit tests and gated integration tests for macOS and simulator capture.
-- [ ] **MCP-15.15** Add audit logs that record requested operation, resolved target, scope decision, timestamps, artifacts, and termination without storing typed user content by default.
+- [x] **MCP-15.12** Extend doctor diagnostics for Xcode, simulator, Accessibility, Screen Recording, Automation, signing, destination, and fixture readiness.
+- [x] **MCP-15.13** Create a deterministic fixture application covering navigation, forms, scroll content, dialogs, menus, validation, loading, failure, and accessibility states.
+- [x] **MCP-15.14** Implement fake runtime backends for unit tests and gated integration tests for macOS and simulator capture.
+- [x] **MCP-15.15** Add audit logs that record requested operation, resolved target, scope decision, timestamps, artifacts, and termination without storing typed user content by default.
 
 **Acceptance:** From a clean connection, an agent can create a bounded session, launch the fixture app, capture pixels and semantics, query an element spatially, reconnect using the session handle, and close the session. Scope violations and missing permissions produce explicit recoverable errors. No tool accepts arbitrary shell commands.
 
@@ -147,15 +147,15 @@ M14A deliberately excludes runtime control and remote transport. It proves compa
 
 - [x] **MCP-16.5** Build keyboard traversal and focus-order graphs; detect traps, unreachable controls, focus loss, hidden focus, and incorrect restoration after dismissal.
 - [ ] **MCP-16.6** Capture VoiceOver-relevant reading order, headings, landmarks/groups, values, selected/expanded state, custom actions, hints, and rotor candidates where platform APIs permit.
-- [ ] **MCP-16.7** Validate Voice Control names and conflicts, activation-point containment, and visible-label/programmatic-name consistency.
+- [x] **MCP-16.7** Validate Voice Control names and conflicts, activation-point containment, and visible-label/programmatic-name consistency.
 - [ ] **MCP-16.8** Add explicit evidence completeness for platform features that cannot be automated; generate a bounded manual verification checklist instead of a pass.
 
 ### State exploration and accommodation matrices
 
-- [ ] **MCP-16.9** Implement a bounded state crawler with maximum actions, maximum states, maximum duration, allowed regions, visited-state hashing, loop detection, and cancellation.
-- [ ] **MCP-16.10** Discover and label empty, loading, content, validation, error, disabled, selected, expanded, modal, menu, hover, focused, permission, offline, and stale states.
+- [x] **MCP-16.9** Implement a bounded state crawler with maximum actions, maximum states, maximum duration, allowed regions, visited-state hashing, loop detection, and cancellation.
+- [x] **MCP-16.10** Discover and label empty, loading, content, validation, error, disabled, selected, expanded, modal, menu, hover, focused, permission, offline, and stale states.
 - [ ] **MCP-16.11** Run interaction flows under Light/Dark, Increase Contrast, Differentiate Without Color, Reduce Motion, Dynamic Type/accessibility text sizes, RTL, and orientation variants.
-- [ ] **MCP-16.12** Add pseudolocalization and locale stress cases for expansion, CJK, pluralization, number/date formatting, bidirectional text, and truncation.
+- [x] **MCP-16.12** Add pseudolocalization and locale stress cases for expansion, CJK, pluralization, number/date formatting, bidirectional text, and truncation.
 - [x] **MCP-16.13** Add `viewlens_flow_replay`, `viewlens_flow_crawl`, and `viewlens_accessibility_graph` tools.
 
 **Acceptance:** A declared fixture workflow can be replayed deterministically, audited after every transition, cancelled within a bounded interval, and exported as a graph plus state artifacts. Keyboard traps and inaccessible focus restoration are reported with reproducible action paths. Unsupported VoiceOver evidence is marked not evaluated.
@@ -168,26 +168,26 @@ M14A deliberately excludes runtime control and remote transport. It proves compa
 
 ### Visual-to-source provenance
 
-- [ ] **MCP-17.1** Design an opt-in debug instrumentation package for stable source IDs across SwiftUI and UIKit without affecting release behavior.
-- [ ] **MCP-17.2** Capture file, line, symbol/view type, runtime identity, accessibility identity, and relevant modifier/property provenance where technically available.
-- [ ] **MCP-17.3** Correlate visual detections, accessibility nodes, runtime hierarchy nodes, and source records into a provenance graph with confidence and ambiguity.
-- [ ] **MCP-17.4** Add `viewlens_trace_to_source` and source-location fields to findings; uninstrumented targets must return unavailable or lower-confidence evidence rather than guessed locations.
+- [x] **MCP-17.1** Design an opt-in debug instrumentation package for stable source IDs across SwiftUI and UIKit without affecting release behavior.
+- [x] **MCP-17.2** Capture file, line, symbol/view type, runtime identity, accessibility identity, and relevant modifier/property provenance where technically available.
+- [x] **MCP-17.3** Correlate visual detections, accessibility nodes, runtime hierarchy nodes, and source records into a provenance graph with confidence and ambiguity.
+- [x] **MCP-17.4** Add `viewlens_trace_to_source` and source-location fields to findings; uninstrumented targets must return unavailable or lower-confidence evidence rather than guessed locations.
 - [ ] **MCP-17.5** Provide adapter points for Swift macros, generated metadata, UIKit swizzling-free debug hooks, and external symbol/source maps; record tradeoffs in an ADR.
 
 ### Closed-loop verification
 
-- [ ] **MCP-17.6** Define a `ChangeSet` input using explicit changed-file paths, diff hash, expected review/session ID, and workspace scope; ViewLens does not edit the files.
-- [ ] **MCP-17.7** Add `viewlens_verify_changes` to rebuild, reproduce the saved state/flow, recapture evidence, and compare before/after findings and visuals.
-- [ ] **MCP-17.8** Report resolved, remaining, introduced, and not-retested findings with completeness and environment parity.
+- [x] **MCP-17.6** Define a `ChangeSet` input using explicit changed-file paths, diff hash, expected review/session ID, and workspace scope; ViewLens does not edit the files.
+- [x] **MCP-17.7** Add `viewlens_verify_changes` to rebuild, reproduce the saved state/flow, recapture evidence, and compare before/after findings and visuals.
+- [x] **MCP-17.8** Report resolved, remaining, introduced, and not-retested findings with completeness and environment parity.
 - [ ] **MCP-17.9** Detect material visual drift with baselines, heatmaps, structural differences, and configurable region masks.
 - [ ] **MCP-17.10** Require elicited user approval before recording/replacing approved baselines or publishing verification results externally.
 
 ### Regression output
 
-- [ ] **MCP-17.11** Generate reviewable XCTest UI flows, accessibility assertions, unit-test fixtures, and visual-baseline tests from an approved replay.
-- [ ] **MCP-17.12** Add stable identifiers and generated-test provenance so regeneration updates only owned sections and never overwrites user code silently.
-- [ ] **MCP-17.13** Extend quality gates and PR summaries with source-linked evidence, before/after artifacts, environment parity, and completeness.
-- [ ] **MCP-17.14** Add a `viewlens-fix-verify` agent skill that keeps source editing in the host and requires ViewLens evidence before claiming completion.
+- [x] **MCP-17.11** Generate reviewable XCTest UI flows, accessibility assertions, unit-test fixtures, and visual-baseline tests from an approved replay.
+- [x] **MCP-17.12** Add stable identifiers and generated-test provenance so regeneration updates only owned sections and never overwrites user code silently.
+- [x] **MCP-17.13** Extend quality gates and PR summaries with source-linked evidence, before/after artifacts, environment parity, and completeness.
+- [x] **MCP-17.14** Add a `viewlens-fix-verify` agent skill that keeps source editing in the host and requires ViewLens evidence before claiming completion.
 
 **Acceptance:** For an instrumented fixture defect, ViewLens identifies the responsible source location, a host-applied change can be verified against the saved state, and the result differentiates resolved, introduced, and untested findings. Uninstrumented targets never receive fabricated file/line provenance.
 

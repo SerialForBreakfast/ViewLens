@@ -204,22 +204,25 @@ struct AdvancedRuntimeAndProvenanceTests {
         #expect(traceRes["isError"] as? Bool == false)
 
         // 3. Verify Changes
-        let verifyReq = JSONRPCRequest(
-            id: .string("req-verify"),
-            method: "tools/call",
-            params: .object([
-                "name": .string("viewlens_verify_changes"),
-                "arguments": .object([
-                    "template": .string("LoginForm"),
-                    "changed_files": .array([.string("Sources/LoginForm.swift")]),
-                    "baseline_issues": .array([.string("tappableTargetTooSmall")])
-                ]),
-                "_meta": .object([
-                    "io.modelcontextprotocol/protocolVersion": .string(MCPProtocolVersion.modern.rawValue),
-                    "io.modelcontextprotocol/clientCapabilities": .object([:])
-                ])
-            ])
-        )
+        let verifyReq = try JSONDecoder().decode(JSONRPCRequest.self, from: Data("""
+        {
+          "jsonrpc": "2.0",
+          "id": 99,
+          "method": "tools/call",
+          "params": {
+            "name": "viewlens_verify_changes",
+            "arguments": {
+              "template": "LoginForm",
+              "changed_files": ["Sources/LoginForm.swift"],
+              "baseline_issues": ["tappableTargetTooSmall"]
+            },
+            "_meta": {
+              "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+              "io.modelcontextprotocol/clientCapabilities": {}
+            }
+          }
+        }
+        """.utf8))
         let verifyData = try #require(await server.handleRequest(verifyReq))
         let verifyJson = try #require(JSONSerialization.jsonObject(with: verifyData) as? [String: Any])
         let verifyRes = try #require(verifyJson["result"] as? [String: Any])

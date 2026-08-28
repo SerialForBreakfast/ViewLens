@@ -133,6 +133,9 @@ public final class TemplateRegistry {
         }) { AnyView(Sub44ptButtonBugTemplate()) }
         register(name: "ClippedEdgeBug") { AnyView(ClippedEdgeBugTemplate()) }
         register(name: "OverlapBug") { AnyView(OverlapBugTemplate()) }
+
+        // Deterministic Fixture Flow Templates (MCP-15.13)
+        registerFixtureFlowTemplates()
     }
 }
 

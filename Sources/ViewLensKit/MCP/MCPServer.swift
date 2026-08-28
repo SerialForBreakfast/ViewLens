@@ -24,7 +24,7 @@ public final class MCPServer: Sendable {
     private let protocolRuntime: MCPProtocolRuntime
     private let taskStore: MCPTaskStore
     private let sessionStore: RuntimeSessionStore
-    private let processController: ProcessController
+    private let processController: any RuntimeBackend
 
     public init() {
         self.resourceStore = MCPResourceStore()
@@ -39,7 +39,7 @@ public final class MCPServer: Sendable {
         protocolRuntime: MCPProtocolRuntime = MCPProtocolRuntime(),
         taskStore: MCPTaskStore = MCPTaskStore(),
         sessionStore: RuntimeSessionStore = RuntimeSessionStore(),
-        processController: ProcessController = ProcessController()
+        processController: any RuntimeBackend = ProcessController()
     ) {
         self.resourceStore = resourceStore
         self.protocolRuntime = protocolRuntime
@@ -948,6 +948,50 @@ public final class MCPServer: Sendable {
             "required": .array([.string("template"), .string("changed_files")])
         ])
 
+        let generateRegressionTestSchema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "template": .object(["type": .string("string"), "description": .string("Target registered template.")]),
+                "script_name": .object(["type": .string("string"), "description": .string("Name of the approved replay script this suite covers.")]),
+                "steps": .object([
+                    "type": .string("array"),
+                    "description": .string("Replay steps from the approved viewlens_flow_replay script, re-supplied here (ViewLens does not persist approved replays server-side)."),
+                    "items": .object([
+                        "type": .string("object"),
+                        "properties": .object([
+                            "id": .object(["type": .string("string")]),
+                            "action": .object([
+                                "type": .string("object"),
+                                "properties": .object([
+                                    "kind": .object(["type": .string("string"), "description": .string("activate | type_text | clear | scroll | swipe | key_shortcut | move_focus")]),
+                                    "element_id": .object(["type": .string("string")]),
+                                    "coordinate": .object(["type": .string("array"), "items": .object(["type": .string("number")])]),
+                                    "text": .object(["type": .string("string")]),
+                                    "direction": .object(["type": .string("string")]),
+                                    "shortcut": .object(["type": .string("string")])
+                                ]),
+                                "required": .array([.string("kind")])
+                            ]),
+                            "assertion": .object([
+                                "type": .string("object"),
+                                "properties": .object([
+                                    "kind": .object(["type": .string("string")]),
+                                    "target_element_id": .object(["type": .string("string")]),
+                                    "expected_value": .object(["type": .string("string")])
+                                ])
+                            ])
+                        ]),
+                        "required": .array([.string("id"), .string("action")])
+                    ])
+                ]),
+                "changed_files": .object(["type": .string("array"), "items": .object(["type": .string("string")]), "description": .string("Paths of modified source files.")]),
+                "baseline_issues": .object(["type": .string("array"), "items": .object(["type": .string("string")]), "description": .string("Issue identifiers before the fix, for the embedded fix-verification comparison.")]),
+                "element_ids": .object(["type": .string("array"), "items": .object(["type": .string("string")]), "description": .string("Element IDs to trace to source and cite as provenance evidence in the generated suite.")]),
+                "output_path": .object(["type": .string("string"), "description": .string("Optional file path to merge-write via the marker-scoped GeneratedRegionMerger. If omitted, only the generated source is returned.")])
+            ]),
+            "required": .array([.string("template"), .string("script_name")])
+        ])
+
         var tools = [
             MCPTool(
                 name: "viewlens_doctor",
@@ -1137,6 +1181,15 @@ public final class MCPServer: Sendable {
                     outputSchema: sessionObjectSchema,
                     icons: viewLensToolIcons(),
                     annotations: MCPTool.Annotations()
+                ),
+                MCPTool(
+                    name: "viewlens_generate_regression_test",
+                    title: "Generate Regression Test (Closed-Loop)",
+                    description: "Generates a reviewable, marker-scoped swift-testing suite from an approved replay script and its fix verification; never overwrites hand-written code.",
+                    inputSchema: strictInputSchema(generateRegressionTestSchema),
+                    outputSchema: sessionObjectSchema,
+                    icons: viewLensToolIcons(),
+                    annotations: MCPTool.Annotations()
                 )
             ])
         }
@@ -1307,7 +1360,62 @@ public final class MCPServer: Sendable {
         ])
     }
 
+    /// Runtime-mutating tools whose calls are recorded to the audit log (MCP-15.15). Read-only
+    /// queries are excluded by default to keep the log meaningful and small.
+    private static let auditedToolNames: Set<String> = [
+        "viewlens_ui_perform", "viewlens_app_launch", "viewlens_session_create",
+        "viewlens_session_close", "viewlens_flow_replay", "viewlens_flow_crawl",
+        "viewlens_verify_changes"
+    ]
+
     private func handleToolCall(
+        _ request: JSONRPCRequest,
+        modern: Bool,
+        execution: MCPExecutionContext
+    ) async -> Data? {
+        guard let paramsObj = request.params?.objectValue,
+              let toolName = paramsObj["name"]?.stringValue,
+              Self.auditedToolNames.contains(toolName) else {
+            return await performToolCall(request, modern: modern, execution: execution)
+        }
+
+        let arguments = paramsObj["arguments"]?.objectValue ?? [:]
+        let started = DispatchTime.now()
+        let data = await performToolCall(request, modern: modern, execution: execution)
+
+        await AuditLogger.shared.record(AuditLogEntry(
+            id: "audit_\(UUID().uuidString.prefix(12))",
+            timestamp: Date(),
+            operation: toolName,
+            resolvedTarget: auditTarget(toolName: toolName, arguments: arguments),
+            scopeDecision: data != nil ? "allowed" : "denied:invalid_params",
+            durationMs: elapsedMilliseconds(since: started),
+            terminationReason: "completed",
+            sessionID: arguments["session_id"]?.stringValue
+        ))
+
+        return data
+    }
+
+    /// Best-effort resolved-target extraction for the audit log — never falls back to guessing
+    /// or including raw argument text, only known identifier-shaped fields.
+    private func auditTarget(toolName: String, arguments: [String: JSONValue]) -> MCPEvidenceEnvelope.Target? {
+        if let template = arguments["template"]?.stringValue {
+            return .init(type: "template", identifier: template)
+        }
+        if let bundleIdentifier = arguments["bundle_identifier"]?.stringValue {
+            return .init(type: "bundleIdentifier", identifier: bundleIdentifier)
+        }
+        if let sessionID = arguments["session_id"]?.stringValue {
+            return .init(type: "session", identifier: sessionID)
+        }
+        if let elementID = arguments["element_id"]?.stringValue {
+            return .init(type: "element", identifier: elementID)
+        }
+        return nil
+    }
+
+    private func performToolCall(
         _ request: JSONRPCRequest,
         modern: Bool,
         execution: MCPExecutionContext
@@ -1327,7 +1435,7 @@ public final class MCPServer: Sendable {
         case "viewlens_doctor":
             let started = DispatchTime.now()
             let modelPath = arguments["model_path"]?.stringValue
-            let report = runDoctor(customPath: modelPath)
+            let report = await runDoctor(customPath: modelPath)
             let jsonText = JSONFormatter.encode(report)
             let unavailableChecks = report.checks.filter { $0.status != "confirmed" }
             let evidence = MCPEvidenceEnvelope(
@@ -2400,6 +2508,112 @@ public final class MCPServer: Sendable {
             let response = JSONRPCResponse(id: request.id, result: result)
             return try? JSONEncoder().encode(response)
 
+        case "viewlens_generate_regression_test":
+            guard let template = arguments["template"]?.stringValue,
+                  let scriptName = arguments["script_name"]?.stringValue else {
+                let message = "Missing required 'template' or 'script_name' parameter"
+                let result = MCPToolCallResult(
+                    text: JSONFormatter.errorJSON(message: message),
+                    structuredContent: nil,
+                    isError: true,
+                    modern: modern
+                )
+                let response = JSONRPCResponse(id: request.id, result: result)
+                return try? JSONEncoder().encode(response)
+            }
+
+            let steps: [FlowStep] = (arguments["steps"]?.arrayValue ?? []).compactMap { stepValue in
+                guard let stepObj = stepValue.objectValue,
+                      let stepID = stepObj["id"]?.stringValue,
+                      let actionObj = stepObj["action"]?.objectValue,
+                      let actionKindStr = actionObj["kind"]?.stringValue,
+                      let actionKind = UIActionKind(rawValue: actionKindStr) else {
+                    return nil
+                }
+                let action = UIAction(
+                    kind: actionKind,
+                    elementID: actionObj["element_id"]?.stringValue,
+                    coordinate: actionObj["coordinate"]?.arrayValue?.compactMap { $0.doubleValue },
+                    text: actionObj["text"]?.stringValue,
+                    direction: actionObj["direction"]?.stringValue,
+                    shortcut: actionObj["shortcut"]?.stringValue
+                )
+                var assertion: FlowAssertion?
+                if let assertionObj = stepObj["assertion"]?.objectValue,
+                   let assertionKind = assertionObj["kind"]?.stringValue,
+                   let targetElementID = assertionObj["target_element_id"]?.stringValue {
+                    assertion = FlowAssertion(kind: assertionKind, targetElementID: targetElementID, expectedValue: assertionObj["expected_value"]?.stringValue)
+                }
+                return FlowStep(id: stepID, action: action, assertion: assertion)
+            }
+            let script = FlowScript(name: scriptName, targetTemplate: template, steps: steps)
+
+            var changedFiles: [String] = []
+            if let arr = arguments["changed_files"]?.arrayValue {
+                changedFiles = arr.compactMap(\.stringValue)
+            }
+            var baselineIssues: [String] = []
+            if let arr = arguments["baseline_issues"]?.arrayValue {
+                baselineIssues = arr.compactMap(\.stringValue)
+            }
+            let changeSet = ChangeSet(changedFiles: changedFiles, targetTemplate: template)
+            let auditResult = await runAuditView(
+                templateName: template,
+                deviceNames: ["iPhoneSE"],
+                dtSizes: ["large"],
+                schemes: ["light"],
+                execution: execution
+            )
+            let currentIssues = auditResult?.report?.permutations.values.flatMap(\.issues).map { $0.kind.rawValue } ?? []
+            let fixReport = FixVerifier.verify(changeSet: changeSet, baselineIssues: baselineIssues, currentIssues: currentIssues)
+
+            let elementIDs = arguments["element_ids"]?.arrayValue?.compactMap(\.stringValue) ?? []
+            let workspaceRoot = arguments["workspace_root"]?.stringValue ?? FileManager.default.currentDirectoryPath
+            let sourceRecords = elementIDs.map {
+                SourceProvenanceEngine.traceSource(elementID: $0, templateName: template, workspaceRoot: workspaceRoot)
+            }
+
+            let generated = RegressionTestGenerator.generate(script: script, fixVerification: fixReport, sourceRecords: sourceRecords)
+
+            if let outputPath = arguments["output_path"]?.stringValue {
+                let outputURL = URL(fileURLWithPath: outputPath)
+                let existingContents = try? String(contentsOf: outputURL, encoding: .utf8)
+                do {
+                    let merged = try GeneratedRegionMerger.merge(regionID: generated.regionID, newContent: generated.body, into: existingContents)
+                    try FileManager.default.createDirectory(at: outputURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+                    try merged.write(to: outputURL, atomically: true, encoding: .utf8)
+                } catch let markerError as MarkerParseError {
+                    let result = MCPToolCallResult(
+                        text: JSONFormatter.errorJSON(message: "Refused to write: existing file's markers for this region are unsafe to merge (\(markerError))."),
+                        structuredContent: nil,
+                        isError: true,
+                        modern: modern
+                    )
+                    let response = JSONRPCResponse(id: request.id, result: result)
+                    return try? JSONEncoder().encode(response)
+                } catch {
+                    let result = MCPToolCallResult(
+                        text: JSONFormatter.errorJSON(message: "Failed to write generated test: \(error.localizedDescription)"),
+                        structuredContent: nil,
+                        isError: true,
+                        modern: modern
+                    )
+                    let response = JSONRPCResponse(id: request.id, result: result)
+                    return try? JSONEncoder().encode(response)
+                }
+            }
+
+            let generatedJSON = (try? JSONValue.fromEncodable(generated)) ?? .object([:])
+            let jsonText2 = (try? String(data: JSONEncoder().encode(generated), encoding: .utf8)) ?? "{}"
+            let result2 = MCPToolCallResult(
+                text: jsonText2,
+                structuredContent: modern ? generatedJSON : nil,
+                isError: false,
+                modern: modern
+            )
+            let response2 = JSONRPCResponse(id: request.id, result: result2)
+            return try? JSONEncoder().encode(response2)
+
         default:
             let response = JSONRPCResponse<String>(
                 id: request.id,
@@ -2558,62 +2772,8 @@ public final class MCPServer: Sendable {
         )
     }
 
-    private func runDoctor(customPath: String?) -> DoctorReport {
-        var checks: [DiagnosticCheck] = []
-        var allPassed = true
-
-        let modelResult = ModelLocator.resolve(customPath: customPath)
-        let resolvedURL: URL?
-
-        switch modelResult {
-        case .success(let url):
-            resolvedURL = url
-            checks.append(DiagnosticCheck(name: "model_found", status: "confirmed", detail: url.path))
-        case .failure(let error):
-            resolvedURL = nil
-            allPassed = false
-            checks.append(DiagnosticCheck(name: "model_found", status: "failed", detail: error.localizedDescription))
-        }
-
-        if let url = resolvedURL {
-            do {
-                let sizeBytes = try ModelLocator.calculateSize(at: url)
-                let sizeMB = Double(sizeBytes) / (1024.0 * 1024.0)
-                let formattedMB = String(format: "%.1fMB", sizeMB)
-
-                if sizeMB <= ModelLocator.maxExpectedSizeMB && sizeMB > 0.1 {
-                    checks.append(DiagnosticCheck(name: "model_size", status: "confirmed", detail: "\(formattedMB) (< \(Int(ModelLocator.maxExpectedSizeMB))MB)"))
-                } else {
-                    allPassed = false
-                    checks.append(DiagnosticCheck(name: "model_size", status: "failed", detail: "\(formattedMB) exceeds expectation"))
-                }
-            } catch {
-                allPassed = false
-                checks.append(DiagnosticCheck(name: "model_size", status: "failed", detail: error.localizedDescription))
-            }
-        } else {
-            checks.append(DiagnosticCheck(name: "model_size", status: "skipped", detail: "Model not found"))
-        }
-
-        if let url = resolvedURL {
-            let start = DispatchTime.now()
-            do {
-                _ = try YOLODetector(modelURL: url)
-                let end = DispatchTime.now()
-                let elapsedSeconds = Double(end.uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000_000.0
-                checks.append(DiagnosticCheck(name: "model_loads", status: "confirmed", detail: String(format: "Cold load: %.2fs", elapsedSeconds)))
-            } catch {
-                allPassed = false
-                checks.append(DiagnosticCheck(name: "model_loads", status: "failed", detail: error.localizedDescription))
-            }
-        } else {
-            checks.append(DiagnosticCheck(name: "model_loads", status: "skipped", detail: "Model not found"))
-        }
-
-        let overallStatus = allPassed ? "ready" : "not_ready"
-        let nextCommand = allPassed ? "viewlens scan <image-path>" : "export VIEWLENS_MODEL_PATH=/path/to/best.mlpackage"
-
-        return DoctorReport(status: overallStatus, checks: checks, recommendedNextCommand: nextCommand)
+    private func runDoctor(customPath: String?) async -> DoctorReport {
+        await DoctorEngine.run(customModelPath: customPath)
     }
 
     private func runAuditScreenshot(

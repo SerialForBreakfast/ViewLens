@@ -101,4 +101,98 @@ struct QualityGateTests {
         #expect(md.contains(".frame(height: 44)"))
         #expect(md.contains("iPhone 16 Pro"))
     }
+
+    private func cleanMatrixReport(template: String = "LoginForm") -> MatrixAuditReport {
+        let report = AuditReport(
+            sourceMode: .rendered,
+            target: "\(template) [iPhone16Pro_large_light]",
+            device: "iPhone 16 Pro",
+            dimensions: AuditDimensions(width: 1179, height: 2556, scale: 3.0),
+            elements: [],
+            issues: []
+        )
+        return MatrixAuditReport(
+            sourceMode: .rendered,
+            template: template,
+            passed: true,
+            summary: MatrixSummary(totalPermutations: 1, passedCount: 1, failedCount: 0, worstIssue: nil, failedPermutations: []),
+            permutations: ["iPhone16Pro_large_light": report]
+        )
+    }
+
+    @Test("Evaluate without fixVerification is unchanged from pre-M17.13 behavior")
+    func testEvaluateWithoutFixVerificationIsUnchanged() {
+        let gate = GateConfig(failOn: .error, purposes: [])
+        let matrixReport = cleanMatrixReport()
+
+        let evaluation = QualityGateEvaluator.evaluate(gateName: "pre-commit", config: gate, matrixReport: matrixReport)
+        #expect(evaluation.passed)
+        #expect(evaluation.fixVerification == nil)
+        #expect(evaluation.sourceRecords == nil)
+    }
+
+    @Test("Evaluate fails when fixVerification has regressions, even if config.failOn is none")
+    func testEvaluateFailsWhenFixVerificationHasRegressionsEvenIfConfigFailOnIsNone() {
+        let gate = GateConfig(failOn: .none, purposes: [])
+        let matrixReport = cleanMatrixReport()
+        let fixVerification = FixVerifier.verify(
+            changeSet: ChangeSet(changedFiles: ["Sources/Example.swift"], targetTemplate: "LoginForm"),
+            baselineIssues: [],
+            currentIssues: ["tappableTargetTooSmall"]
+        )
+        #expect(fixVerification.hasRegressions)
+
+        let evaluation = QualityGateEvaluator.evaluate(gateName: "pull-request", config: gate, matrixReport: matrixReport, fixVerification: fixVerification)
+        #expect(!evaluation.passed)
+        #expect(evaluation.failureReason?.contains("introduced issue") == true)
+    }
+
+    @Test("generateMarkdown omits the Fix Verification section when nil")
+    func testGenerateMarkdownOmitsFixVerificationSectionWhenNil() {
+        let gate = GateConfig(failOn: .error, purposes: [])
+        let matrixReport = cleanMatrixReport()
+        let evaluation = QualityGateEvaluator.evaluate(gateName: "pre-commit", config: gate, matrixReport: matrixReport)
+        let md = PRSummaryGenerator.generateMarkdown(gateName: "pre-commit", config: gate, matrixReport: matrixReport, evaluation: evaluation)
+        #expect(!md.contains("Fix Verification"))
+    }
+
+    @Test("generateMarkdown renders the Fix Verification section with source links when available")
+    func testGenerateMarkdownRendersFixVerificationSectionWithSourceLinks() {
+        let gate = GateConfig(failOn: .error, purposes: [])
+        let matrixReport = cleanMatrixReport()
+        let fixVerification = FixVerifier.verify(
+            changeSet: ChangeSet(changedFiles: ["Sources/Example.swift"], targetTemplate: "LoginForm"),
+            baselineIssues: ["tappableTargetTooSmall"],
+            currentIssues: []
+        )
+        let sourceRecords = [
+            SourceRecord(elementID: "BuggySmallButton", filePath: "Sources/ViewLensKit/Rendering/TemplateRegistry.swift", line: 1, symbol: "LoginForm", confidence: .approximate, detail: "Matched template source file.")
+        ]
+        let evaluation = QualityGateEvaluator.evaluate(gateName: "pull-request", config: gate, matrixReport: matrixReport, fixVerification: fixVerification, sourceRecords: sourceRecords)
+        let md = PRSummaryGenerator.generateMarkdown(gateName: "pull-request", config: gate, matrixReport: matrixReport, evaluation: evaluation)
+
+        #expect(md.contains("Fix Verification"))
+        #expect(md.contains("Resolved | 1"))
+        #expect(md.contains("TemplateRegistry.swift:1"))
+        #expect(md.contains("confidence: approximate"))
+    }
+
+    @Test("generateMarkdown never fabricates a file:line for unavailable confidence")
+    func testGenerateMarkdownNeverFabricatesFileLineForUnavailableConfidence() {
+        let gate = GateConfig(failOn: .error, purposes: [])
+        let matrixReport = cleanMatrixReport()
+        let fixVerification = FixVerifier.verify(
+            changeSet: ChangeSet(changedFiles: [], targetTemplate: "LoginForm"),
+            baselineIssues: ["tappableTargetTooSmall"],
+            currentIssues: []
+        )
+        let sourceRecords = [
+            SourceRecord(elementID: "UnknownElement", filePath: nil, line: nil, symbol: nil, confidence: .unavailable, detail: "No instrumented debug metadata found.")
+        ]
+        let evaluation = QualityGateEvaluator.evaluate(gateName: "pull-request", config: gate, matrixReport: matrixReport, fixVerification: fixVerification, sourceRecords: sourceRecords)
+        let md = PRSummaryGenerator.generateMarkdown(gateName: "pull-request", config: gate, matrixReport: matrixReport, evaluation: evaluation)
+
+        #expect(!md.contains("UnknownElement ->"))
+        #expect(md.contains("1 finding(s) had no available source location"))
+    }
 }

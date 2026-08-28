@@ -296,7 +296,7 @@ Or run the automated setup script:
 
 ---
 
-## Exposed MCP Tools (16 Modern Tools)
+## Exposed MCP Tools (19 Modern Tools)
 
 | Tool Name | Scope & Parameters | Capability Description |
 |-----------|--------------------|------------------------|
@@ -316,6 +316,9 @@ Or run the automated setup script:
 | `viewlens_ui_perform` | `action: string`, `element_id?: string`, `text?: string`, `direction?: string` | Executes allowlisted UI actions (`activate`, `type_text`, `scroll`, `swipe`) with automatic credential sanitization. |
 | `viewlens_flow_replay` | `template: string`, `name: string`, `actions: object[]` | Replays multi-step UI interaction scripts with declared assertions across state transitions. |
 | `viewlens_accessibility_graph` | `template: string` | Analyzes sequential keyboard focus order, natural reading order, and flags focus traps. |
+| `viewlens_flow_crawl` | `template: string`, `max_depth?: int`, `max_states?: int` | Bounded automated exploration of reachable UI state space discovering loading, empty, and modal states. |
+| `viewlens_trace_to_source` | `element_id: string`, `template: string`, `workspace_root?: string` | Traces a visual/accessibility element or template back to responsible source file and symbol with explicit confidence. |
+| `viewlens_verify_changes` | `template: string`, `changed_files: string[]`, `baseline_issues: string[]` | Closed-loop fix verification comparing before/after findings to classify resolved issues and regressions. |
 
 ---
 
@@ -430,6 +433,20 @@ ViewLens outputs coordinates in **normalized top-left space `[0.0, 1.0]`**, matc
   }
 }
 ```
+
+---
+
+## Testing
+
+```bash
+# Fast unit tests (default) — no simulator required
+swift test
+
+# Also run the gated live-simulator integration suite (requires a booted simulator)
+VIEWLENS_ENABLE_INTEGRATION_TESTS=1 swift test --filter RuntimeBackendIntegrationTests
+```
+
+The gated suite is skipped by default so `swift test` stays fast and deterministic in CI; it exercises the real `xcrun simctl io screenshot` capture path in `ProcessController`.
 
 ---
 

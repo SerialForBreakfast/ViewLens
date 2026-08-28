@@ -58,7 +58,7 @@ public struct SkillGenerator: Sendable {
 
         ## 2. Pure Swift MCP Tools Reference
 
-        ViewLens exposes 5 standard JSON-RPC tools over `stdio`:
+        ViewLens exposes over 20 JSON-RPC tools over `stdio` (a representative subset follows):
 
         ### 1. `viewlens_doctor`
         Probes environment, Apple Neural Engine readiness, and CoreML model status.
@@ -137,6 +137,18 @@ public struct SkillGenerator: Sendable {
            - If **WCAG 2.5.5 Fails**: Add `.frame(minWidth: 44, minHeight: 44)` to interactive touch targets.
            - If **WCAG 1.4.3 Fails**: Update text to adaptive semantic `Color.primary` for dark mode contrast.
         5. **Re-Verify Quality Gate**: Ensure exit code is `0` before finalizing the code for the user.
+
+        ---
+
+        ## 5. Agentic Workflow: Closed-Loop Fix Verification
+
+        When asked to fix a ViewLens-reported defect:
+
+        1. Make the source change yourself — ViewLens has no file-write tools for your application source and will never edit it for you. The one exception is its own generated test scaffolding (step 4 below), which is marker-scoped and never touches the fix itself.
+        2. Call `viewlens_verify_changes` with the target `template` and the `changed_files` you modified (plus `baseline_issues` if known). Treat its `resolvedIssues` / `remainingIssues` / `introducedIssues` / `notRetested` fields as the source of truth for whether the fix worked — not your own reading of the diff.
+        3. Call `viewlens_trace_to_source` for any issue you need to locate precisely; always report its `confidence` field (`exact` / `approximate` / `unavailable`) alongside any file or line you cite. Never state a location ViewLens did not return.
+        4. Only once `remainingIssues` is empty and `hasRegressions` is false, optionally call `viewlens_generate_regression_test` to produce a reviewable `swift-testing` suite from the approved replay, and present its generated source to the user before writing it to disk via `output_path`.
+        5. Report the fix as complete only once `remainingIssues` is empty and `hasRegressions` is false — otherwise report exactly which issues remain or were introduced.
         """
     }
 }
