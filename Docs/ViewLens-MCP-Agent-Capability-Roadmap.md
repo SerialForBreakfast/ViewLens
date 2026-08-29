@@ -209,8 +209,8 @@ M14A deliberately excludes runtime control and remote transport. It proves compa
 - [x] **MCP-18.6** Add Streamable HTTP transport alongside stdio without changing core audit behavior.
 - [x] **MCP-18.7** Implement OAuth-based authorization, exact audience validation, short-lived credentials, per-request scopes, and explicit prohibition of token passthrough.
 - [ ] **MCP-18.8** Define organization/project/review authorization and ensure handles are names, not bearer capabilities.
-- [ ] **MCP-18.9** Add encrypted artifact storage, retention controls, deletion, audit trails, tenant isolation, and signed artifact URLs.
-- [ ] **MCP-18.10** Add OpenTelemetry-compatible traces and privacy-preserving metrics for tool latency, task state, failures, cache effectiveness, and detector performance.
+- [x] **MCP-18.9** Add encrypted artifact storage, retention controls, deletion, audit trails, tenant isolation, and signed artifact URLs.
+- [x] **MCP-18.10** Add OpenTelemetry-compatible traces and privacy-preserving metrics for tool latency, task state, failures, cache effectiveness, and detector performance.
 - [x] **MCP-18.11** Implement deterministic caching keyed by source, environment, model, rules, schema, and tool version; expose cache provenance in results.
 
 ### Distribution and skills
@@ -218,7 +218,7 @@ M14A deliberately excludes runtime control and remote transport. It proves compa
 - [ ] **MCP-18.12** Package and validate local and remote server manifests, icons, metadata, version compatibility, and automated upgrade checks.
 - [ ] **MCP-18.13** Publish agent skills for live debugging, release accessibility, flow crawling, design-system extraction, regression authoring, and PR verification.
 - [ ] **MCP-18.14** Add end-to-end examples for supported hosts and an interoperability matrix showing tools, resources, tasks, elicitation, and MCP App support.
-- [ ] **MCP-18.15** Complete a remote-service threat model, abuse cases, penetration review, disaster recovery exercise, and data-handling documentation before general availability.
+- [x] **MCP-18.15** Complete a remote-service threat model, abuse cases, penetration review, disaster recovery exercise, and data-handling documentation before general availability.
 
 **Acceptance:** A compatible host renders the ViewLens review app and keeps it synchronized with task/resource updates; users can inspect and approve bounded operations accessibly; local stdio behavior remains available; remote clients are scope-authorized and isolated; security and retention tests pass.
 
