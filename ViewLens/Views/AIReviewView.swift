@@ -145,6 +145,7 @@ struct AIReviewView: View {
                     .pickerStyle(.segmented)
                     .frame(maxWidth: 220)
                     .accessibilityLabel("Workbench view mode")
+                    .accessibilityIdentifier("review.viewMode")
 
                     Menu {
                         ForEach(ReviewExportFormat.allCases) { format in Button(format.rawValue) { prepareExport(format) } }

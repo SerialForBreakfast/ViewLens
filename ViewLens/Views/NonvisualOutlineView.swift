@@ -81,6 +81,7 @@ public struct NonvisualOutlineView: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(maxWidth: 160)
                 .accessibilityLabel("Filter outline elements and findings")
+                .accessibilityIdentifier("outline.search")
 
             Menu {
                 Button("All Severities") { filterSeverity = nil }
@@ -93,12 +94,14 @@ public struct NonvisualOutlineView: View {
             }
             .fixedSize()
             .help("Filter findings by severity")
+            .accessibilityIdentifier("outline.severity")
 
             Toggle(isOn: $onlyInteractive) {
                 Label("Interactive", systemImage: "hand.tap")
             }
             .toggleStyle(.button)
             .help("Show only interactive controls")
+            .accessibilityIdentifier("outline.interactiveOnly")
 
             Picker("Profile", selection: Binding(get: { model.preferences.nonvisualProfile }, set: { model.preferences.nonvisualProfile = $0 })) {
                 Text("Speech").tag("Speech")
@@ -108,6 +111,7 @@ public struct NonvisualOutlineView: View {
             .pickerStyle(.segmented)
             .frame(maxWidth: 140)
             .help("Choose presentation detail profile")
+            .accessibilityIdentifier("outline.profile")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
@@ -127,9 +131,18 @@ public struct NonvisualOutlineView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 screenHeaderNode(nonvisual: nonvisual)
+                screenSummaryNode(nonvisual: nonvisual)
 
                 ForEach(filteredRegions(nonvisual: nonvisual), id: \.id) { region in
                     regionNode(region: region, nonvisual: nonvisual)
+                }
+
+                if !nonvisual.mismatches.isEmpty && searchText.isEmpty {
+                    semanticMismatchesNode(nonvisual.mismatches)
+                }
+
+                if !nonvisual.navigationSequences.isEmpty && searchText.isEmpty {
+                    navigationNode(nonvisual.navigationSequences, elements: nonvisual.elements)
                 }
 
                 if !nonvisual.relationships.isEmpty && searchText.isEmpty {
@@ -166,6 +179,23 @@ public struct NonvisualOutlineView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Screen \(nonvisual.title ?? "Screen"), \(nonvisual.regions.count) regions, \(nonvisual.elements.count) elements")
+        .accessibilityIdentifier("outline.screen")
+    }
+
+    private func screenSummaryNode(nonvisual: NonvisualScreenModel) -> some View {
+        let summary = NonvisualSummaryComposer.compose(nonvisual)
+        let text = NonvisualPresentationRenderer.render(summary, profile: presentationProfile, maximumStatements: 8)
+        return GroupBox("Screen Summary") {
+            Text(text)
+                .font(.caption)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .textSelection(.enabled)
+                .padding(4)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Screen summary")
+        .accessibilityValue(text)
+        .accessibilityIdentifier("outline.summary")
     }
 
     private func regionNode(region: NonvisualRegion, nonvisual: NonvisualScreenModel) -> some View {
@@ -204,6 +234,7 @@ public struct NonvisualOutlineView: View {
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Region: \(region.label), \(elements.count) elements. \(isExpanded ? "Expanded" : "Collapsed")")
             .accessibilityHint("Double tap to toggle region expansion")
+            .accessibilityIdentifier("outline.region.\(region.id.rawValue)")
 
             if isExpanded {
                 VStack(alignment: .leading, spacing: 6) {
@@ -231,9 +262,11 @@ public struct NonvisualOutlineView: View {
             }
             .buttonStyle(.plain)
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(element.type): \(element.visibleLabel ?? "Element"), \(findings.count) findings. \(isSelected ? "Selected" : "")")
-            .accessibilityValue("Region: \(element.regionID?.rawValue ?? "none")")
+            .accessibilityLabel(elementAccessibilityLabel(element, findings: findings, isSelected: isSelected))
+            .accessibilityValue(elementAccessibilityValue(element))
             .accessibilityHint("Double tap to select element and reveal on visual canvas")
+            .accessibilityIdentifier("outline.element.\(element.id.rawValue)")
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
             .accessibilityAction(named: "Select on Canvas") {
                 model.selectElement(at: element.visualIndex)
             }
@@ -362,6 +395,8 @@ public struct NonvisualOutlineView: View {
         .accessibilityLabel("\(finding.issue.severity.rawValue) finding: \(finding.issue.displayTitle), \(finding.issue.wcagCriterion ?? "Apple HIG")")
         .accessibilityValue("Criterion: \(finding.issue.wcagCriterion ?? "Apple HIG"), Finding ID: \(finding.id)")
         .accessibilityHint("Double tap to select finding and inspect remediation")
+        .accessibilityIdentifier("outline.finding.\(finding.id)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityAction(named: "Copy Remediation Snippet") {
             if let snippet = finding.issue.remediation?.codeSnippet {
                 NSPasteboard.general.clearContents()
@@ -387,6 +422,93 @@ public struct NonvisualOutlineView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(4)
         }
+        .accessibilityIdentifier("outline.relationships")
+    }
+
+    private func semanticMismatchesNode(_ mismatches: [SemanticMismatch]) -> some View {
+        GroupBox("Visual and Semantic Mismatches (\(mismatches.count))") {
+            VStack(alignment: .leading, spacing: 7) {
+                ForEach(mismatches.sorted(by: { $0.id < $1.id }), id: \.id) { mismatch in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(mismatch.severity.rawValue.capitalized): \(mismatch.kind.rawValue.replacingOccurrences(of: "_", with: " "))")
+                            .font(.caption.weight(.semibold))
+                        Text(mismatch.description).font(.caption).foregroundStyle(.secondary)
+                        Text("Evidence: \(mismatch.evidence.kind.rawValue), \(mismatch.evidence.source)")
+                            .font(.caption2).foregroundStyle(.tertiary)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("\(mismatch.severity.rawValue) semantic mismatch: \(mismatch.description)")
+                    .accessibilityValue("\(mismatch.evidence.kind.rawValue) evidence from \(mismatch.evidence.source)")
+                    .accessibilityIdentifier("outline.mismatch.\(mismatch.id.rawValue)")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(4)
+        }
+        .accessibilityIdentifier("outline.mismatches")
+    }
+
+    private func navigationNode(_ sequences: [NavigationSequence], elements: [NonvisualElement]) -> some View {
+        let elementMap = Dictionary(uniqueKeysWithValues: elements.map { ($0.id, $0) })
+        return GroupBox("Navigation and Predicted Screen Reader Traversal") {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(sequences.sorted(by: { $0.id < $1.id }), id: \.id) { sequence in
+                    let labels = sequence.elementIDs.map { id in
+                        elementMap[id]?.semantics?.accessibleName ?? elementMap[id]?.visibleLabel ?? id.rawValue
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(navigationTitle(sequence.kind)).font(.caption.weight(.semibold))
+                        Text(labels.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: ", "))
+                            .font(.caption).foregroundStyle(.secondary)
+                        Text(navigationEvidenceText(sequence))
+                            .font(.caption2).foregroundStyle(.tertiary)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("\(navigationTitle(sequence.kind)): \(labels.joined(separator: ", "))")
+                    .accessibilityValue(navigationEvidenceText(sequence))
+                    .accessibilityIdentifier("outline.navigation.\(sequence.kind.rawValue)")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(4)
+        }
+        .accessibilityIdentifier("outline.navigation")
+    }
+
+    private var presentationProfile: NonvisualPresentationProfile {
+        switch model.preferences.nonvisualProfile.lowercased() {
+        case "braille": .braille
+        case "developer", "dev": .developer
+        default: .speech
+        }
+    }
+
+    private func elementAccessibilityLabel(_ element: NonvisualElement, findings: [ReviewFinding], isSelected: Bool) -> String {
+        let name = element.semantics?.accessibleName ?? element.visibleLabel ?? "Unnamed element"
+        let role = element.semantics?.role ?? element.type
+        return "\(name), \(role), \(findings.count) findings\(isSelected ? ", selected" : "")"
+    }
+
+    private func elementAccessibilityValue(_ element: NonvisualElement) -> String {
+        let semantics = element.semantics
+        let value = semantics?.value ?? "no value"
+        let states = semantics?.states.isEmpty == false ? semantics?.states.joined(separator: ", ") ?? "" : "no states"
+        let actions = semantics?.actions.isEmpty == false ? semantics?.actions.joined(separator: ", ") ?? "" : "no actions"
+        let confidence = element.semanticEvidence.confidence.map { ", confidence \(Int($0 * 100)) percent" } ?? ""
+        return "Region \(element.regionID?.rawValue ?? "none"). Value \(value). States \(states). Actions \(actions). Evidence \(element.semanticEvidence.kind.rawValue) from \(element.semanticEvidence.source)\(confidence)."
+    }
+
+    private func navigationTitle(_ kind: NavigationSequenceKind) -> String {
+        switch kind {
+        case .readingOrder: "Reading order"
+        case .keyboardFocus: "Keyboard focus order"
+        case .predictedVoiceOver: "Predicted VoiceOver traversal"
+        }
+    }
+
+    private func navigationEvidenceText(_ sequence: NavigationSequence) -> String {
+        let limitation = sequence.kind == .predictedVoiceOver ? " API-derived prediction; manual VoiceOver verification is required." : ""
+        return "\(sequence.evidence.kind.rawValue.capitalized) evidence from \(sequence.evidence.source).\(limitation)"
     }
 
     private func filteredRegions(nonvisual: NonvisualScreenModel) -> [NonvisualRegion] {

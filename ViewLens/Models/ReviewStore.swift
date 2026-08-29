@@ -91,6 +91,7 @@ public final class ReviewStore {
         issues: [ViewLensIssue],
         score: ReviewScore,
         activity: MCPAgentActivity,
+        nonvisualScreenModel: NonvisualScreenModel? = nil,
         finishedAt: Date = Date()
     ) {
         guard var review = activeReview, review.id == reviewID else { return }
@@ -114,11 +115,11 @@ public final class ReviewStore {
             issues: issues
         )
         let screenID = NonvisualID("screen:\(reviewID.uuidString)")
-        review.nonvisualScreenModel = NonvisualScreenBuilder.fromAuditReport(
-            report,
-            screenID: screenID,
-            title: review.source.displayName
-        )
+        review.nonvisualScreenModel = nonvisualScreenModel ?? NonvisualScreenBuilder.fromAuditReport(
+                report,
+                screenID: screenID,
+                title: review.source.displayName
+            )
 
         activeReview = review
         activeActivity = activity

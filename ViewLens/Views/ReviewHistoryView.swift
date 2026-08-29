@@ -57,6 +57,7 @@ struct ReviewHistoryView: View {
                 Button { historyStore.showsComparison = true } label: { Label("Compare", systemImage: "rectangle.split.2x1") }
                     .disabled(!canCompare)
                     .help("Select two reviews with stored previews")
+                    .accessibilityIdentifier("history.compare")
                 Menu {
                     ForEach(ReviewExportFormat.allCases) { format in Button(format.rawValue) { export(selectedReviews.first, as: format) } }
                 } label: { Label("Export", systemImage: "square.and.arrow.up") }
@@ -116,6 +117,7 @@ struct ReviewHistoryView: View {
                         }
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel("Review of \(review.source.displayName), \(review.source.sourceType), score \(review.score?.value ?? 0) out of 100, status \(review.status.displayName)")
+                        .accessibilityIdentifier("history.review.\(review.source.displayName)")
                     }
                     TableColumn("Score") { review in
                         Text(review.score.map { "\($0.value)" } ?? "—").monospacedDigit()
@@ -237,6 +239,10 @@ private struct ReviewComparisonView: View {
         guard let first = older.previewImage, let second = newer.previewImage else { return nil }
         return VisualDiffEngine.generateDiffHeatmap(reference: first, candidate: second)
     }
+    private var semanticDiff: SemanticScreenDiff? {
+        guard let before = older.nonvisualScreenModel, let after = newer.nonvisualScreenModel else { return nil }
+        return SemanticDiffEngine.diff(before: before, after: after)
+    }
     var body: some View {
         VStack(spacing: 0) {
             HStack { Text("Review Comparison").font(.title2.bold()); Spacer(); Button("Done") { dismiss() }.keyboardShortcut(.cancelAction) }.padding(16)
@@ -295,6 +301,38 @@ private struct ReviewComparisonView: View {
                         }
                     }
 
+                    if let semanticDiff {
+                        GroupBox("Textual Accessibility Diff") {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(semanticDiff.formattedSummary(profile: .speech))
+                                    .font(.subheadline)
+                                ForEach(semanticDiff.changes.prefix(12)) { change in
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(change.impact.rawValue).font(.caption.weight(.semibold))
+                                        Text(change.description).font(.caption).foregroundStyle(.secondary)
+                                    }
+                                    .accessibilityElement(children: .combine)
+                                    .accessibilityLabel("\(change.impact.rawValue): \(change.description)")
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(8)
+                        }
+                        .accessibilityIdentifier("comparison.semanticDiff")
+                    }
+
+                    GroupBox("Textual Visual Diff") {
+                        Text(textualVisualDiff)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .font(.subheadline)
+                            .textSelection(.enabled)
+                            .padding(8)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Textual visual diff")
+                    .accessibilityValue(textualVisualDiff)
+                    .accessibilityIdentifier("comparison.visualDiffNarrative")
+
                     GroupBox("Environment differences") {
                         VStack(alignment: .leading) {
                             comparisonRow("Device", older.environment.deviceName, newer.environment.deviceName)
@@ -310,7 +348,17 @@ private struct ReviewComparisonView: View {
                     }
                 }.padding(20)
             }
-        }.frame(minWidth: 760, minHeight: 620)
+        }
+        .frame(minWidth: 760, minHeight: 620)
+        .accessibilityIdentifier("comparison.sheet")
+    }
+    private var textualVisualDiff: String {
+        guard let visualDiff else { return "Visual comparison is unavailable because one or both previews are missing." }
+        let similarity = visualDiff.ssimScore.formatted(.percent.precision(.fractionLength(2)))
+        if visualDiff.ssimScore >= 0.98 {
+            return "Visual similarity is \(similarity). Pixel changes are within the configured cosmetic-noise tolerance. Semantic changes are reported separately."
+        }
+        return "Visual similarity is \(similarity), indicating a material pixel change. Use the textual accessibility diff for added, removed, or semantically changed elements; pixel evidence alone does not prove focus or screen-reader behavior."
     }
     private var scoreChange: String {
         guard let old = older.score?.value, let new = newer.score?.value else { return "Unavailable" }

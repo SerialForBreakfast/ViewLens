@@ -14,6 +14,7 @@ public struct VisualInspectorView: View {
 public struct ReviewCanvasView: View {
     @Bindable var model: AppModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.viewLensUITestAccommodations) private var uiTestAccommodations
     @State private var zoom: CGFloat = 1
     @State private var panOffset: CGSize = .zero
     @State private var hoveredElement: Int?
@@ -22,6 +23,7 @@ public struct ReviewCanvasView: View {
     @GestureState private var gestureTranslation: CGSize = .zero
 
     private var effectiveZoom: CGFloat { zoom * gestureScale }
+    private var shouldReduceMotion: Bool { reduceMotion || uiTestAccommodations.contains("reduce-motion") }
     private var effectiveOffset: CGSize {
         CGSize(width: panOffset.width + gestureTranslation.width, height: panOffset.height + gestureTranslation.height)
     }
@@ -209,6 +211,7 @@ public struct ReviewCanvasView: View {
         .onHover { hoveredElement = $0 ? index : nil }
         .accessibilityLabel("Element \(index + 1), \(element.type), \(severity.label)")
         .accessibilityValue("Confidence \(Int(element.confidence * 100)) percent, width \(Int(box.width * 100)) percent, height \(Int(box.height * 100)) percent")
+        .accessibilityIdentifier("review.canvas.element.\(index)")
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityHint("Selects this element and its first associated finding")
     }
@@ -228,7 +231,7 @@ public struct ReviewCanvasView: View {
     }
 
     private func resetViewport() {
-        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+        withAnimation(shouldReduceMotion ? nil : .easeOut(duration: 0.2)) {
             zoom = 1
             panOffset = .zero
         }
@@ -241,7 +244,7 @@ public struct ReviewCanvasView: View {
         let box = model.currentElements[index].boundingBox
         let x = (CGFloat(box.x + box.width / 2) - 0.5) * imageSize.width * fit * zoom
         let y = (CGFloat(box.y + box.height / 2) - 0.5) * imageSize.height * fit * zoom
-        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+        withAnimation(shouldReduceMotion ? nil : .easeOut(duration: 0.2)) {
             panOffset = CGSize(width: -x, height: -y)
         }
     }

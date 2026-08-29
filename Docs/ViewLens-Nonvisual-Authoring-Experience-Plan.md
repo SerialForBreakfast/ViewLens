@@ -103,7 +103,7 @@ NV-1 is the contract shared by every later surface. NV-2 and NV-3 may proceed in
 - [x] **NV-2.7** Add a textual design-diff view grouped by accessibility impact, semantic impact, layout impact, and cosmetic-only changes.
 - [x] **NV-2.8** Provide accessible chart data tables and concise trend summaries with direct navigation to the reviews responsible for material changes.
 - [x] **NV-2.9** Throttle announcements to phase changes, input-required decisions, new blocking findings, cancellation, failure, and completion; never announce every percentage tick.
-- [ ] **NV-2.10** Add Mac UI tests for complete keyboard and VoiceOver execution of NV-J1 through NV-J4, including minimum window size, Increase Contrast, Reduce Motion, and Differentiate Without Color.
+- [ ] **NV-2.10** Add Mac UI tests for complete keyboard and VoiceOver execution of NV-J1 through NV-J4, including minimum window size, Increase Contrast, Reduce Motion, and Differentiate Without Color. *(Deterministic NV-J1–NV-J4 UI fixtures, accessibility identifiers, keyboard-selection assertions, minimum-window/accommodation cases, and the [manual VoiceOver/braille matrix](NV-2.10-VoiceOver-Keyboard-Verification.md) are implemented. The target builds, but completion remains open until the host UI automation service runs the suite successfully and the manual checks are recorded.)*
 
 **Acceptance:** A VoiceOver user can import a fixture, understand the screen, navigate all findings and elements, inspect evidence, compare two reviews, and export results without interacting with the image or using a pointer.
 

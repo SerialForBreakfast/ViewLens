@@ -45,7 +45,7 @@ public final class AppModel {
             loadsInitialSample: false,
             runsDoctorCheck: !isUITesting
         )
-        if isUITesting { loadUITestFixture(running: environment["VIEWLENS_UI_FIXTURE"] == "running") }
+        if isUITesting { loadUITestFixture(kind: environment["VIEWLENS_UI_FIXTURE"] ?? "completed") }
     }
 
     public init(
@@ -199,24 +199,11 @@ public final class AppModel {
         renderPlaygroundTemplate()
     }
 
-    private func loadUITestFixture(running: Bool) {
+    private func loadUITestFixture(kind: String) {
         guard let image = Self.makeUITestImage() else { return }
-        let element = DetectedElement(
-            type: "primaryButton",
-            confidence: 0.98,
-            boundingBox: BoundingBox(x: 0.18, y: 0.68, width: 0.64, height: 0.055)
-        )
-        let issue = ViewLensIssue(
-            kind: .tappableTargetTooSmall,
-            severity: .error,
-            description: "The primary action is smaller than the configured target-size policy.",
-            confidence: 0.98,
-            elementIndex: 0,
-            identifier: "FixturePrimaryAction",
-            wcagCriterion: "WCAG 2.5.8",
-            wcagLevel: "AA",
-            remediation: RemediationAdvice(description: "Increase the control's interactive frame.", codeSnippet: ".frame(minWidth: 44, minHeight: 44)")
-        )
+        let richFixture = kind == "nonvisual"
+        let elements = richFixture ? Self.makeNonvisualUITestElements() : [Self.makePrimaryUITestElement()]
+        let issues = richFixture ? Self.makeNonvisualUITestIssues() : [Self.makePrimaryUITestIssue(elementIndex: 0)]
         let fixtureDate = Date(timeIntervalSince1970: 1_700_000_000)
         let reviewID = reviewStore.begin(
             source: .template(name: "LoginForm"),
@@ -228,8 +215,8 @@ public final class AppModel {
             target: "LoginForm [UI Test Fixture]",
             device: DeviceProfile.iPhone16Pro.name,
             dimensions: AuditDimensions(width: Double(image.width), height: Double(image.height), scale: 2),
-            elements: [element],
-            issues: [issue]
+            elements: elements,
+            issues: issues
         )
         let activity = MCPAgentActivity(
             timestamp: fixtureDate,
@@ -237,28 +224,32 @@ public final class AppModel {
             argumentsDescription: "template: LoginForm, deterministic fixture",
             duration: 0.25,
             passed: false,
-            summary: "1 accessibility issue detected",
+            summary: "\(issues.count) accessibility issue\(issues.count == 1 ? "" : "s") detected",
             previewImage: image,
             auditReport: report,
             reviewID: reviewID
         )
-        canvasStore.update(image: image, elements: [element], issues: [issue])
+        canvasStore.update(image: image, elements: elements, issues: issues)
         reviewStore.complete(
             reviewID: reviewID,
             image: image,
-            elements: [element],
-            issues: [issue],
+            elements: elements,
+            issues: issues,
             score: ReviewScore(value: 82, evaluatedCriteria: 8, totalCriteria: 8),
             activity: activity,
+            nonvisualScreenModel: richFixture ? Self.makeNonvisualUITestModel() : nil,
             finishedAt: fixtureDate.addingTimeInterval(0.25)
         )
-        if running {
+        if kind == "running" {
             let runningID = reviewStore.begin(
                 source: .template(name: "CheckoutView"),
                 environment: ReviewEnvironment(deviceName: DeviceProfile.iPhone16Pro.name, wcagLevel: "AA"),
                 startedAt: fixtureDate.addingTimeInterval(10)
             )
             reviewStore.transition(reviewID: runningID, to: .evaluating, message: "Evaluating deterministic fixture")
+        } else if richFixture {
+            loadUITestComparisonBaseline(currentReviewID: reviewID, date: fixtureDate)
+            reviewStore.activeActivity = activity
         }
         healthStore.mcpStatus = "Ready (UI Test)"
         healthStore.doctorReport = DoctorReport(
@@ -268,7 +259,219 @@ public final class AppModel {
         )
     }
 
-    private static func makeUITestImage() -> CGImage? {
+    private func loadUITestComparisonBaseline(currentReviewID: UUID, date: Date) {
+        guard let baselineImage = Self.makeUITestImage(accentOffset: -24) else { return }
+        let elements = Self.makeNonvisualUITestElements()
+        let issue = ViewLensIssue(
+            kind: .clippedElement,
+            severity: .warning,
+            description: "The help control intersects the trailing screen edge.",
+            confidence: 1,
+            elementIndex: 2,
+            identifier: "FixtureClippedHelp",
+            wcagCriterion: "WCAG 1.4.10",
+            wcagLevel: "AA"
+        )
+        let baselineID = reviewStore.begin(
+            source: .template(name: "LoginForm Baseline"),
+            environment: ReviewEnvironment(deviceID: DeviceProfile.iPhone16Pro.id, deviceName: DeviceProfile.iPhone16Pro.name, dynamicType: "large", appearance: "Light", wcagLevel: "AA", detectorName: "UI Test Fixture"),
+            startedAt: date.addingTimeInterval(-60)
+        )
+        let report = AuditReport(
+            sourceMode: .rendered,
+            target: "LoginForm Baseline [UI Test Fixture]",
+            device: DeviceProfile.iPhone16Pro.name,
+            dimensions: AuditDimensions(width: Double(baselineImage.width), height: Double(baselineImage.height), scale: 2),
+            elements: elements,
+            issues: [issue]
+        )
+        let activity = MCPAgentActivity(
+            timestamp: date.addingTimeInterval(-60),
+            toolName: "viewlens_design_diff",
+            argumentsDescription: "deterministic comparison baseline",
+            duration: 0.2,
+            passed: false,
+            summary: "Baseline contains one layout finding",
+            previewImage: baselineImage,
+            auditReport: report,
+            reviewID: baselineID
+        )
+        reviewStore.complete(
+            reviewID: baselineID,
+            image: baselineImage,
+            elements: elements,
+            issues: [issue],
+            score: ReviewScore(value: 88, evaluatedCriteria: 8, totalCriteria: 8),
+            activity: activity,
+            nonvisualScreenModel: Self.makeNonvisualUITestBaselineModel(),
+            finishedAt: date.addingTimeInterval(-59.8)
+        )
+        reviewStore.load(reviewID: currentReviewID)
+        historyStore.selectedReviewIDs = [currentReviewID, baselineID]
+        if let current = reviewStore.activeReview { canvasStore.load(review: current) }
+    }
+
+    private static func makePrimaryUITestElement() -> DetectedElement {
+        DetectedElement(
+            type: "primaryButton",
+            confidence: 0.98,
+            boundingBox: BoundingBox(x: 0.18, y: 0.68, width: 0.64, height: 0.055)
+        )
+    }
+
+    private static func makePrimaryUITestIssue(elementIndex: Int) -> ViewLensIssue {
+        ViewLensIssue(
+            kind: .tappableTargetTooSmall,
+            severity: .error,
+            description: "The primary action is smaller than the configured target-size policy.",
+            confidence: 0.98,
+            elementIndex: elementIndex,
+            identifier: "FixturePrimaryAction",
+            wcagCriterion: "WCAG 2.5.8",
+            wcagLevel: "AA",
+            remediation: RemediationAdvice(description: "Increase the control's interactive frame.", codeSnippet: ".frame(minWidth: 44, minHeight: 44)")
+        )
+    }
+
+    private static func makeNonvisualUITestElements() -> [DetectedElement] {
+        [
+            DetectedElement(type: "navigationBar", confidence: 0.99, boundingBox: BoundingBox(x: 0.08, y: 0.08, width: 0.84, height: 0.08)),
+            DetectedElement(type: "textField", confidence: 0.97, boundingBox: BoundingBox(x: 0.12, y: 0.34, width: 0.76, height: 0.08)),
+            makePrimaryUITestElement()
+        ]
+    }
+
+    private static func makeNonvisualUITestIssues() -> [ViewLensIssue] {
+        [
+            ViewLensIssue(
+                kind: .missingAccessibilityLabel,
+                severity: .error,
+                description: "The email field has no programmatically determinable name.",
+                confidence: 1,
+                elementIndex: 1,
+                identifier: "FixtureMissingEmailName",
+                wcagCriterion: "WCAG 4.1.2",
+                wcagLevel: "A",
+                remediation: RemediationAdvice(description: "Expose the visible Email label.", codeSnippet: ".accessibilityLabel(\"Email\")")
+            ),
+            makePrimaryUITestIssue(elementIndex: 2)
+        ]
+    }
+
+    private static func makeNonvisualUITestModel() -> NonvisualScreenModel {
+        makeNonvisualUITestModel(isBaseline: false)
+    }
+
+    private static func makeNonvisualUITestBaselineModel() -> NonvisualScreenModel {
+        makeNonvisualUITestModel(isBaseline: true)
+    }
+
+    private static func makeNonvisualUITestModel(isBaseline: Bool) -> NonvisualScreenModel {
+        let screenID = NonvisualID(isBaseline ? "screen:login-baseline" : "screen:login-current")
+        let regionID = NonvisualID("region:login-form")
+        let measuredPixels = EvidenceProvenance(kind: .measured, source: "viewlens.ui_test.pixels")
+        let measuredSemantics = EvidenceProvenance(kind: .measured, source: "viewlens.ui_test.accessibility_hierarchy")
+        var elements = [
+            NonvisualElement(
+                id: NonvisualID("element:heading"),
+                visualIndex: 0,
+                type: "heading",
+                visibleLabel: "Welcome Back",
+                bounds: BoundingBox(x: 0.08, y: 0.08, width: 0.84, height: 0.08),
+                regionID: regionID,
+                semantics: NonvisualSemantics(accessibleName: "Welcome Back", role: "heading", isHeading: true),
+                visualEvidence: measuredPixels,
+                semanticEvidence: measuredSemantics
+            ),
+            NonvisualElement(
+                id: NonvisualID("element:email"),
+                visualIndex: 1,
+                type: "textField",
+                visibleLabel: "Email",
+                bounds: BoundingBox(x: 0.12, y: 0.34, width: 0.76, height: 0.08),
+                regionID: regionID,
+                semantics: NonvisualSemantics(
+                    accessibleName: isBaseline ? "Email" : nil,
+                    role: "text field",
+                    states: ["enabled"],
+                    actions: ["focus"]
+                ),
+                isInteractive: true,
+                requiresAction: true,
+                visualEvidence: measuredPixels,
+                semanticEvidence: measuredSemantics
+            ),
+            NonvisualElement(
+                id: NonvisualID("element:submit"),
+                visualIndex: 2,
+                type: "primaryButton",
+                visibleLabel: "Sign In",
+                bounds: BoundingBox(x: 0.18, y: 0.68, width: 0.64, height: 0.055),
+                regionID: regionID,
+                semantics: isBaseline ? NonvisualSemantics(accessibleName: "Sign In", role: "button", actions: ["activate"]) : nil,
+                isInteractive: true,
+                requiresAction: true,
+                visualEvidence: measuredPixels,
+                semanticEvidence: measuredSemantics
+            )
+        ]
+        if !isBaseline {
+            elements.append(NonvisualElement(
+                id: NonvisualID("element:legacy-action"),
+                type: "button",
+                regionID: regionID,
+                semantics: NonvisualSemantics(accessibleName: "Legacy Sign In", role: "button", actions: ["activate"]),
+                isInteractive: true,
+                requiresAction: true,
+                visualEvidence: measuredPixels,
+                semanticEvidence: measuredSemantics
+            ))
+        }
+
+        let readingIDs = [NonvisualID("element:heading"), NonvisualID("element:email"), NonvisualID("element:submit")]
+        let voiceOverIDs = isBaseline
+            ? readingIDs
+            : [NonvisualID("element:heading"), NonvisualID("element:submit"), NonvisualID("element:email"), NonvisualID("element:legacy-action")]
+        let navigation = [
+            NavigationSequence(
+                id: NonvisualID("navigation:reading"),
+                kind: .readingOrder,
+                elementIDs: readingIDs,
+                evidence: EvidenceProvenance(kind: .measured, source: "viewlens.ui_test.visual_order")
+            ),
+            NavigationSequence(
+                id: NonvisualID("navigation:voiceover"),
+                kind: .predictedVoiceOver,
+                elementIDs: voiceOverIDs,
+                evidence: EvidenceProvenance(
+                    kind: .derived,
+                    source: "viewlens.ui_test.accessibility_hierarchy",
+                    detail: "API-derived prediction; manual VoiceOver verification remains required."
+                )
+            )
+        ]
+        let relationships = NonvisualAnalyzer.deriveSpatialRelationships(screenID: screenID, elements: elements)
+        let mismatches = NonvisualAnalyzer.detectSemanticMismatches(elements: elements, navigationSequences: navigation)
+        return NonvisualScreenModel(
+            id: screenID,
+            title: isBaseline ? "Login Form Baseline" : "Login Form",
+            sourceMode: .runtime,
+            regions: [NonvisualRegion(
+                id: regionID,
+                label: "Authentication form",
+                role: "form",
+                bounds: BoundingBox(x: 0.06, y: 0.05, width: 0.88, height: 0.76),
+                elementIDs: elements.map(\.id),
+                evidence: measuredSemantics
+            )],
+            elements: elements,
+            relationships: relationships,
+            navigationSequences: navigation,
+            mismatches: mismatches
+        )
+    }
+
+    private static func makeUITestImage(accentOffset: CGFloat = 0) -> CGImage? {
         let width = 390
         let height = 844
         guard let context = CGContext(
@@ -281,16 +484,16 @@ public final class AppModel {
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else { return nil }
         context.setFillColor(CGColor(red: 0.95, green: 0.97, blue: 0.99, alpha: 1)); context.fill(CGRect(x: 0, y: 0, width: width, height: height))
-        context.setFillColor(CGColor(red: 0.08, green: 0.48, blue: 0.50, alpha: 1)); context.fill(CGRect(x: 70, y: 220, width: 250, height: 46))
+        context.setFillColor(CGColor(red: 0.08, green: 0.48, blue: 0.50, alpha: 1)); context.fill(CGRect(x: 70 + accentOffset, y: 220, width: 250, height: 46))
         context.setFillColor(CGColor(gray: 0.22, alpha: 1)); context.fill(CGRect(x: 48, y: 650, width: 294, height: 18))
         context.fill(CGRect(x: 48, y: 610, width: 220, height: 12))
         return context.makeImage()
     }
 
     public func announceVoiceOverStatus(_ message: String) {
-        guard preferenceStore.announcePhaseChanges else { return }
+        guard preferenceStore.announcePhaseChanges, let application = NSApp else { return }
         NSAccessibility.post(
-            element: NSApp.mainWindow ?? NSApp,
+            element: application.mainWindow ?? application,
             notification: .announcementRequested,
             userInfo: [
                 .announcement: message,

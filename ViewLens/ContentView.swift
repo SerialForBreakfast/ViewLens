@@ -1,6 +1,18 @@
+import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 import ViewLensKit
+
+private struct ViewLensUITestAccommodationsKey: EnvironmentKey {
+    static let defaultValue: Set<String> = []
+}
+
+extension EnvironmentValues {
+    var viewLensUITestAccommodations: Set<String> {
+        get { self[ViewLensUITestAccommodationsKey.self] }
+        set { self[ViewLensUITestAccommodationsKey.self] = newValue }
+    }
+}
 
 struct ContentView: View {
     @State private var model = AppModel.shared
@@ -23,6 +35,10 @@ struct ContentView: View {
             onCompletion: handleImport
         )
         .modifier(AppNotificationHandlerModifier(model: model, navigation: navigation))
+        .environment(\.viewLensUITestAccommodations, uiTestAccommodations)
+        .accessibilityIdentifier("app.root")
+        .accessibilityValue(uiTestAccommodationDescription)
+        .onAppear(perform: configureUITestWindowIfNeeded)
     }
 
     private func handleImport(result: Result<[URL], Error>) {
@@ -135,6 +151,27 @@ struct ContentView: View {
 
     private var preferredColorScheme: ColorScheme? {
         switch model.preferenceStore.appearance { case "Light": return .light; case "Dark": return .dark; default: return nil }
+    }
+
+    private var uiTestAccommodations: Set<String> {
+        guard ProcessInfo.processInfo.environment["VIEWLENS_UI_TESTING"] == "1" else { return [] }
+        return Set((ProcessInfo.processInfo.environment["VIEWLENS_UI_ACCOMMODATIONS"] ?? "")
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
+    }
+
+    private var uiTestAccommodationDescription: String {
+        guard ProcessInfo.processInfo.environment["VIEWLENS_UI_TESTING"] == "1" else { return "" }
+        let enabled = uiTestAccommodations.sorted()
+        return enabled.isEmpty ? "UI test accommodations: none" : "UI test accommodations: \(enabled.joined(separator: ", "))"
+    }
+
+    private func configureUITestWindowIfNeeded() {
+        guard ProcessInfo.processInfo.environment["VIEWLENS_UI_TESTING"] == "1",
+              ProcessInfo.processInfo.environment["VIEWLENS_UI_WINDOW"] == "minimum" else { return }
+        DispatchQueue.main.async {
+            NSApp.mainWindow?.setContentSize(NSSize(width: 900, height: 650))
+        }
     }
 
     private func badgeCount(for item: AppDestination) -> Int {
