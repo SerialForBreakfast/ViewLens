@@ -938,6 +938,32 @@ public final class MCPServer: Sendable {
             "required": .array([.string("element_id"), .string("template")])
         ])
 
+        let projectContextSchema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "workspace_root": .object(["type": .string("string"), "description": .string("Owning workspace or Swift package root.")]),
+                "project_path": .object(["type": .string("string"), "description": .string("Optional .xcworkspace, .xcodeproj, or Package.swift path.")]),
+                "scheme": .object(["type": .string("string"), "description": .string("Optional owning Xcode scheme.")]),
+                "target": .object(["type": .string("string"), "description": .string("Optional owning build target.")]),
+                "configuration": .object(["type": .string("string"), "description": .string("Build configuration recorded in the context manifest (default Debug).")]),
+                "destination": .object(["type": .string("string"), "description": .string("Optional target device or platform profile.")]),
+                "root_symbol": .object(["type": .string("string"), "description": .string("Root Swift view/type symbol to resolve.")]),
+                "source_file": .object(["type": .string("string"), "description": .string("Root Swift source file, absolute or relative to workspace_root.")]),
+                "scenario": .object(["type": .string("string"), "description": .string("Optional named deterministic preview scenario.")]),
+                "package_policy": .object([
+                    "type": .string("string"),
+                    "enum": .array([.string("locked"), .string("local_only"), .string("allow_resolution")]),
+                    "description": .string("Package discovery policy; this resolver remains read-only.")
+                ]),
+                "missing_resource_policy": .object([
+                    "type": .string("string"),
+                    "enum": .array([.string("fail"), .string("request"), .string("structural_mock"), .string("generated_mock")]),
+                    "description": .string("Explicit policy for referenced assets that are absent from the workspace.")
+                ])
+            ]),
+            "required": .array([.string("workspace_root")])
+        ])
+
         let verifyChangesSchema: JSONValue = .object([
             "type": .string("object"),
             "properties": .object([
@@ -1067,6 +1093,15 @@ public final class MCPServer: Sendable {
             ])
 
             tools.append(contentsOf: [
+                MCPTool(
+                    name: "viewlens_project_context_resolve",
+                    title: "Resolve Swift Project Context",
+                    description: "Performs bounded, read-only discovery of the build container, transitive local source references, resources, locked packages, and preview-scenario requirements for a Swift view. It never builds, downloads packages, runs scripts, or silently substitutes missing assets.",
+                    inputSchema: strictInputSchema(projectContextSchema),
+                    outputSchema: sessionObjectSchema,
+                    icons: viewLensToolIcons(),
+                    annotations: MCPTool.Annotations(readOnlyHint: true)
+                ),
                 MCPTool(
                     name: "viewlens_destinations_list",
                     title: "List Inspection Destinations",
@@ -1483,6 +1518,40 @@ public final class MCPServer: Sendable {
             )
             let response = JSONRPCResponse(id: request.id, result: result)
             return try? JSONEncoder().encode(response)
+
+        case "viewlens_project_context_resolve":
+            guard let workspaceRoot = arguments["workspace_root"]?.stringValue else {
+                let message = "Missing required 'workspace_root' parameter"
+                let result = MCPToolCallResult(
+                    text: JSONFormatter.errorJSON(message: message),
+                    structuredContent: nil,
+                    isError: true,
+                    modern: modern
+                )
+                return try? JSONEncoder().encode(JSONRPCResponse(id: request.id, result: result))
+            }
+            let manifest = ProjectContextManifest(
+                workspaceRoot: workspaceRoot,
+                projectPath: arguments["project_path"]?.stringValue,
+                scheme: arguments["scheme"]?.stringValue,
+                target: arguments["target"]?.stringValue,
+                configuration: arguments["configuration"]?.stringValue ?? "Debug",
+                destination: arguments["destination"]?.stringValue,
+                rootSymbol: arguments["root_symbol"]?.stringValue,
+                sourceFile: arguments["source_file"]?.stringValue,
+                scenario: arguments["scenario"]?.stringValue,
+                packagePolicy: arguments["package_policy"]?.stringValue.flatMap(PackageResolutionPolicy.init(rawValue:)) ?? .locked,
+                missingResourcePolicy: arguments["missing_resource_policy"]?.stringValue.flatMap(MissingResourcePolicy.init(rawValue:)) ?? .fail
+            )
+            let report = ProjectContextResolver.resolve(manifest: manifest)
+            let jsonText = JSONFormatter.encode(report)
+            let result = MCPToolCallResult(
+                text: jsonText,
+                structuredContent: modern ? (try? JSONValue.fromEncodable(report)) : nil,
+                isError: report.status == .blocked,
+                modern: modern
+            )
+            return try? JSONEncoder().encode(JSONRPCResponse(id: request.id, result: result))
 
         case "viewlens_audit_screenshot":
             guard let imagePath = arguments["image_path"]?.stringValue else {
