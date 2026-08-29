@@ -1,18 +1,31 @@
 # ViewLens Nonvisual & Accessible Authoring Guide
 
-Comprehensive guide to using ViewLens with screen readers (VoiceOver, refreshable braille displays), coding agents (MCP, CLI), and deterministic accessibility auditing.
+Comprehensive guide to using ViewLens with VoiceOver, refreshable braille displays, coding agents (MCP and CLI), and deterministic accessibility auditing.
 
 ---
 
 ## 1. Overview
 
-ViewLens provides complete nonvisual accessibility inspection and design verification without requiring sighted assistance or screenshot interpretation.
+ViewLens provides structured nonvisual accessibility inspection and design-verification workflows without requiring visual screenshot interpretation or sighted assistance. Evidence that ViewLens cannot evaluate is identified explicitly and routed to manual verification.
 
 Key pillars:
 - **Zero-Visual Dependency**: All overlays, charts, and heatmaps have textual equivalents and structured nonvisual outlines.
 - **Evidence Provenance**: Every finding and measurement clearly separates *measured* facts from *derived* calculations, *inferred* heuristics, or *unavailable* data.
 - **Durable Identity**: Stable element, region, and finding IDs (`NonvisualID`) allow seamless cross-referencing between Mac UI, CLI, MCP agent workflows, and exported `.viewlensreport` bundles.
 - **Deterministic Remediation**: Provides exact SwiftUI/UIKit modifier recommendations and automated Swift Testing (`@Test`) regression assertions.
+
+### Language and audience terminology
+
+ViewLens uses direct, specific language consistent with current usage by the [National Federation of the Blind](https://nfb.org/), [American Council of the Blind](https://www.acb.org/), [American Foundation for the Blind](https://www.afb.org/blindness-and-low-vision), and [RNIB](https://www.rnib.org.uk/).
+
+- Use **blind person**, **blind people**, or **blind developer** when blindness is the relevant identity or experience. Identity-first language is accepted and commonly preferred in blind-led communities.
+- Use **person who is blind** when an individual prefers person-first language or a partner's editorial standard requires it.
+- Use **blind and low-vision people** or **blind and low-vision developers** when a statement applies to both audiences. In UK-specific material, **blind and partially sighted people** may be more appropriate.
+- Use **screen-reader user**, **VoiceOver user**, **keyboard user**, or **refreshable-braille-display user** when the interaction method—not disability identity—is what matters.
+- Use **visual impairment** only when required by a legal, clinical, educational, quoted, or externally named context. Do not use **vision impaired** as the default product label.
+- Do not treat blind people, people with low vision, VoiceOver users, screen-reader users, and braille users as interchangeable groups. State which evidence, workflow, or accommodation applies.
+- Avoid collective or deficit-oriented wording such as **the blind**, **suffers from blindness**, **afflicted with**, and **differently abled** unless it is part of an official name or a direct quotation.
+- Follow each research participant's self-identification in personas, quotations, reports, and study records.
 
 ---
 

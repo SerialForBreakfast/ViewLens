@@ -539,7 +539,7 @@ All menus and shortcuts must disable appropriately when their action is unavaila
 - Finding selection changes move visual focus but do not unexpectedly move VoiceOver focus.
 - Progress announcements are throttled to meaningful phase changes.
 
-Detailed implementation tasks, blind-developer journeys, speech and braille presentation profiles, and release gates are maintained in [ViewLens Nonvisual Authoring Experience Plan](ViewLens-Nonvisual-Authoring-Experience-Plan.md).
+Detailed implementation tasks, journeys for blind and low-vision developers, speech and braille presentation profiles, and release gates are maintained in [ViewLens Nonvisual Authoring Experience Plan](ViewLens-Nonvisual-Authoring-Experience-Plan.md).
 
 ### Focus and selection
 

@@ -92,6 +92,6 @@ Implementation should begin with **M8 Design System & Shell**, followed by **M9 
 
 The detailed protocol contracts, runtime safety boundaries, task dependencies, acceptance criteria, and iteration slices are maintained in [ViewLens MCP & Agent Capability Roadmap](Docs/ViewLens-MCP-Agent-Capability-Roadmap.md).
 
-The blind-developer user journeys, nonvisual evidence contract, Mac/MCP/CLI tasks, runtime navigation intelligence, source remediation, and assistive-technology release gates are maintained in [ViewLens Nonvisual Authoring Experience Plan](Docs/ViewLens-Nonvisual-Authoring-Experience-Plan.md).
+The user journeys for blind and low-vision developers, nonvisual evidence contract, Mac/MCP/CLI tasks, runtime navigation intelligence, source remediation, and assistive-technology release gates are maintained in [ViewLens Nonvisual Authoring Experience Plan](Docs/ViewLens-Nonvisual-Authoring-Experience-Plan.md).
 
 Implementation begins with **M14 Modern MCP Protocol & Structured Evidence**. Live runtime control must not be added until protocol-version negotiation, typed evidence, cancellation, explicit state handles, and conformance fixtures are in place.

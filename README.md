@@ -23,7 +23,7 @@ By combining an ultra-fast **dual-tier headless canvas renderer** with the fine-
 
 ### Why ViewLens?
 
-- ♿ **Pioneering Nonvisual Authoring for Blind Developers**: Transforms visual Xcode canvas previews and simulators into VoiceOver-accessible hierarchies, spoken speech streams, 40-cell braille simulations, and semantic spatial queries.
+- ♿ **Pioneering Nonvisual Authoring for Blind and Low-Vision Developers**: Transforms visual Xcode canvas previews and simulator output into accessible hierarchies, VoiceOver-oriented speech streams, 40-cell braille simulations, and semantic spatial queries.
 - 🎯 **W3C WCAG 2.2 Level A/AA/AAA Auditing**: Enforces programmatic Name/Role/Value (4.1.2), level-aware Touch Target sizing (2.5.8 AA / 2.5.5 AAA), Light/Dark contrast (1.4.3 / 1.4.6), and Dynamic Type AX1–AX5 reflow.
 - 🧠 **Token-Free UI Audits**: LLMs receive structured JSON coordinate geometry (`x`, `y`, `width`, `height` in normalized top-left space) and semantic issue classifications rather than raw image pixels.
 - 🏎️ **Dual-Tier Headless Canvas (Zero Simulator Boot Matrix)**:
@@ -188,11 +188,11 @@ viewlens mcp
 
 ---
 
-## ♿ Accessibility & Nonvisual Authoring for Blind Developers
+## ♿ Accessibility & Nonvisual Authoring for Blind and Low-Vision Developers
 
-Historically, blind and low-vision Apple platform developers have faced a steep barrier: Xcode's SwiftUI Canvas previews, Interface Builder, and running iOS Simulator windows are visual-only pixels that cannot be meaningfully inspected with a screen reader. 
+Blind and low-vision Apple platform developers face a persistent barrier: Xcode's SwiftUI Canvas previews, Interface Builder, and simulator-rendered screens communicate essential layout information visually without providing an equivalent, efficient nonvisual representation.
 
-ViewLens solves this by converting visual UI layouts, device permutations, and accessibility trees into a **structured, VoiceOver-first nonvisual authoring environment and automated WCAG 2.2 / Apple HIG auditing engine**.
+ViewLens addresses this by converting visual UI layouts, device permutations, and accessibility trees into a **structured, VoiceOver-oriented nonvisual authoring environment and automated WCAG 2.2 / Apple HIG auditing engine**.
 
 For full workflows, keyboard maps, and agent prompts, see the [ViewLens Nonvisual Authoring Guide](Docs/ViewLens-Nonvisual-Authoring-Guide.md).
 
@@ -222,16 +222,16 @@ flowchart LR
 ```
 
 ### 1. The Nonvisual Screen Model (`NonvisualScreenModel`)
-ViewLens transforms any SwiftUI/UIKit view or screenshot into a structured, scalar `NonvisualScreenModel` with deterministic identifiers (`screen_...`, `elem_...`, `finding_...`). Blind developers can inspect bounds, hierarchical parents, and spatial relationships without sighted assistance.
+ViewLens transforms any SwiftUI/UIKit view or screenshot into a structured, scalar `NonvisualScreenModel` with deterministic identifiers (`screen_...`, `elem_...`, `finding_...`). Developers can inspect bounds, hierarchical parents, and spatial relationships without relying on visual inspection or sighted assistance.
 
-### 2. Spoken VoiceOver Simulation & Simulated Braille Displays
-- **Spoken Speech Streams**: Predicts the exact text phrases VoiceOver will speak as a user swipes through the screen.
+### 2. Predicted VoiceOver Speech & Simulated Braille Output
+- **Spoken Speech Streams**: Produces an API-derived prediction of VoiceOver phrases and traversal order. It does not replace testing with VoiceOver on the target platform.
 - **Simulated 40-Cell Braille**: Formats refreshable braille pin displays for braille users.
 - **Rotor Inventory**: Catalogs heading levels, form controls, and custom accessibility actions.
 - **Announcement Storm Detection**: Flags rapid speech bursts ($<0.5\text{s}$) and duplicate announcements.
 
 ### 3. Bi-Directional "Visual-Semantic Correlation" (The Invisible Bug Finder)
-Cross-references on-device YOLO CoreML computer vision (what sighted users see) with the native accessibility hierarchy (what VoiceOver reads):
+Cross-references on-device YOLO CoreML computer vision (rendered pixels) with the native accessibility hierarchy (programmatic semantics available to assistive technologies):
 - **Catches Missing Semantics**: Alerts when an interactive visual button lacks `.accessibilityAddTraits(.isButton)` or `.accessibilityLabel`.
 - **Catches Invisible / Obscured Nodes**: Alerts when an accessibility node exists in code but is clipped off-screen or renders with 0x0 pixels.
 - **Flags Role Conflicts**: Detects when visual styling (e.g. primary button) conflicts with programmatic accessibility traits.

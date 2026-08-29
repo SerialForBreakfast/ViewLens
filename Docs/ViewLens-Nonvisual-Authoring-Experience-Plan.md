@@ -23,7 +23,7 @@ ViewLens must not:
 
 - Claim complete VoiceOver or assistive-technology conformance from static hierarchy inspection or a predicted traversal transcript.
 - Generate visual descriptions that hide uncertainty or invent content not supported by captured evidence.
-- Make the blind-developer workflow a segregated mode with reduced functionality.
+- Make workflows used by blind developers a segregated mode with reduced functionality.
 - Announce every progress update, move VoiceOver focus to follow visual selection, or require users to traverse decorative preview content.
 - Store credentials, personal production data, or unredacted secure-field values in semantic trees, transcripts, task records, or reports.
 
@@ -51,7 +51,7 @@ The developer can move from a finding to responsible source context, copy determ
 
 ### NV-J6 — Collaborate with mixed-vision teams
 
-The exported review contains the same stable finding and element identifiers in its text, JSON, semantic outline, source links, screenshots, and overlays so blind and sighted collaborators can discuss the same evidence.
+The exported review contains the same stable finding and element identifiers in its text, JSON, semantic outline, source links, screenshots, and overlays so collaborators who are blind, have low vision, or are sighted can discuss the same evidence.
 
 ## 3. Dependency sequence
 
@@ -72,7 +72,7 @@ NV-1 is the contract shared by every later surface. NV-2 and NV-3 may proceed in
 ### NV-0 — Co-design, terminology, and baseline
 
 - [ ] **NV-0.1** Write a research protocol with blind developers covering screen understanding, finding navigation, design-diff interpretation, remediation, verification, and report handoff; include VoiceOver and refreshable-braille workflows.
-- [ ] **NV-0.2** Define respectful product terminology and documentation guidance for blindness, low vision, screen-reader usage, and evidence limitations; avoid assuming identical preferences or abilities.
+- [x] **NV-0.2** Define respectful product terminology and documentation guidance for blindness, low vision, screen-reader usage, and evidence limitations; avoid assuming identical preferences or abilities. *(The house style is published in the [ViewLens Nonvisual & Accessible Authoring Guide](ViewLens-Nonvisual-Authoring-Guide.md#language-and-audience-terminology).)*
 - [ ] **NV-0.3** Capture baseline completion time, error rate, assistance requests, navigation count, and confidence for the six primary journeys using the current Mac app and MCP/CLI surfaces.
 - [ ] **NV-0.4** Create deterministic fixture screens containing missing names, visible/programmatic-name conflicts, incorrect grouping, meaningful-order defects, modal focus loss, color-only state, clipped AX5 content, and a material visual regression. *(The first runtime-evidence JSON fixture now covers visual/semantic counterpart gaps, name conflict, missing state, order divergence, and clipping; grouping, modal restoration, AX5, color-only, and before/after visual-regression fixtures remain.)*
 - [ ] **NV-0.5** Record an ADR establishing the nonvisual model as a first-class review representation and defining the boundary between measured evidence, deterministic derivation, inference, and human verification.
@@ -151,7 +151,7 @@ NV-1 is the contract shared by every later surface. NV-2 and NV-3 may proceed in
 
 - [ ] **NV-6.1** Conduct formative usability sessions with blind developers after NV-1, NV-2, and NV-4 rather than waiting for final release.
 - [ ] **NV-6.2** Test primary workflows with current macOS VoiceOver, keyboard-only navigation, and representative refreshable braille displays; track configuration and platform versions.
-- [ ] **NV-6.3** Separately test low-vision accommodations such as zoom, contrast, text size, appearance, motion, and focus visibility without treating them as substitutes for blind-user testing.
+- [ ] **NV-6.3** Separately test low-vision accommodations such as zoom, contrast, text size, appearance, motion, and focus visibility without treating those sessions as substitutes for testing with blind participants.
 - [ ] **NV-6.4** Measure independent journey completion, time to first blocking finding, navigation count, source-location success, fix-verification success, assistance requests, false confidence, and subjective trust against NV-0 baselines.
 - [ ] **NV-6.5** Add automated regression gates for keyboard reachability, accessibility labels/values/actions, rotor inventories, focus restoration, nonvisual golden output, and visual/text artifact parity.
 - [ ] **NV-6.6** Audit ViewLens against applicable WCAG, Apple accessibility guidance, and the ATAG Part A/Part B model; document supported, partially supported, and not-evaluated requirements.
@@ -183,5 +183,5 @@ The workstream is complete only when a blind developer can independently:
 4. Identify blocking findings and distinguish measured facts from inference or unavailable evidence.
 5. Interpret material visual and semantic changes between reviews.
 6. Reach responsible source context, review remediation, and verify a proposed change.
-7. Export and discuss the same stable evidence with blind and sighted collaborators.
+7. Export and discuss the same stable evidence with collaborators who are blind, have low vision, or are sighted.
 8. Complete every operation with VoiceOver and keyboard and consume essential output efficiently on a refreshable braille display.

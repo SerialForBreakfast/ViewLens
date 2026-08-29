@@ -7,7 +7,7 @@ import ImageIO
 public struct NonvisualCommand: AsyncParsableCommand {
     public static let configuration = CommandConfiguration(
         commandName: "nonvisual",
-        abstract: "Generates structured, screen-reader optimized nonvisual summaries and outlines without visual noise."
+        abstract: "Generates structured, screen-reader-optimized summaries and outlines without visual noise."
     )
 
     @Option(name: .shortAndLong, help: "Name of registered SwiftUI view template (e.g. 'LoginForm', 'CheckoutView').")
