@@ -38,6 +38,12 @@ public struct ContextCommand: ParsableCommand {
     @Option(name: .long, help: "Missing resource policy: fail, request, structural_mock, or generated_mock.")
     var missingResourcePolicy: String = MissingResourcePolicy.fail.rawValue
 
+    @Option(name: .long, help: "Optional file path to write the generated Swift preview harness.")
+    var harnessOutput: String?
+
+    @Flag(name: .long, help: "Print the generated Swift preview harness directly instead of JSON report.")
+    var emitHarness = false
+
     @Flag(name: .long, help: "Return exit code 1 unless the context is ready_for_build.")
     var strict = false
 
@@ -69,10 +75,25 @@ public struct ContextCommand: ParsableCommand {
             missingResourcePolicy: MissingResourcePolicy(rawValue: missingResourcePolicy) ?? .fail
         )
         let report = ProjectContextResolver.resolve(manifest: manifest)
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        let data = try encoder.encode(report)
-        print(String(decoding: data, as: UTF8.self))
+
+        if let harnessPath = harnessOutput {
+            let harness = report.previewHarness
+            let targetURL = URL(fileURLWithPath: harnessPath)
+            if targetURL.pathComponents.count > 1 {
+                try? FileManager.default.createDirectory(at: targetURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            }
+            try Data(harness.harnessSource.utf8).write(to: targetURL)
+        }
+
+        if emitHarness {
+            print(report.previewHarness.harnessSource)
+        } else {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            let data = try encoder.encode(report)
+            print(String(decoding: data, as: UTF8.self))
+        }
+
         if strict && report.status != .readyForBuild {
             throw ExitCode.failure
         }

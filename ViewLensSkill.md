@@ -92,6 +92,16 @@ Audits static image files (simulator screenshots, test artifacts, mocks).
   - `scale` (number, optional): Explicit display scale (@2x, @3x).
   - `min_confidence` (number, optional): Minimum detection confidence (default `0.15`).
 
+### 6. `viewlens_project_context_resolve`
+Performs bounded, read-only discovery of the build container, transitive local source references, resources, locked packages, and preview-scenario requirements for a Swift view.
+- **Arguments**:
+  - `workspace_root` (string, required): Owning workspace or Swift package root.
+  - `root_symbol` (string, optional): Root Swift view/type symbol to resolve.
+  - `source_file` (string, optional): Root Swift source file path.
+  - `project_path` (string, optional): Optional `.xcworkspace`, `.xcodeproj`, or `Package.swift` path.
+  - `scenario` (string, optional): Optional named deterministic preview scenario.
+  - `missing_resource_policy` (string, optional): `"fail"`, `"request"`, `"structural_mock"`, or `"generated_mock"`.
+
 ---
 
 ## 3. CLI Command Suite Reference
@@ -100,6 +110,7 @@ When executing commands in the terminal, use the `viewlens` CLI binary:
 
 | Command | Purpose | Example |
 |---|---|---|
+| `viewlens context` | Resolves bounded project context & closure for a Swift view | `viewlens context --workspace . --root-symbol ProfileView` |
 | `viewlens nonvisual` | Screen-reader optimized nonvisual summary and outline | `viewlens nonvisual --template LoginForm --profile speech` |
 | `viewlens design-diff` | Figma design-to-code visual & structural verification | `viewlens design-diff --reference figma.png --template LoginForm` |
 | `viewlens accessibility` | Comprehensive W3C / WCAG 2.2 accessibility audit | `viewlens accessibility --template LoginForm --level AA` |

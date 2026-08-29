@@ -19,6 +19,8 @@ struct SkillTests {
         #expect(md.contains("44×44pt AAA"))
         #expect(md.contains("AX1/AX3/AX5"))
         #expect(md.contains("WCAG 4.1.2 A"))
+        #expect(md.contains("viewlens_project_context_resolve"))
+        #expect(md.contains("viewlens context"))
         #expect(md.contains("viewlens doctor --json"))
     }
 

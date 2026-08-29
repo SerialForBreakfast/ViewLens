@@ -959,6 +959,10 @@ public final class MCPServer: Sendable {
                     "type": .string("string"),
                     "enum": .array([.string("fail"), .string("request"), .string("structural_mock"), .string("generated_mock")]),
                     "description": .string("Explicit policy for referenced assets that are absent from the workspace.")
+                ]),
+                "include_harness": .object([
+                    "type": .string("boolean"),
+                    "description": .string("Optional flag to include the generated standalone Swift preview harness.")
                 ])
             ]),
             "required": .array([.string("workspace_root")])
@@ -1544,10 +1548,27 @@ public final class MCPServer: Sendable {
                 missingResourcePolicy: arguments["missing_resource_policy"]?.stringValue.flatMap(MissingResourcePolicy.init(rawValue:)) ?? .fail
             )
             let report = ProjectContextResolver.resolve(manifest: manifest)
-            let jsonText = JSONFormatter.encode(report)
+            let includeHarness = arguments["include_harness"]?.boolValue == true
+
+            let structured: JSONValue?
+            let jsonText: String
+            if includeHarness {
+                let harness = report.previewHarness
+                struct ContextReportWithHarness: Codable {
+                    let report: ProjectContextReport
+                    let previewHarness: PreviewHarnessDescriptor
+                }
+                let enriched = ContextReportWithHarness(report: report, previewHarness: harness)
+                jsonText = JSONFormatter.encode(enriched)
+                structured = modern ? (try? JSONValue.fromEncodable(enriched)) : nil
+            } else {
+                jsonText = JSONFormatter.encode(report)
+                structured = modern ? (try? JSONValue.fromEncodable(report)) : nil
+            }
+
             let result = MCPToolCallResult(
                 text: jsonText,
-                structuredContent: modern ? (try? JSONValue.fromEncodable(report)) : nil,
+                structuredContent: structured,
                 isError: report.status == .blocked,
                 modern: modern
             )

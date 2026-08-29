@@ -190,8 +190,67 @@ struct MCPServerTests {
     func testAllModernAuditToolsHaveOutputSchemas() throws {
         let data = try JSONEncoder().encode(MCPServer().defineTools(modern: true))
         let tools = try #require(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
-        #expect(tools.count == 21)
+        #expect(tools.count == 22)
         #expect(tools.allSatisfy { $0["outputSchema"] != nil })
+    }
+
+    @Test("Modern project context resolve returns structured report")
+    func testModernProjectContextResolveStructuredContent() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("mcp-ctx-\(UUID().uuidString)")
+        let sources = root.appendingPathComponent("Sources")
+        try FileManager.default.createDirectory(at: sources, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Data("import SwiftUI\nstruct TestView: View { var body: some View { Text(\"Hi\") } }".utf8)
+            .write(to: sources.appendingPathComponent("TestView.swift"))
+
+        let request = try modernToolRequest(
+            id: 25,
+            name: "viewlens_project_context_resolve",
+            arguments: """
+            {
+              "workspace_root": "\(root.path)",
+              "root_symbol": "TestView"
+            }
+            """
+        )
+        let response = try #require(await MCPServer().handleRequest(request))
+        let json = try #require(JSONSerialization.jsonObject(with: response) as? [String: Any])
+        let result = try #require(json["result"] as? [String: Any])
+        let structured = try #require(result["structuredContent"] as? [String: Any])
+        let data = try #require(structured["data"] as? [String: Any])
+        #expect(data["workspaceRoot"] as? String == root.path)
+        #expect(data["rootSymbol"] as? String == "TestView")
+        #expect(data["status"] as? String == "ready_for_build")
+    }
+
+    @Test("Modern project context resolve returns preview harness when requested")
+    func testModernProjectContextResolveWithHarness() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("mcp-ctx-\(UUID().uuidString)")
+        let sources = root.appendingPathComponent("Sources")
+        try FileManager.default.createDirectory(at: sources, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Data("import SwiftUI\nstruct CardView: View { var body: some View { Text(\"Card\") } }".utf8)
+            .write(to: sources.appendingPathComponent("CardView.swift"))
+
+        let request = try modernToolRequest(
+            id: 26,
+            name: "viewlens_project_context_resolve",
+            arguments: """
+            {
+              "workspace_root": "\(root.path)",
+              "root_symbol": "CardView",
+              "include_harness": true
+            }
+            """
+        )
+        let response = try #require(await MCPServer().handleRequest(request))
+        let json = try #require(JSONSerialization.jsonObject(with: response) as? [String: Any])
+        let result = try #require(json["result"] as? [String: Any])
+        let structured = try #require(result["structuredContent"] as? [String: Any])
+        let data = try #require(structured["data"] as? [String: Any])
+        let previewHarness = try #require(data["previewHarness"] as? [String: Any])
+        #expect(previewHarness["rootSymbol"] as? String == "CardView")
+        #expect((previewHarness["harnessSource"] as? String)?.contains("CardView_ViewLensPreviewHarness") == true)
     }
 
     @Test("Modern template audits return matrix evidence")

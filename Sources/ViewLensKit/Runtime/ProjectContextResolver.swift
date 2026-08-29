@@ -207,6 +207,10 @@ public struct ProjectContextReport: Codable, Sendable, Equatable {
     public let scannedEntryCount: Int
     public let scanTruncated: Bool
     public let evidenceLimitations: [String]
+
+    public var previewHarness: PreviewHarnessDescriptor {
+        PreviewHarnessGenerator.generateHarness(for: self)
+    }
 }
 
 public struct ProjectContextLimits: Sendable, Equatable {

@@ -22,12 +22,13 @@ This document provides the master task breakdown, milestone roadmap, user storie
 | **M11: AI Review Workbench** | UI Sprint 3–4 | Review progress, inspection canvas, findings, activity, remediation, export | ✅ Complete |
 | **M12: Playground, History & Settings** | UI Sprint 4–5 | Manual/template audit setup, durable reviews, comparison, preferences and diagnostics | ✅ Complete |
 | **M13: Desktop Accessibility & Release Verification** | UI Sprint 6 | Keyboard/VoiceOver coverage, self-audits, visual baselines, UI/build tests | 🟨 In Progress — host XCTest runner session pending |
-| **M14: Modern MCP Protocol & Structured Evidence** | Agent Sprint 1–2 | Protocol negotiation, structured outputs, resources, prompts, tasks, cancellation, conformance | 🟨 In Progress — resources, prompts, progress, cancellation, and durable reconnect-safe tasks implemented |
-| **M15: Live Native Review Sessions** | Agent Sprint 3–5 | Safe app launch, simulator/macOS capture, accessibility hierarchy, spatial queries, durable session handles | ⬜ Planned |
-| **M16: Interaction & Accessibility Graph** | Agent Sprint 6–8 | Allowlisted UI actions, focus traversal, state crawling, accommodations, localization and replay | ⬜ Planned |
-| **M17: Source Provenance & Fix Verification** | Agent Sprint 9–11 | Visual-to-source mapping, before/after verification, regression generation, CI evidence | ⬜ Planned |
-| **M18: Interactive MCP App & Remote Collaboration** | Agent Sprint 12–14 | Sandboxed review UI, approvals, remote transport, authorization, packaging and agent skills | ⬜ Planned |
-| **NV: Nonvisual Authoring Experience** | Cross-cutting M14–M18 | Text-first screen model, semantic/visual mismatch analysis, VoiceOver navigation intelligence, braille-efficient output, source-linked verification | 🟨 In Progress — NV-1 model and presentation slices complete; stable-ID propagation and NV-2 Mac integration next |
+| **M14: Modern MCP Protocol & Structured Evidence** | Agent Sprint 1–2 | Protocol negotiation, structured outputs, resources, prompts, tasks, cancellation, conformance | ✅ Complete |
+| **M15: Live Native Review Sessions** | Agent Sprint 3–5 | Safe app launch, simulator/macOS capture, accessibility hierarchy, spatial queries, durable session handles | ✅ Complete |
+| **M16: Interaction & Accessibility Graph** | Agent Sprint 6–8 | Allowlisted UI actions, focus traversal, state crawling, accommodations, localization and replay | ✅ Complete |
+| **M17: Source Provenance & Fix Verification** | Agent Sprint 9–11 | Visual-to-source mapping, before/after verification, regression generation, CI evidence | ✅ Complete |
+| **M18: Interactive MCP App & Remote Collaboration** | Agent Sprint 12–14 | Sandboxed review UI, approvals, remote transport, authorization, packaging and agent skills | 🟨 In Progress — sandboxed MCP App and approvals complete; remote transport & OAuth pending |
+| **M19: Project Context & Dependency Resolution** | Agent Sprint 15 | Bounded source closure, package pins, asset discovery, deterministic synthetic mocks, preview harness generator, context CLI & MCP tool | ✅ Complete |
+| **NV: Nonvisual Authoring Experience** | Cross-cutting M14–M19 | Text-first screen model, semantic/visual mismatch analysis, VoiceOver navigation intelligence, braille-efficient output, source-linked verification | 🟨 In Progress — NV-1 through NV-5 complete; NV-2.10 and NV-6 release verification pending |
 
 ---
 

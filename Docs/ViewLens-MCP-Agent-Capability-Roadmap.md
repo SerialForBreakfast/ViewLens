@@ -224,6 +224,23 @@ M14A deliberately excludes runtime control and remote transport. It proves compa
 
 ---
 
+## M19 — Project Context & Dependency Resolution
+
+**Outcome:** ViewLens can discover the minimal bounded source, resource, package, and environment closure required to render or audit an arbitrary Swift view in isolation, without full-project build overhead or out-of-scope downloads.
+
+### Discovery and closure resolution
+
+- [x] **MCP-19.1** Define `ProjectContextManifest` and bounded `ProjectContextResolver` discovering Xcode projects, workspaces, Swift packages, locked package pins, asset catalogs, and loose resources.
+- [x] **MCP-19.2** Calculate transitive source closure for a target root Swift view/symbol without building or downloading unapproved dependencies.
+- [x] **MCP-19.3** Implement deterministic missing-resource policies (`fail`, `request`, `structural_mock`, `generated_mock`) and synthetic mock descriptors flagged as baseline-ineligible.
+- [x] **MCP-19.4** Add `viewlens context` CLI command with JSON formatting and `--strict` validation.
+- [x] **MCP-19.5** Add `viewlens_project_context_resolve` modern MCP tool with schema validation and read-only safety annotations.
+- [x] **MCP-19.6** Integrate project context resolution into preview harness generation, multi-tier rendering matrix, and synthetic preview fixture injection.
+
+**Acceptance:** For any local SwiftUI view in an Xcode workspace or Swift package, ViewLens discovers its transitive view dependencies, assets, package pins, and environment requirements, and reports an actionable manifest with zero network access and deterministic mock policies.
+
+---
+
 ## 4. Deferred ideas and non-goals
 
 These ideas require separate product decisions and are not implied by M14–M18:
