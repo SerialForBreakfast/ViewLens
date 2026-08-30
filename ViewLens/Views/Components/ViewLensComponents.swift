@@ -292,9 +292,9 @@ public struct CriterionBadge: View {
 
 /// Finding priority badge (Critical, Serious, Moderate, Minor, Info).
 public struct SeverityBadge: View {
-    public let severity: IssueSeverity
+    public let severity: ViewLensSeverity
 
-    public init(severity: IssueSeverity) {
+    public init(severity: ViewLensSeverity) {
         self.severity = severity
     }
 

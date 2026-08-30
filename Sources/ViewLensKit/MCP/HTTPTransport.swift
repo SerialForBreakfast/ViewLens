@@ -59,10 +59,9 @@ public final class HTTPTransport: @unchecked Sendable {
     /// Handles an incoming HTTP request, enforcing authentication and routing to JSON-RPC handlers.
     public func handle(request: HTTPTransportRequest) async -> HTTPTransportResponse {
         // 1. Enforce Authentication if validator is configured
-        var claims: RemoteAuthClaims?
         if let validator = authValidator {
             do {
-                claims = try validator.validate(headers: request.headers)
+                _ = try validator.validate(headers: request.headers)
             } catch let error as RemoteAuthError {
                 let errorPayload: [String: Any] = [
                     "jsonrpc": "2.0",

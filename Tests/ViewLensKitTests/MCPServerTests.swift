@@ -200,6 +200,8 @@ struct MCPServerTests {
         let sources = root.appendingPathComponent("Sources")
         try FileManager.default.createDirectory(at: sources, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
+        try Data("// swift-tools-version: 6.0\nimport PackageDescription\nlet package = Package(name: \"TestPkg\")".utf8)
+            .write(to: root.appendingPathComponent("Package.swift"))
         try Data("import SwiftUI\nstruct TestView: View { var body: some View { Text(\"Hi\") } }".utf8)
             .write(to: sources.appendingPathComponent("TestView.swift"))
 
@@ -217,10 +219,10 @@ struct MCPServerTests {
         let json = try #require(JSONSerialization.jsonObject(with: response) as? [String: Any])
         let result = try #require(json["result"] as? [String: Any])
         let structured = try #require(result["structuredContent"] as? [String: Any])
-        let data = try #require(structured["data"] as? [String: Any])
-        #expect(data["workspaceRoot"] as? String == root.path)
-        #expect(data["rootSymbol"] as? String == "TestView")
-        #expect(data["status"] as? String == "ready_for_build")
+        let manifest = try #require(structured["manifest"] as? [String: Any])
+        #expect(manifest["workspaceRoot"] as? String == root.path)
+        #expect(manifest["rootSymbol"] as? String == "TestView")
+        #expect(structured["status"] as? String == "ready_for_build")
     }
 
     @Test("Modern project context resolve returns preview harness when requested")
@@ -247,8 +249,7 @@ struct MCPServerTests {
         let json = try #require(JSONSerialization.jsonObject(with: response) as? [String: Any])
         let result = try #require(json["result"] as? [String: Any])
         let structured = try #require(result["structuredContent"] as? [String: Any])
-        let data = try #require(structured["data"] as? [String: Any])
-        let previewHarness = try #require(data["previewHarness"] as? [String: Any])
+        let previewHarness = try #require(structured["previewHarness"] as? [String: Any])
         #expect(previewHarness["rootSymbol"] as? String == "CardView")
         #expect((previewHarness["harnessSource"] as? String)?.contains("CardView_ViewLensPreviewHarness") == true)
     }

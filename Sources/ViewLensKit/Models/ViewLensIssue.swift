@@ -30,6 +30,14 @@ public enum ViewLensSeverity: String, Codable, Sendable, Equatable, Hashable {
     case error
     case warning
     case info
+
+    public var displayName: String {
+        switch self {
+        case .error: return "Critical"
+        case .warning: return "Warning"
+        case .info: return "Info"
+        }
+    }
 }
 
 /// Actionable remediation advice for the AI agent or developer.

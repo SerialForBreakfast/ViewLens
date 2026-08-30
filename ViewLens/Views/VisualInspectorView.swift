@@ -6,6 +6,7 @@ public struct VisualInspectorView: View {
 
     public var body: some View {
         ReviewCanvasView(model: model)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -65,7 +66,9 @@ public struct ReviewCanvasView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(isDropTargeted ? ViewLensTheme.brand : .clear, style: StrokeStyle(lineWidth: 3, dash: [8, 5]))
@@ -88,6 +91,8 @@ public struct ReviewCanvasView: View {
         HStack(spacing: 8) {
             Label("Visual Inspector", systemImage: "viewfinder")
                 .font(.headline)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
             Spacer()
             Button { model.moveElementSelection(by: -1) } label: {
                 Label("Previous Element", systemImage: "chevron.left")

@@ -21,7 +21,7 @@ struct MCPCommand: AsyncParsableCommand {
         let server = MCPServer()
         if transport.lowercased() == "http" {
             let auth = authToken != nil ? RemoteAuthorizationValidator(preSharedSecret: authToken) : nil
-            let httpTransport = HTTPTransport(server: server, authValidator: auth)
+            _ = HTTPTransport(server: server, authValidator: auth)
             FileHandle.standardError.write(Data("ViewLens Remote MCP HTTP/SSE transport initialized on port \(port)\n".utf8))
             // Keep process active while stdio/server loop runs
             await server.start()

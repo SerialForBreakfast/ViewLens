@@ -47,16 +47,19 @@ struct AIReviewView: View {
             if hasResult {
                 HSplitView {
                     workbenchMainView
-                        .frame(minWidth: 520)
+                        .frame(minWidth: 480, maxWidth: .infinity, maxHeight: .infinity)
                     if showsInspector {
                         AIReviewInspector(model: model)
-                            .frame(minWidth: 320, idealWidth: 360, maxWidth: 460)
+                            .frame(minWidth: 320, idealWidth: 360, maxWidth: 480, maxHeight: .infinity)
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 emptyState
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle("AI Review")
         .accessibilityIdentifier("screen.aiReview")
@@ -143,7 +146,8 @@ struct AIReviewView: View {
                         }
                     }
                     .pickerStyle(.segmented)
-                    .frame(maxWidth: 220)
+                    .labelsHidden()
+                    .frame(width: 220)
                     .accessibilityLabel("Workbench view mode")
                     .accessibilityIdentifier("review.viewMode")
 
@@ -173,15 +177,18 @@ struct AIReviewView: View {
         switch displayMode {
         case .canvas:
             VisualInspectorView(model: model)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .outline:
             NonvisualOutlineView(model: model)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .split:
             HSplitView {
                 VisualInspectorView(model: model)
-                    .frame(minWidth: 380)
+                    .frame(minWidth: 340, maxWidth: .infinity, maxHeight: .infinity)
                 NonvisualOutlineView(model: model)
-                    .frame(minWidth: 280)
+                    .frame(minWidth: 260, maxWidth: .infinity, maxHeight: .infinity)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -271,14 +278,27 @@ private struct AIReviewInspector: View {
         VStack(spacing: 0) {
             Picker("Inspector Section", selection: $selectedSection) {
                 ForEach(InspectorSection.allCases) { Text($0.rawValue).tag($0) }
-            }.pickerStyle(.segmented).labelsHidden().padding(12)
-            Divider()
-            switch selectedSection {
-            case .findings: findingsSection
-            case .activity: reviewActivity
-            case .details: details
             }
-        }.background(Color(nsColor: .controlBackgroundColor))
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .padding(12)
+
+            Divider()
+
+            switch selectedSection {
+            case .findings:
+                findingsSection
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .activity:
+                reviewActivity
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .details:
+                details
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(nsColor: .controlBackgroundColor))
     }
 
     private var findingsSection: some View {
@@ -291,6 +311,7 @@ private struct AIReviewInspector: View {
                     systemImage: allFindings.isEmpty ? "checkmark.seal.fill" : "line.3.horizontal.decrease.circle",
                     description: Text(allFindings.isEmpty ? "No issues were found in the evaluated criteria." : "Clear or adjust filters to see other findings.")
                 )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
                     LazyVStack(spacing: 8) {

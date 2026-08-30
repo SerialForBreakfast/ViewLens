@@ -28,6 +28,7 @@ public struct NonvisualOutlineView: View {
                 emptyOutlineState
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Nonvisual Screen Outline")
@@ -76,6 +77,8 @@ public struct NonvisualOutlineView: View {
         HStack(spacing: 8) {
             Label("Nonvisual Outline", systemImage: "list.bullet.indent")
                 .font(.headline)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
             Spacer()
             TextField("Filter outline", text: $searchText)
                 .textFieldStyle(.roundedBorder)
@@ -109,6 +112,7 @@ public struct NonvisualOutlineView: View {
                 Text("Dev").tag("Developer")
             }
             .pickerStyle(.segmented)
+            .labelsHidden()
             .frame(maxWidth: 140)
             .help("Choose presentation detail profile")
             .accessibilityIdentifier("outline.profile")
@@ -150,7 +154,9 @@ public struct NonvisualOutlineView: View {
                 }
             }
             .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func screenHeaderNode(nonvisual: NonvisualScreenModel) -> some View {
