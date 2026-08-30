@@ -1,7 +1,8 @@
 # ViewLens 🔍
 
-> **100% Pure Swift AI Agent MCP Server, Dual-Tier Visual Canvas & UI Audit CLI for Native Apple Platforms**
+<img width="1943" height="1306" alt="image" src="https://github.com/user-attachments/assets/8ef217cc-fef8-4c20-8e69-54f0ac39f1f9" />
 
+> **100% Pure Swift AI Agent MCP Server, Dual-Tier Visual Canvas & UI Audit CLI for Native Apple Platforms**
 [![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B%20%7C%20Mac%20Catalyst-black?logo=apple)](https://developer.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/Swift-6.0-orange?logo=swift)](https://swift.org)
 [![CoreML](https://img.shields.io/badge/Inference-CoreML%20%2F%20ANE-blue)](https://developer.apple.com/documentation/coreml)
