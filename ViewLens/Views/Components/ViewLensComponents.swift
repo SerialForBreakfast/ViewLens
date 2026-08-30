@@ -209,3 +209,253 @@ extension ViewLensIssue {
         }
     }
 }
+
+// MARK: - Section 6: Standard Design System Components
+
+/// Circular score display with completeness tracking and accessible announcements.
+public struct ScoreRing: View {
+    public let score: Int
+    public let evaluatedCriteriaCount: Int
+    public let totalCriteriaCount: Int
+    public var size: CGFloat = 64
+
+    public init(
+        score: Int,
+        evaluatedCriteriaCount: Int = 8,
+        totalCriteriaCount: Int = 8,
+        size: CGFloat = 64
+    ) {
+        self.score = max(0, min(100, score))
+        self.evaluatedCriteriaCount = evaluatedCriteriaCount
+        self.totalCriteriaCount = max(1, totalCriteriaCount)
+        self.size = size
+    }
+
+    private var scoreColor: Color {
+        if score >= 90 { return .green }
+        if score >= 70 { return .orange }
+        return .red
+    }
+
+    public var body: some View {
+        ZStack {
+            // Background track
+            Circle()
+                .stroke(Color.secondary.opacity(0.18), lineWidth: size * 0.1)
+
+            // Progress indicator
+            Circle()
+                .trim(from: 0, to: CGFloat(score) / 100.0)
+                .stroke(scoreColor, style: StrokeStyle(lineWidth: size * 0.1, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+
+            // Score text
+            VStack(spacing: 0) {
+                Text("\(score)")
+                    .font(.system(size: size * 0.36, weight: .bold, design: .rounded))
+                    .foregroundColor(.primary)
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Accessibility Score")
+        .accessibilityValue("\(score) out of 100. \(evaluatedCriteriaCount) of \(totalCriteriaCount) criteria evaluated.")
+    }
+}
+
+/// Standard reference badge for WCAG and Apple HIG criteria.
+public struct CriterionBadge: View {
+    public let standard: String
+    public let level: String?
+
+    public init(standard: String, level: String? = "AA") {
+        self.standard = standard
+        self.level = level
+    }
+
+    public var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "checkmark.shield")
+                .font(.caption2)
+            Text(level != nil ? "\(standard) \(level!)" : standard)
+                .font(.caption.weight(.medium))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.secondary.opacity(0.12), in: Capsule())
+        .overlay(Capsule().stroke(Color.secondary.opacity(0.24), lineWidth: 1))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Standard")
+        .accessibilityValue(level != nil ? "\(standard) Level \(level!)" : standard)
+    }
+}
+
+/// Finding priority badge (Critical, Serious, Moderate, Minor, Info).
+public struct SeverityBadge: View {
+    public let severity: IssueSeverity
+
+    public init(severity: IssueSeverity) {
+        self.severity = severity
+    }
+
+    private var color: Color {
+        switch severity {
+        case .error: return .red
+        case .warning: return .orange
+        case .info: return .blue
+        }
+    }
+
+    private var symbol: String {
+        switch severity {
+        case .error: return "xmark.octagon.fill"
+        case .warning: return "exclamationmark.triangle.fill"
+        case .info: return "info.circle.fill"
+        }
+    }
+
+    public var body: some View {
+        Label(severity.displayName, systemImage: symbol)
+            .font(.caption.weight(.semibold))
+            .foregroundColor(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: ViewLensTheme.controlCornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: ViewLensTheme.controlCornerRadius, style: .continuous)
+                    .stroke(color.opacity(0.3), lineWidth: 1)
+            )
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Severity")
+            .accessibilityValue(severity.displayName)
+    }
+}
+
+/// Multi-state contextual notice banner.
+public struct BannerNotice: View {
+    public enum BannerType {
+        case info
+        case warning
+        case error
+        case incomplete
+
+        var color: Color {
+            switch self {
+            case .info: return ViewLensTheme.focus
+            case .warning, .incomplete: return .orange
+            case .error: return .red
+            }
+        }
+
+        var symbol: String {
+            switch self {
+            case .info: return "info.circle.fill"
+            case .warning, .incomplete: return "exclamationmark.triangle.fill"
+            case .error: return "xmark.octagon.fill"
+            }
+        }
+    }
+
+    public let type: BannerType
+    public let title: String
+    public let message: String
+    public var actionTitle: String?
+    public var action: (() -> Void)?
+
+    public init(
+        type: BannerType,
+        title: String,
+        message: String,
+        actionTitle: String? = nil,
+        action: (() -> Void)? = nil
+    ) {
+        self.type = type
+        self.title = title
+        self.message = message
+        self.actionTitle = actionTitle
+        self.action = action
+    }
+
+    public var body: some View {
+        HStack(alignment: .top, spacing: ViewLensTheme.compactSpacing) {
+            Image(systemName: type.symbol)
+                .font(.headline)
+                .foregroundColor(type.color)
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Text(message)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+
+            if let actionTitle = actionTitle, let action = action {
+                Button(actionTitle, action: action)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+            }
+        }
+        .padding(ViewLensTheme.cardPadding)
+        .background(type.color.opacity(0.08), in: RoundedRectangle(cornerRadius: ViewLensTheme.panelCornerRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: ViewLensTheme.panelCornerRadius, style: .continuous)
+                .stroke(type.color.opacity(0.3), lineWidth: 1)
+        )
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Standardized empty state component for ViewLens workspaces.
+public struct EmptyStateView: View {
+    public let symbol: String
+    public let title: String
+    public let description: String
+    public var buttonTitle: String?
+    public var buttonAction: (() -> Void)?
+
+    public init(
+        symbol: String,
+        title: String,
+        description: String,
+        buttonTitle: String? = nil,
+        buttonAction: (() -> Void)? = nil
+    ) {
+        self.symbol = symbol
+        self.title = title
+        self.description = description
+        self.buttonTitle = buttonTitle
+        self.buttonAction = buttonAction
+    }
+
+    public var body: some View {
+        VStack(spacing: ViewLensTheme.standardSpacing) {
+            Image(systemName: symbol)
+                .font(.system(size: 40))
+                .foregroundColor(.secondary)
+
+            VStack(spacing: ViewLensTheme.microSpacing) {
+                Text(title)
+                    .font(.headline)
+                Text(description)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 320)
+            }
+
+            if let buttonTitle = buttonTitle, let buttonAction = buttonAction {
+                Button(buttonTitle, action: buttonAction)
+                    .buttonStyle(.borderedProminent)
+                    .padding(.top, ViewLensTheme.compactSpacing)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(ViewLensTheme.majorSpacing)
+        .accessibilityElement(children: .combine)
+    }
+}
+
