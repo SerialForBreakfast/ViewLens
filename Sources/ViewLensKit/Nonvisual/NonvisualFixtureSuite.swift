@@ -52,23 +52,28 @@ public enum NonvisualFixtureSuite {
 
         let mismatch = SemanticMismatch(
             id: NonvisualID("mismatch_modal_trap"),
-            category: .missingState,
-            elementID: backgroundBtnId,
-            description: "Background control remains interactive and exposed to VoiceOver while modal dialog is active.",
-            citedStandard: "WCAG 2.4.3 / HIG Modal Presentation",
+            kind: .missingValueOrState,
+            severity: .error,
+            elementIDs: [backgroundBtnId],
+            description: "Background control remains interactive and exposed to VoiceOver while modal dialog is active (WCAG 2.4.3 / HIG Modal Presentation).",
+            evidence: EvidenceProvenance(kind: .derived, source: "focus_graph")
+        )
+
+        let readingOrder = NavigationSequence(
+            id: NonvisualID("seq_reading_order"),
+            kind: .readingOrder,
+            elementIDs: [modalCloseBtnId, backgroundBtnId],
             evidence: EvidenceProvenance(kind: .derived, source: "focus_graph")
         )
 
         return NonvisualScreenModel(
             id: NonvisualID("fixture_modal_focus_escape"),
-            reviewID: "review_nv_modal_01",
+            title: "CheckoutModalView",
             sourceMode: .runtime,
-            target: "CheckoutModalView",
             regions: regions,
             elements: elements,
-            mismatches: [mismatch],
-            readingOrder: [modalCloseBtnId, backgroundBtnId], // Escaped order!
-            evidence: EvidenceProvenance(kind: .measured, source: "runtime_capture")
+            navigationSequences: [readingOrder],
+            mismatches: [mismatch]
         )
     }
 
@@ -102,22 +107,28 @@ public enum NonvisualFixtureSuite {
 
         let mismatch = SemanticMismatch(
             id: NonvisualID("mismatch_color_only"),
-            category: .missingName,
-            elementID: statusDotId,
-            description: "Status is conveyed solely by pixel color without programmatic name, text label, or icon shape.",
-            citedStandard: "WCAG 1.4.1 Use of Color",
+            kind: .missingAccessibleName,
+            severity: .error,
+            elementIDs: [statusDotId],
+            description: "Status is conveyed solely by pixel color without programmatic name, text label, or icon shape (WCAG 1.4.1 Use of Color).",
             evidence: EvidenceProvenance(kind: .derived, source: "contrast_evaluator")
+        )
+
+        let readingOrder = NavigationSequence(
+            id: NonvisualID("seq_reading_order"),
+            kind: .readingOrder,
+            elementIDs: [statusDotId],
+            evidence: EvidenceProvenance(kind: .derived, source: "layout")
         )
 
         return NonvisualScreenModel(
             id: NonvisualID("fixture_color_only_state"),
-            reviewID: "review_nv_color_01",
+            title: "ServerHealthStatusView",
             sourceMode: .rendered,
-            target: "ServerHealthStatusView",
             regions: regions,
             elements: elements,
-            mismatches: [mismatch],
-            readingOrder: [statusDotId]
+            navigationSequences: [readingOrder],
+            mismatches: [mismatch]
         )
     }
 
@@ -152,22 +163,28 @@ public enum NonvisualFixtureSuite {
 
         let mismatch = SemanticMismatch(
             id: NonvisualID("mismatch_ax5_clipping"),
-            category: .orderDivergence,
-            elementID: titleLabelId,
-            description: "Text is truncated by fixed frame at Accessibility 5 scale (AX5), hiding 45% of visible content.",
-            citedStandard: "WCAG 1.4.4 Resize Text / WCAG 1.4.10 Reflow",
+            kind: .readingOrderDivergence,
+            severity: .warning,
+            elementIDs: [titleLabelId],
+            description: "Text is truncated by fixed frame at Accessibility 5 scale (AX5), hiding 45% of visible content (WCAG 1.4.4 Resize Text / WCAG 1.4.10 Reflow).",
             evidence: EvidenceProvenance(kind: .derived, source: "dynamic_type_matrix")
+        )
+
+        let readingOrder = NavigationSequence(
+            id: NonvisualID("seq_reading_order"),
+            kind: .readingOrder,
+            elementIDs: [titleLabelId],
+            evidence: EvidenceProvenance(kind: .derived, source: "layout")
         )
 
         return NonvisualScreenModel(
             id: NonvisualID("fixture_ax5_clipping"),
-            reviewID: "review_nv_ax5_01",
+            title: "NewsArticleCardView",
             sourceMode: .rendered,
-            target: "NewsArticleCardView",
             regions: regions,
             elements: elements,
-            mismatches: [mismatch],
-            readingOrder: [titleLabelId]
+            navigationSequences: [readingOrder],
+            mismatches: [mismatch]
         )
     }
 
@@ -200,22 +217,28 @@ public enum NonvisualFixtureSuite {
 
         let mismatch = SemanticMismatch(
             id: NonvisualID("mismatch_name_label"),
-            category: .visibleNameConflict,
-            elementID: submitBtnId,
-            description: "Spoken/visible text 'Place Order Now' does not match programmatic accessibility label 'Submit'.",
-            citedStandard: "WCAG 2.5.3 Label in Name",
+            kind: .visibleLabelNameConflict,
+            severity: .error,
+            elementIDs: [submitBtnId],
+            description: "Spoken/visible text 'Place Order Now' does not match programmatic accessibility label 'Submit' (WCAG 2.5.3 Label in Name).",
             evidence: EvidenceProvenance(kind: .derived, source: "voice_control_validator")
+        )
+
+        let readingOrder = NavigationSequence(
+            id: NonvisualID("seq_reading_order"),
+            kind: .readingOrder,
+            elementIDs: [submitBtnId],
+            evidence: EvidenceProvenance(kind: .derived, source: "layout")
         )
 
         return NonvisualScreenModel(
             id: NonvisualID("fixture_name_mismatch"),
-            reviewID: "review_nv_name_01",
+            title: "CheckoutFooterView",
             sourceMode: .rendered,
-            target: "CheckoutFooterView",
             regions: regions,
             elements: elements,
-            mismatches: [mismatch],
-            readingOrder: [submitBtnId]
+            navigationSequences: [readingOrder],
+            mismatches: [mismatch]
         )
     }
 }
