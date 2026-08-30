@@ -23,6 +23,7 @@
 By combining an ultra-fast **dual-tier headless canvas renderer** with the fine-tuned CoreML vision models trained in [NativeUIAuditKit](https://github.com/SerialForBreakfast/NativeUIAuditKit), ViewLens detects UI elements, evaluates Apple Human Interface Guidelines (HIG), and performs programmatic Auto Layout introspection **without burning multimodal LLM tokens on raw image uploads or waiting for multiple iOS simulator boots**.
 
 ### Why ViewLens?
+<img width="1942" height="1301" alt="image" src="https://github.com/user-attachments/assets/ff770d4b-d154-4e6c-9217-0f83061aae8d" />
 
 - ♿ **Pioneering Nonvisual Authoring for Blind and Low-Vision Developers**: Transforms visual Xcode canvas previews and simulator output into accessible hierarchies, VoiceOver-oriented speech streams, 40-cell braille simulations, and semantic spatial queries.
 - 🎯 **W3C WCAG 2.2 Level A/AA/AAA Auditing**: Enforces programmatic Name/Role/Value (4.1.2), level-aware Touch Target sizing (2.5.8 AA / 2.5.5 AAA), Light/Dark contrast (1.4.3 / 1.4.6), and Dynamic Type AX1–AX5 reflow.
