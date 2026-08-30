@@ -99,7 +99,20 @@ public final class MCPServer: Sendable {
         }
     }
 
-    func handleRequest(_ request: JSONRPCRequest) async -> Data? {
+    public func handleRequestData(_ data: Data) async -> Data? {
+        do {
+            let request = try JSONDecoder().decode(JSONRPCRequest.self, from: data)
+            return await handleRequest(request)
+        } catch {
+            let errResponse = JSONRPCResponse<String>(
+                id: nil,
+                error: JSONRPCError(code: -32700, message: "Parse error: \(error.localizedDescription)")
+            )
+            return try? JSONEncoder().encode(errResponse)
+        }
+    }
+
+    public func handleRequest(_ request: JSONRPCRequest) async -> Data? {
         if request.method == "notifications/cancelled" {
             guard let requestIDValue = request.params?.objectValue?["requestId"],
                   let requestID = requestID(from: requestIDValue) else {

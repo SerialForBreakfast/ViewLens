@@ -109,7 +109,7 @@ public final class HTTPTransport: @unchecked Sendable {
         }
 
         // Execute via MCPServer
-        if let responseData = await server.handleRequest(body) {
+        if let responseData = await server.handleRequestData(body) {
             return HTTPTransportResponse(statusCode: 200, body: responseData)
         } else {
             // Notification or fire-and-forget
