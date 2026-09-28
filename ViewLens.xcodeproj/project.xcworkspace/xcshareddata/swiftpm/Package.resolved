@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/SerialForBreakfast/NativeUIAuditKit.git",
       "state" : {
-        "revision" : "17a883bf90c49f1c4f75682f2ed3e4f579874026",
-        "version" : "2.0.0"
+        "branch" : "main",
+        "revision" : "63d2ff4714750c42620b7f7fdcac050e7b1ab512"
       }
     },
     {

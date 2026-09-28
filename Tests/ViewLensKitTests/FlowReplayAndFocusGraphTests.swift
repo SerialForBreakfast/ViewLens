@@ -151,4 +151,120 @@ struct FlowReplayAndFocusGraphTests {
         let replayResult = try #require(replayJson["result"] as? [String: Any])
         #expect(replayResult["isError"] as? Bool == false)
     }
+
+    @Test("FlowReplayEngine evaluates element_focused assertion")
+    func testElementFocusedAssertion() {
+        let prov = EvidenceProvenance(kind: .measured, source: "testFixture")
+
+        let focusedButton = NativeAccessibilityNode(
+            id: NonvisualID("btn_ok"),
+            label: "OK",
+            traits: [.isButton, .isSelected],
+            frame: BoundingBox(x: 0.1, y: 0.1, width: 0.3, height: 0.1),
+            provenance: prov
+        )
+
+        let unfocusedButton = NativeAccessibilityNode(
+            id: NonvisualID("btn_cancel"),
+            label: "Cancel",
+            traits: [.isButton],
+            frame: BoundingBox(x: 0.5, y: 0.1, width: 0.3, height: 0.1),
+            provenance: prov
+        )
+
+        let nodes = [focusedButton, unfocusedButton]
+
+        let step1 = FlowStep(
+            id: "step_check_focused",
+            action: UIAction(kind: .moveFocus, elementID: "btn_ok"),
+            assertion: FlowAssertion(kind: "element_focused", targetElementID: "btn_ok")
+        )
+
+        let step2 = FlowStep(
+            id: "step_check_not_focused",
+            action: UIAction(kind: .moveFocus, elementID: "btn_cancel"),
+            assertion: FlowAssertion(kind: "element_focused", targetElementID: "btn_cancel", expectedValue: "false")
+        )
+
+        let script = FlowScript(
+            name: "FocusCheckScript",
+            targetTemplate: "DialogView",
+            steps: [step1, step2]
+        )
+
+        let report = FlowReplayEngine.replay(script: script, accessibilityNodes: nodes)
+        #expect(report.passed)
+        #expect(report.stepResults.allSatisfy { $0.assertionPassed })
+    }
+
+    @Test("FlowReplayEngine evaluates text_anchor assertion with required and forbidden values")
+    func testTextAnchorAssertion() {
+        let prov = EvidenceProvenance(kind: .measured, source: "testFixture")
+
+        let titleNode = NativeAccessibilityNode(
+            id: NonvisualID("title_header"),
+            label: "System Settings > General",
+            traits: [.isHeader],
+            frame: BoundingBox(x: 0.1, y: 0.05, width: 0.8, height: 0.05),
+            provenance: prov
+        )
+
+        let nodes = [titleNode]
+
+        // 1. Should pass when required anchor matches and forbidden is absent
+        let stepPass = FlowStep(
+            id: "step_pass",
+            action: UIAction(kind: .activate, elementID: "title_header"),
+            assertion: FlowAssertion(
+                kind: "text_anchor",
+                targetElementID: "title_header",
+                expectedValue: "General",
+                forbiddenValues: ["Network", "Bluetooth"]
+            )
+        )
+
+        let reportPass = FlowReplayEngine.replay(
+            script: FlowScript(name: "PassFlow", targetTemplate: "Settings", steps: [stepPass]),
+            accessibilityNodes: nodes
+        )
+        #expect(reportPass.passed)
+        #expect(reportPass.stepResults[0].assertionPassed)
+
+        // 2. Should fail when forbidden anchor is present
+        let stepFailForbidden = FlowStep(
+            id: "step_fail_forbidden",
+            action: UIAction(kind: .activate, elementID: "title_header"),
+            assertion: FlowAssertion(
+                kind: "text_anchor",
+                targetElementID: "title_header",
+                expectedValue: "General",
+                forbiddenValues: ["Settings"]
+            )
+        )
+
+        let reportFailForbidden = FlowReplayEngine.replay(
+            script: FlowScript(name: "ForbiddenFlow", targetTemplate: "Settings", steps: [stepFailForbidden]),
+            accessibilityNodes: nodes
+        )
+        #expect(!reportFailForbidden.passed)
+        #expect(!reportFailForbidden.stepResults[0].assertionPassed)
+
+        // 3. Should fail when required anchor is missing
+        let stepFailMissing = FlowStep(
+            id: "step_fail_missing",
+            action: UIAction(kind: .activate, elementID: "title_header"),
+            assertion: FlowAssertion(
+                kind: "text_anchor",
+                targetElementID: "title_header",
+                expectedValue: "Display"
+            )
+        )
+
+        let reportFailMissing = FlowReplayEngine.replay(
+            script: FlowScript(name: "MissingFlow", targetTemplate: "Settings", steps: [stepFailMissing]),
+            accessibilityNodes: nodes
+        )
+        #expect(!reportFailMissing.passed)
+        #expect(!reportFailMissing.stepResults[0].assertionPassed)
+    }
 }

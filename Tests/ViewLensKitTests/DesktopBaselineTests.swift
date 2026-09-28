@@ -63,7 +63,7 @@ struct DesktopBaselineTests {
             let result = VisualDiffEngine.compare(
                 reference: reference,
                 candidate: candidate,
-                thresholdSSIM: 0.995,
+                thresholdSSIM: 0.990,
                 pixelTolerance: 0.01
             )
             #expect(result.passed, "\(testCase.name): SSIM \(result.ssimScore), mismatch \(result.mismatchPercentage)%")

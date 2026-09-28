@@ -27,7 +27,8 @@ This document provides the master task breakdown, milestone roadmap, user storie
 | **M16: Interaction & Accessibility Graph** | Agent Sprint 6–8 | Allowlisted UI actions, focus traversal, state crawling, accommodations, localization and replay | ✅ Complete |
 | **M17: Source Provenance & Fix Verification** | Agent Sprint 9–11 | Visual-to-source mapping, before/after verification, regression generation, CI evidence | ✅ Complete |
 | **M18: Interactive MCP App & Remote Collaboration** | Agent Sprint 12–14 | Sandboxed review UI, approvals, streamable HTTP/SSE transport, scoped token authorization, AES-GCM encrypted storage, and threat model | 🟨 In Progress — MCP App, HTTP/SSE transport, auth, telemetry, and encrypted storage complete; packaging & skills next |
-| **M19: Project Context & Dependency Resolution** | Agent Sprint 15 | Bounded source closure, package pins, asset discovery, deterministic synthetic mocks, preview harness generator, context CLI & MCP tool | ✅ Complete |
+| **M19: Project Context & Dependency Resolution** | Agent Sprint 15–16 | Bounded lexical closure, package pins, asset discovery, preview harness descriptors, compiler-backed isolated rendering, context CLI & MCP tool | 🟨 In Progress — lexical resolver, CLI/MCP, and opt-in harness plumbing complete; compiler-backed rendering closure pending |
+| **M20: Intelligent Change Targeting** | Agent Sprint 16–17 | Reverse source/resource impact graph, conservative audit selection, compiler confirmation, context capsules, Git/Mac integration | 🟨 In Progress — bounded lexical engine plus CLI and modern MCP vertical slice complete |
 | **NV: Nonvisual Authoring Experience** | Cross-cutting M14–M19 | Text-first screen model, semantic/visual mismatch analysis, VoiceOver navigation intelligence, braille-efficient output, source-linked verification | 🟨 In Progress — NV-0 through NV-5 complete; NV-2.10 and NV-6 release verification pending |
 
 ---

@@ -20,20 +20,30 @@ public struct VisualSemanticPair: Codable, Sendable, Equatable {
     }
 }
 
-/// A conflict where spatial overlap is high but visual class and programmatic role disagree.
+/// Classification of correlation conflicts between visual detections and accessibility nodes.
+public enum CorrelationConflictKind: String, Codable, Sendable, Equatable {
+    case roleMismatch = "roleMismatch"
+    case focusDesynchronization = "focusDesynchronization"
+    case ambiguousFocus = "ambiguousFocus"
+}
+
+/// A conflict where spatial overlap is high but visual class, programmatic role, or focus state disagree.
 public struct CorrelationConflict: Codable, Sendable, Equatable {
     public let visualElement: DetectedElement
     public let accessibilityNode: NativeAccessibilityNode
     public let reason: String
+    public let kind: CorrelationConflictKind
 
     public init(
         visualElement: DetectedElement,
         accessibilityNode: NativeAccessibilityNode,
-        reason: String
+        reason: String,
+        kind: CorrelationConflictKind = .roleMismatch
     ) {
         self.visualElement = visualElement
         self.accessibilityNode = accessibilityNode
         self.reason = reason
+        self.kind = kind
     }
 }
 
@@ -107,7 +117,35 @@ public enum VisualSemanticCorrelator {
                     conflicts.append(CorrelationConflict(
                         visualElement: visual,
                         accessibilityNode: match.node,
-                        reason: "Visual element appears to be a button, but accessibility node lacks .isButton trait"
+                        reason: "Visual element appears to be a button, but accessibility node lacks .isButton trait",
+                        kind: .roleMismatch
+                    ))
+                }
+
+                // Check for focus desynchronization (ADR-0007 Focus Alignment)
+                if visual.isFocused == true && !match.node.traits.contains(.isSelected) {
+                    conflicts.append(CorrelationConflict(
+                        visualElement: visual,
+                        accessibilityNode: match.node,
+                        reason: "Visual element displays an active focus ring, but matched accessibility node lacks .isSelected / focus state (ADR-0007 Focus Desynchronization)",
+                        kind: .focusDesynchronization
+                    ))
+                } else if visual.isFocused == false && match.node.traits.contains(.isSelected) {
+                    conflicts.append(CorrelationConflict(
+                        visualElement: visual,
+                        accessibilityNode: match.node,
+                        reason: "Accessibility node claims focus (.isSelected), but visual element lacks an active focus ring (ADR-0007 Focus Desynchronization)",
+                        kind: .focusDesynchronization
+                    ))
+                }
+
+                // Check for ambiguous focus
+                if visual.isAmbiguousFocus == true {
+                    conflicts.append(CorrelationConflict(
+                        visualElement: visual,
+                        accessibilityNode: match.node,
+                        reason: "Visual element has ambiguous focus ring assignment with competing candidates",
+                        kind: .ambiguousFocus
                     ))
                 }
             }

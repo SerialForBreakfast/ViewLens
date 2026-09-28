@@ -981,6 +981,20 @@ public final class MCPServer: Sendable {
             "required": .array([.string("workspace_root")])
         ])
 
+        let changeImpactSchema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "workspace_root": .object(["type": .string("string"), "description": .string("Owning workspace or Swift package root.")]),
+                "changed_files": .object([
+                    "type": .string("array"),
+                    "items": .object(["type": .string("string")]),
+                    "minItems": .number(1),
+                    "description": .string("Changed Swift or resource paths, absolute or relative to workspace_root.")
+                ])
+            ]),
+            "required": .array([.string("workspace_root"), .string("changed_files")])
+        ])
+
         let verifyChangesSchema: JSONValue = .object([
             "type": .string("object"),
             "properties": .object([
@@ -1115,6 +1129,15 @@ public final class MCPServer: Sendable {
                     title: "Resolve Swift Project Context",
                     description: "Performs bounded, read-only discovery of the build container, transitive local source references, resources, locked packages, and preview-scenario requirements for a Swift view. It never builds, downloads packages, runs scripts, or silently substitutes missing assets.",
                     inputSchema: strictInputSchema(projectContextSchema),
+                    outputSchema: sessionObjectSchema,
+                    icons: viewLensToolIcons(),
+                    annotations: MCPTool.Annotations(readOnlyHint: true)
+                ),
+                MCPTool(
+                    name: "viewlens_change_impact",
+                    title: "Analyze UI Change Impact",
+                    description: "Builds a bounded lexical reverse-dependency graph from changed Swift or resource files to affected root views and conservative audit permutations. Results explicitly remain lexical until compiler evidence confirms them.",
+                    inputSchema: strictInputSchema(changeImpactSchema),
                     outputSchema: sessionObjectSchema,
                     icons: viewLensToolIcons(),
                     annotations: MCPTool.Annotations(readOnlyHint: true)
@@ -1583,6 +1606,34 @@ public final class MCPServer: Sendable {
                 text: jsonText,
                 structuredContent: structured,
                 isError: report.status == .blocked,
+                modern: modern
+            )
+            return try? JSONEncoder().encode(JSONRPCResponse(id: request.id, result: result))
+
+        case "viewlens_change_impact":
+            guard let workspaceRoot = arguments["workspace_root"]?.stringValue else {
+                let message = "Missing required 'workspace_root' parameter"
+                let result = MCPToolCallResult(text: JSONFormatter.errorJSON(message: message), structuredContent: nil, isError: true, modern: modern)
+                return try? JSONEncoder().encode(JSONRPCResponse(id: request.id, result: result))
+            }
+            let changedFiles = arguments["changed_files"]?.arrayValue?.compactMap(\.stringValue) ?? []
+            guard !changedFiles.isEmpty else {
+                let message = "Missing required non-empty 'changed_files' parameter"
+                let result = MCPToolCallResult(text: JSONFormatter.errorJSON(message: message), structuredContent: nil, isError: true, modern: modern)
+                return try? JSONEncoder().encode(JSONRPCResponse(id: request.id, result: result))
+            }
+            let report = ChangeImpactAnalyzer.analyze(workspaceRoot: workspaceRoot, changedFiles: changedFiles)
+            let capsuleResource = modern ? await resourceStore.recordImpactCapsule(report) : nil
+            var structured = modern ? (try? JSONValue.fromEncodable(report)) : nil
+            if let capsuleResource, case .object(var object) = structured {
+                object["contextCapsule"] = try? JSONValue.fromEncodable(capsuleResource)
+                structured = .object(object)
+            }
+            let result = MCPToolCallResult(
+                text: JSONFormatter.encode(report),
+                structuredContent: structured,
+                resourceLinks: capsuleResource.map { [$0] } ?? [],
+                isError: report.completeness == .unavailable,
                 modern: modern
             )
             return try? JSONEncoder().encode(JSONRPCResponse(id: request.id, result: result))

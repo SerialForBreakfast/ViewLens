@@ -29,4 +29,15 @@ struct ModelLocatorTests {
             break
         }
     }
+
+    @Test("Resolves bundled tvOS model from NativeUIAuditKitModels")
+    func testResolveTVOSModel() {
+        let result = ModelLocator.resolveTVOS()
+        switch result {
+        case .success(let url):
+            #expect(url.lastPathComponent.contains("tvOS") || url.lastPathComponent.contains("mlmodelc"))
+        case .failure(let error):
+            Issue.record("Expected bundled tvOS model resolution to succeed, failed with: \(error)")
+        }
+    }
 }

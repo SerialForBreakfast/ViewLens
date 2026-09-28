@@ -51,7 +51,7 @@ flowchart LR
 
 ## 2. Pure Swift MCP Tools Reference
 
-ViewLens exposes 5 standard JSON-RPC tools over `stdio`:
+ViewLens exposes 5 legacy-compatible and 23 modern JSON-RPC tools over `stdio` (a representative subset follows):
 
 ### Protocol compatibility
 
@@ -151,6 +151,15 @@ Performs bounded, read-only discovery of the build container, transitive local s
   - `missing_resource_policy` (string, optional): `"fail"`, `"request"`, `"structural_mock"`, or `"generated_mock"`.
 - **Modern result**: Bounded manifest report containing source closure, asset inventory, locked package pins, preview scenario requirements, synthetic mocks, and build readiness status.
 
+### 7. `viewlens_change_impact`
+Maps changed Swift and named-resource files through a bounded lexical reverse-dependency graph to affected root views and conservative audit permutations.
+- **Arguments**:
+  - `workspace_root` (string, required): Owning workspace or Swift package root.
+  - `changed_files` (array of strings, required): Changed paths within the workspace.
+- **Modern result**: Affected source files and top-level views, dependency distance, deterministic audit recommendations, completeness, diagnostics, and evidence limitations.
+- **Evidence boundary**: Confidence upgrades from `lexical` to `build_plan_confirmed` when existing SwiftPM/Xcode build metadata proves target membership. `compiler_confirmed` remains reserved for Index Store symbol evidence.
+- **Context capsule**: Modern calls return a private `viewlens://impact-capsules/{capsuleId}` resource link containing bounded affected paths, roots, recommendations, and evidence summaries without source bodies or the workspace-root path.
+
 ---
 
 ## 3. CLI Command Suite Reference
@@ -160,6 +169,7 @@ When executing commands in the terminal, use the `viewlens` CLI binary:
 | Command | Purpose | Example |
 |---|---|---|
 | `viewlens context` | Resolves bounded project context & closure for a Swift view | `viewlens context --workspace . --root-symbol ProfileView` |
+| `viewlens impact` | Maps changed files to affected root views and audit permutations | `viewlens impact --workspace . --changed-files Sources/ProfileView.swift` |
 | `viewlens nonvisual` | Screen-reader optimized nonvisual summary and outline | `viewlens nonvisual --template LoginForm --profile speech` |
 | `viewlens design-diff` | Figma design-to-code visual & structural verification | `viewlens design-diff --reference figma.png --template LoginForm` |
 | `viewlens accessibility` | Comprehensive W3C / WCAG 2.2 accessibility audit | `viewlens accessibility --template LoginForm --level AA` |
@@ -186,6 +196,7 @@ ViewLens provides structured, token-efficient nonvisual representations via MCP 
 | `viewlens://reviews/{reviewId}/semantic-outline` | Hierarchical nonvisual model with stable IDs | `application/json` |
 | `viewlens://reviews/{reviewId}/navigation` | Reading order and focus navigation sequences | `application/json` |
 | `viewlens://reviews/{reviewId}/visual-diff-narrative` | Textual narrative of spatial and visual relationships | `text/plain` |
+| `viewlens://impact-capsules/{capsuleId}` | Bounded source-body-free context for affected UI work | `application/json` |
 
 ### MCP Prompt Workflows:
 - `viewlens_nonvisual_review`: Guides LLMs in conducting semantic-first code reviews evaluating reading order, visual-semantic counterparts, touch target sizes, contrast, and Dynamic Type reflow with deterministic code remediations.

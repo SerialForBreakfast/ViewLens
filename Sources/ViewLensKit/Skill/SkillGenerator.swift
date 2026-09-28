@@ -109,6 +109,14 @@ public struct SkillGenerator: Sendable {
           - `scenario` (string, optional): Optional named deterministic preview scenario.
           - `missing_resource_policy` (string, optional): `"fail"`, `"request"`, `"structural_mock"`, or `"generated_mock"`.
 
+        ### 7. `viewlens_change_impact`
+        Maps changed Swift and named-resource files through a bounded lexical reverse-dependency graph to affected root views and conservative audit permutations.
+        - **Arguments**:
+          - `workspace_root` (string, required): Owning workspace or Swift package root.
+          - `changed_files` (array of strings, required): Changed paths within the workspace.
+        - **Evidence boundary**: Confidence upgrades from `lexical` to `build_plan_confirmed` when existing SwiftPM/Xcode build metadata proves target membership. `compiler_confirmed` remains reserved for Index Store symbol evidence.
+        - **Context capsule**: Modern calls return a private `viewlens://impact-capsules/{capsuleId}` resource link containing bounded affected paths, roots, recommendations, and evidence summaries without source bodies or the workspace-root path.
+
         ---
 
         ## 3. CLI Command Suite Reference
@@ -118,6 +126,7 @@ public struct SkillGenerator: Sendable {
         | Command | Purpose | Example |
         |---|---|---|
         | `viewlens context` | Resolves bounded project context & closure for a Swift view | `viewlens context --workspace . --root-symbol ProfileView` |
+        | `viewlens impact` | Maps changed files to affected root views and audit permutations | `viewlens impact --workspace . --changed-files Sources/ProfileView.swift` |
         | `viewlens design-diff` | Figma design-to-code visual & structural verification | `viewlens design-diff --reference figma.png --template LoginForm` |
         | `viewlens accessibility` | Comprehensive W3C / WCAG 2.2 accessibility audit | `viewlens accessibility --template LoginForm --level AA` |
         | `viewlens doctor` | Model readiness and system check | `viewlens doctor --json` |

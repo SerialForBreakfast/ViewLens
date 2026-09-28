@@ -102,6 +102,26 @@ public struct ModelLocator: Sendable {
         return .failure(.notFound(searchedPaths: searchedPaths))
     }
 
+    /// Resolves the bundled tvOS CoreML model from NativeUIAuditKitModels.
+    public static func resolveTVOS(customPath: String? = nil) -> Result<URL, ModelLocatorError> {
+        if let customPath = customPath, !customPath.isEmpty {
+            let expanded = (customPath as NSString).expandingTildeInPath
+            let url = URL(fileURLWithPath: expanded)
+            if FileManager.default.fileExists(atPath: url.path) {
+                return validate(url: url)
+            }
+        }
+
+        #if canImport(NativeUIAuditKitModels)
+        let tvOSURL = NativeUIModelAsset.tvOSModelURL
+        if FileManager.default.fileExists(atPath: tvOSURL.path) {
+            return validate(url: tvOSURL)
+        }
+        #endif
+
+        return .failure(.notFound(searchedPaths: [customPath ?? "bundled NativeUIModel_tvOS.mlmodelc"]))
+    }
+
     /// Validates that the resolved model URL is accessible and non-empty.
     public static func validate(url: URL) -> Result<URL, ModelLocatorError> {
         var isDir: ObjCBool = false

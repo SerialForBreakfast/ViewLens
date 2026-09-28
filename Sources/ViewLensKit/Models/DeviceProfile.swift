@@ -12,6 +12,7 @@ public struct DeviceProfile: Codable, Sendable, Equatable, Hashable {
         case pad
         case watch
         case mac
+        case tv
     }
 
     public struct Insets: Codable, Sendable, Equatable, Hashable {
@@ -140,13 +141,39 @@ public extension DeviceProfile {
         cornerRadius: 18
     )
 
+    /// Apple TV 1080p (HD)
+    static let appleTV1080p = DeviceProfile(
+        id: "appleTV1080p",
+        name: "Apple TV 1080p",
+        deviceClass: .tv,
+        pointWidth: 1920,
+        pointHeight: 1080,
+        scale: 1.0,
+        safeAreaInsets: Insets(top: 60, leading: 90, bottom: 60, trailing: 90),
+        cornerRadius: 0
+    )
+
+    /// Apple TV 4K
+    static let appleTV4K = DeviceProfile(
+        id: "appleTV4K",
+        name: "Apple TV 4K",
+        deviceClass: .tv,
+        pointWidth: 1920,
+        pointHeight: 1080,
+        scale: 2.0,
+        safeAreaInsets: Insets(top: 60, leading: 90, bottom: 60, trailing: 90),
+        cornerRadius: 0
+    )
+
     /// All standard default device presets
     static let allPresets: [DeviceProfile] = [
         .iPhoneSE,
         .iPhone16Pro,
         .iPhone16ProMax,
         .iPadPro11,
-        .iPadPro13
+        .iPadPro13,
+        .appleTV1080p,
+        .appleTV4K
     ]
 
     /// Lookup a device profile by ID or substring name match (case-insensitive)

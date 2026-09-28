@@ -331,6 +331,29 @@ public enum ProjectContextResolver {
         }
 
         if sourceURLs.count >= limits.maximumSwiftFiles { truncated = true }
+
+        var diagnostics: [ProjectContextDiagnostic] = []
+        if let projectPath = manifest.projectPath, !projectPath.isEmpty {
+            let requestedURL = scopedURL(projectPath, root: rootURL)
+            if !isInside(requestedURL, root: rootURL) {
+                diagnostics.append(.init(
+                    code: .pathOutsideWorkspace,
+                    severity: .error,
+                    message: "Selected project path is outside the workspace scope.",
+                    recoveryAction: "Choose a discovered .xcworkspace, .xcodeproj, or Package.swift under the declared workspace root."
+                ))
+            } else {
+                let relative = relativePath(requestedURL, root: rootURL)
+                if !containers.contains(where: { $0.path == relative }) {
+                    diagnostics.append(.init(
+                        code: .buildContainerUnavailable,
+                        severity: .error,
+                        message: "Selected project container was not found in the bounded workspace scan: \(relative)",
+                        recoveryAction: "Choose one of the discovered build containers or widen the workspace scope."
+                    ))
+                }
+            }
+        }
         containers = selectedContainers(containers, manifest: manifest, root: rootURL)
 
         var analyses: [String: SourceAnalysis] = [:]
@@ -347,7 +370,6 @@ public enum ProjectContextResolver {
             }
         }
 
-        var diagnostics: [ProjectContextDiagnostic] = []
         if containers.isEmpty {
             diagnostics.append(.init(
                 code: .buildContainerUnavailable,
@@ -499,7 +521,7 @@ public enum ProjectContextResolver {
             manifest: manifest,
             status: status,
             completeness: .init(
-                buildContext: containers.isEmpty ? .unavailable : .partial,
+                buildContext: containers.contains(where: \.selected) ? .partial : .unavailable,
                 sourceContext: rootPaths.isEmpty ? .unavailable : (diagnostics.contains { $0.code == .sourceReferenceUnavailable } ? .partial : .complete),
                 resourceContext: resourceMissing ? .partial : .complete,
                 scenarioContext: scenarioRequirements.isEmpty || manifest.scenario?.isEmpty == false ? .complete : .partial
@@ -549,7 +571,7 @@ public enum ProjectContextResolver {
         diagnostics: inout [ProjectContextDiagnostic]
     ) -> [String] {
         if let sourceFile = manifest.sourceFile, !sourceFile.isEmpty {
-            let sourceURL = URL(fileURLWithPath: sourceFile, relativeTo: root).standardizedFileURL.resolvingSymlinksInPath()
+            let sourceURL = scopedURL(sourceFile, root: root)
             guard isInside(sourceURL, root: root) else {
                 diagnostics.append(.init(code: .pathOutsideWorkspace, severity: .error, message: "Source file is outside the workspace scope.", recoveryAction: "Choose a Swift file under the declared workspace root."))
                 return []
@@ -665,10 +687,17 @@ public enum ProjectContextResolver {
     }
 
     private static func relativePath(_ url: URL, root: URL) -> String {
-        let rootPath = root.standardizedFileURL.path
-        let path = url.standardizedFileURL.path
+        let rootPath = root.standardizedFileURL.resolvingSymlinksInPath().path
+        let path = url.standardizedFileURL.resolvingSymlinksInPath().path
         guard path == rootPath || path.hasPrefix(rootPath + "/") else { return path }
         return path == rootPath ? "." : String(path.dropFirst(rootPath.count + 1))
+    }
+
+    private static func scopedURL(_ path: String, root: URL) -> URL {
+        let url = (path as NSString).isAbsolutePath
+            ? URL(fileURLWithPath: path)
+            : root.appendingPathComponent(path)
+        return url.standardizedFileURL.resolvingSymlinksInPath()
     }
 
     private static func isInside(_ url: URL, root: URL) -> Bool {

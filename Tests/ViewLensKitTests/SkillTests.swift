@@ -21,6 +21,9 @@ struct SkillTests {
         #expect(md.contains("WCAG 4.1.2 A"))
         #expect(md.contains("viewlens_project_context_resolve"))
         #expect(md.contains("viewlens context"))
+        #expect(md.contains("viewlens_change_impact"))
+        #expect(md.contains("viewlens impact"))
+        #expect(md.contains("viewlens://impact-capsules/{capsuleId}"))
         #expect(md.contains("viewlens doctor --json"))
     }
 

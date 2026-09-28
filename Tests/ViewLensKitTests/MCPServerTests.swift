@@ -190,7 +190,7 @@ struct MCPServerTests {
     func testAllModernAuditToolsHaveOutputSchemas() throws {
         let data = try JSONEncoder().encode(MCPServer().defineTools(modern: true))
         let tools = try #require(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
-        #expect(tools.count == 22)
+        #expect(tools.count == 23)
         #expect(tools.allSatisfy { $0["outputSchema"] != nil })
     }
 
@@ -215,7 +215,8 @@ struct MCPServerTests {
             }
             """
         )
-        let response = try #require(await MCPServer().handleRequest(request))
+        let server = MCPServer()
+        let response = try #require(await server.handleRequest(request))
         let json = try #require(JSONSerialization.jsonObject(with: response) as? [String: Any])
         let result = try #require(json["result"] as? [String: Any])
         let structured = try #require(result["structuredContent"] as? [String: Any])
@@ -252,6 +253,61 @@ struct MCPServerTests {
         let previewHarness = try #require(structured["previewHarness"] as? [String: Any])
         #expect(previewHarness["rootSymbol"] as? String == "CardView")
         #expect((previewHarness["harnessSource"] as? String)?.contains("CardView_ViewLensPreviewHarness") == true)
+    }
+
+    @Test("Modern change impact returns affected root views")
+    func testModernChangeImpactStructuredContent() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("mcp-impact-\(UUID().uuidString)")
+        let sources = root.appendingPathComponent("Sources")
+        try FileManager.default.createDirectory(at: sources, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Data("import SwiftUI\nstruct RootView: View { var body: some View { LeafView() } }".utf8)
+            .write(to: sources.appendingPathComponent("RootView.swift"))
+        try Data("import SwiftUI\nstruct LeafView: View { var body: some View { Text(\"Leaf\") } }".utf8)
+            .write(to: sources.appendingPathComponent("LeafView.swift"))
+
+        let request = try modernToolRequest(
+            id: 27,
+            name: "viewlens_change_impact",
+            arguments: """
+            {
+              "workspace_root": "\(root.path)",
+              "changed_files": ["Sources/LeafView.swift"]
+            }
+            """
+        )
+        let server = MCPServer()
+        let response = try #require(await server.handleRequest(request))
+        let json = try #require(JSONSerialization.jsonObject(with: response) as? [String: Any])
+        let result = try #require(json["result"] as? [String: Any])
+        let structured = try #require(result["structuredContent"] as? [String: Any])
+        let roots = try #require(structured["affectedRootViews"] as? [[String: Any]])
+        #expect(roots.map { $0["symbol"] as? String } == ["RootView"])
+        #expect(structured["confidence"] as? String == "lexical")
+
+        let capsuleMetadata = try #require(structured["contextCapsule"] as? [String: Any])
+        let capsuleURI = try #require(capsuleMetadata["uri"] as? String)
+        #expect(capsuleURI.hasPrefix("viewlens://impact-capsules/"))
+        let content = try #require(result["content"] as? [[String: Any]])
+        #expect(content.contains { $0["type"] as? String == "resource_link" && $0["uri"] as? String == capsuleURI })
+
+        let readResponse = try #require(await server.handleRequest(try modernResourceRequest(
+            id: 28,
+            method: "resources/read",
+            fields: "\"uri\": \"\(capsuleURI)\""
+        )))
+        let readJSON = try #require(JSONSerialization.jsonObject(with: readResponse) as? [String: Any])
+        let readResult = try #require(readJSON["result"] as? [String: Any])
+        let contents = try #require(readResult["contents"] as? [[String: Any]])
+        let capsuleText = try #require(contents.first?["text"] as? String)
+        #expect(capsuleText.contains("RootView"))
+        #expect(!capsuleText.contains(root.path))
+
+        let templateResponse = try #require(await server.handleRequest(try modernResourceRequest(id: 29, method: "resources/templates/list")))
+        let templateJSON = try #require(JSONSerialization.jsonObject(with: templateResponse) as? [String: Any])
+        let templateResult = try #require(templateJSON["result"] as? [String: Any])
+        let templates = try #require(templateResult["resourceTemplates"] as? [[String: Any]])
+        #expect(templates.contains { $0["uriTemplate"] as? String == "viewlens://impact-capsules/{capsuleId}" })
     }
 
     @Test("Modern template audits return matrix evidence")

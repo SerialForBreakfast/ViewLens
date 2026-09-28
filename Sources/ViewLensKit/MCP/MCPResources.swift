@@ -170,6 +170,12 @@ actor MCPResourceStore {
         let artifactSnapshots: [ArtifactSnapshot]
     }
 
+    private struct ImpactCapsuleRecord: Sendable {
+        let capsule: ChangeImpactContextCapsule
+        let createdAt: Date
+        let encodedSize: Int
+    }
+
     enum ReadError: Error, Sendable {
         case notFound
         case artifactUnavailable
@@ -177,8 +183,11 @@ actor MCPResourceStore {
     }
 
     private let maximumReviews = 50
+    private let maximumImpactCapsules = 50
+    private let maximumCapsuleBytes = 256 * 1_024
     private let maximumArtifactBytes = 10 * 1_024 * 1_024
     private var records: [String: ReviewRecord] = [:]
+    private var impactCapsules: [String: ImpactCapsuleRecord] = [:]
 
     func record(_ envelope: MCPEvidenceEnvelope) {
         let snapshots = envelope.artifacts.map { artifact -> ArtifactSnapshot in
@@ -202,6 +211,27 @@ actor MCPResourceStore {
            let oldest = records.min(by: { $0.value.createdAt < $1.value.createdAt })?.key {
             records.removeValue(forKey: oldest)
         }
+    }
+
+    func recordImpactCapsule(_ report: ChangeImpactReport) -> MCPResource? {
+        let id = UUID().uuidString.lowercased()
+        let capsule = ChangeImpactContextCapsule.make(id: id, report: report)
+        guard let data = try? JSONEncoder().encode(capsule), data.count <= maximumCapsuleBytes else { return nil }
+        let now = Date()
+        impactCapsules[id] = ImpactCapsuleRecord(capsule: capsule, createdAt: now, encodedSize: data.count)
+        if impactCapsules.count > maximumImpactCapsules,
+           let oldest = impactCapsules.min(by: { $0.value.createdAt < $1.value.createdAt })?.key {
+            impactCapsules.removeValue(forKey: oldest)
+        }
+        return MCPResource(
+            uri: "viewlens://impact-capsules/\(id)",
+            name: "impact-capsule-\(id)",
+            title: "ViewLens Change Impact Context Capsule",
+            description: "Bounded source-body-free context for affected UI work",
+            mimeType: "application/json",
+            size: data.count,
+            annotations: MCPResourceAnnotations(priority: 0.9, lastModified: Self.dateString(now))
+        )
     }
 
     func resources() -> [MCPResource] {
@@ -289,7 +319,18 @@ actor MCPResourceStore {
             })
             return resources
         }
-        return indexes + reviewResources
+        let capsuleResources = impactCapsules.sorted { $0.value.createdAt > $1.value.createdAt }.map { id, record in
+            MCPResource(
+                uri: "viewlens://impact-capsules/\(id)",
+                name: "impact-capsule-\(id)",
+                title: "ViewLens Change Impact Context Capsule",
+                description: "Bounded source-body-free context for affected UI work",
+                mimeType: "application/json",
+                size: record.encodedSize,
+                annotations: MCPResourceAnnotations(priority: 0.9, lastModified: Self.dateString(record.createdAt))
+            )
+        }
+        return indexes + reviewResources + capsuleResources
     }
 
     func read(uri: String) throws -> MCPResourceContent {
@@ -308,6 +349,13 @@ actor MCPResourceStore {
               components.scheme == "viewlens",
               components.host != nil else {
             throw ReadError.notFound
+        }
+
+        if components.host == "impact-capsules" {
+            let path = components.path.split(separator: "/").map(String.init)
+            if path.isEmpty { return jsonContent(uri: uri, jsonValue: impactCapsuleIndex()) }
+            guard path.count == 1, let record = impactCapsules[path[0]] else { throw ReadError.notFound }
+            return jsonContent(uri: uri, value: record.capsule)
         }
 
         if components.host != "reviews" {
@@ -480,6 +528,13 @@ actor MCPResourceStore {
             description: "Read a bounded binary overlay or heatmap by cataloged artifact ID",
             mimeType: "application/octet-stream",
             priority: 0.6
+        ),
+        MCPResourceTemplate(
+            uriTemplate: "viewlens://impact-capsules/{capsuleId}",
+            name: "viewlens-impact-context-capsule",
+            title: "ViewLens Change Impact Context Capsule",
+            description: "Read bounded source-body-free context for affected UI work",
+            priority: 0.9
         )
     ]
 
@@ -491,7 +546,8 @@ actor MCPResourceStore {
         ("overlays", "Overlay Catalog", "Available annotated overlays"),
         ("baselines", "Baseline Catalog", "Available approved visual baselines"),
         ("task-logs", "Task Log Catalog", "Available bounded task logs"),
-        ("reports", "Report Catalog", "Available typed and exported reports")
+        ("reports", "Report Catalog", "Available typed and exported reports"),
+        ("impact-capsules", "Impact Context Capsule Catalog", "Available bounded change-impact context capsules")
     ].map { slug, title, description in
         MCPResource(
             uri: "viewlens://\(slug)",
@@ -506,6 +562,8 @@ actor MCPResourceStore {
     private func readIndex(host: String, uri: String) throws -> MCPResourceContent {
         guard Self.indexResources.contains(where: { $0.uri == uri }) else { throw ReadError.notFound }
         switch host {
+        case "impact-capsules":
+            return jsonContent(uri: uri, jsonValue: impactCapsuleIndex())
         case "findings":
             let values = sortedRecords().map { id, record in
                 JSONValue.object([
@@ -536,6 +594,21 @@ actor MCPResourceStore {
         default:
             throw ReadError.notFound
         }
+    }
+
+    private func impactCapsuleIndex() -> JSONValue {
+        .object([
+            "available": .array(impactCapsules.sorted { $0.value.createdAt > $1.value.createdAt }.map { id, record in
+                .object([
+                    "capsuleId": .string(id),
+                    "uri": .string("viewlens://impact-capsules/\(id)"),
+                    "confidence": .string(record.capsule.evidence.confidence.rawValue),
+                    "createdAt": .string(Self.dateString(record.createdAt)),
+                    "size": .number(Double(record.encodedSize))
+                ])
+            }),
+            "limit": .number(Double(maximumImpactCapsules))
+        ])
     }
 
     private func reviewIndex() -> JSONValue {

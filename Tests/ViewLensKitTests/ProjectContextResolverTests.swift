@@ -57,6 +57,29 @@ struct ProjectContextResolverTests {
         #expect(report.diagnostics.contains { $0.code == .pathOutsideWorkspace })
     }
 
+    @Test("Rejects an unavailable or out-of-scope selected project container")
+    func rejectsInvalidProjectSelection() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+
+        let missing = ProjectContextResolver.resolve(manifest: ProjectContextManifest(
+            workspaceRoot: fixture.path,
+            projectPath: "Missing.xcodeproj",
+            rootSymbol: "ProfileView"
+        ))
+        #expect(missing.status == .blocked)
+        #expect(missing.completeness.buildContext == .unavailable)
+        #expect(missing.diagnostics.contains { $0.code == .buildContainerUnavailable })
+
+        let outside = ProjectContextResolver.resolve(manifest: ProjectContextManifest(
+            workspaceRoot: fixture.path,
+            projectPath: "/tmp/Outside.xcodeproj",
+            rootSymbol: "ProfileView"
+        ))
+        #expect(outside.status == .blocked)
+        #expect(outside.diagnostics.contains { $0.code == .pathOutsideWorkspace })
+    }
+
     private func makeFixture() throws -> URL {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("viewlens-context-\(UUID().uuidString)")
         let sources = root.appendingPathComponent("Sources")

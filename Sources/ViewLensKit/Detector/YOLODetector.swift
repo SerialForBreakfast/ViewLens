@@ -107,7 +107,10 @@ public actor YOLODetector {
             return DetectedElement(
                 type: obs.elementType.rawValue,
                 confidence: Float(obs.confidence),
-                boundingBox: BoundingBox(x: normX, y: normY, width: normW, height: normH)
+                boundingBox: BoundingBox(x: normX, y: normY, width: normW, height: normH),
+                isFocused: obs.state.isFocused,
+                focusConfidence: obs.state.focusConfidence,
+                isAmbiguousFocus: obs.state.isAmbiguousFocus
             )
         }
         #else

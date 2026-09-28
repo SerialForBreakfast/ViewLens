@@ -59,8 +59,10 @@ public enum WCAGRules {
         elements: [DetectedElement],
         imageSize: CGSize,
         scale: Double,
-        targetLevel: WCAGConformanceLevel
+        targetLevel: WCAGConformanceLevel,
+        isTV: Bool = false
     ) -> [ViewLensIssue] {
+        guard !isTV else { return [] }
         guard targetLevel >= .aa else { return [] }
 
         let interactive = elements.enumerated().filter { interactiveTypes.contains($0.element.type) }

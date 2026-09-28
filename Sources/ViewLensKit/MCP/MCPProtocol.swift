@@ -309,6 +309,15 @@ public struct MCPToolCallResult: Encodable, Sendable {
             self.description = "ViewLens \(artifact.kind) artifact"
             self.mimeType = artifact.mediaType
         }
+
+        public init(resource: MCPResource) {
+            self.type = "resource_link"
+            self.text = nil
+            self.name = resource.name
+            self.uri = resource.uri
+            self.description = resource.description
+            self.mimeType = resource.mimeType
+        }
     }
 
     public let resultType: String?
@@ -327,13 +336,15 @@ public struct MCPToolCallResult: Encodable, Sendable {
         structuredContent: JSONValue? = nil,
         artifacts: [MCPEvidenceEnvelope.Artifact] = [],
         artifactReviewID: String? = nil,
+        resourceLinks: [MCPResource] = [],
         isError: Bool = false,
         modern: Bool = false
     ) {
         self.resultType = modern ? "complete" : nil
-        self.content = [ContentItem(text: text)] + (modern ? artifacts.enumerated().map {
-            ContentItem(artifact: $0.element, index: $0.offset, reviewID: artifactReviewID)
-        } : [])
+        self.content = [ContentItem(text: text)] + (modern ? (
+            artifacts.enumerated().map { ContentItem(artifact: $0.element, index: $0.offset, reviewID: artifactReviewID) } +
+            resourceLinks.map(ContentItem.init(resource:))
+        ) : [])
         self.structuredContent = modern ? structuredContent : nil
         self.isError = isError
         self.metadata = modern ? MCPResultMetadata() : nil

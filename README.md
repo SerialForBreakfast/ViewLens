@@ -137,7 +137,28 @@ viewlens render --template LoginForm --devices iPhoneSE,iPhone16Pro --dt large,a
 viewlens render --template LoginForm --format json
 ```
 
-### 5. `viewlens tui`
+### 5. `viewlens context`
+Resolves the bounded local source, resource, package-pin, and preview-scenario closure for a Swift view without building or downloading dependencies:
+
+```bash
+viewlens context --workspace . --root-symbol ProfileView --missing-resource-policy request
+viewlens context --workspace . --source-file Sources/ProfileView.swift --emit-harness
+```
+
+Synthetic resource and scenario substitutions are explicitly marked and are never eligible for visual-baseline approval.
+
+### 6. `viewlens impact`
+Maps changed Swift or resource files to affected top-level views and recommends a conservative accessibility test matrix:
+
+```bash
+viewlens impact --workspace . --changed-files Sources/ProfileView.swift Assets.xcassets/avatar.imageset/Contents.json
+```
+
+Impact confidence is `lexical` by default and upgrades to `build_plan_confirmed` when an existing SwiftPM build description or Xcode Swift file list proves target membership. Full `compiler_confirmed` confidence remains reserved for future Index Store symbol evidence.
+
+Modern MCP impact calls also return a private `viewlens://impact-capsules/{capsuleId}` resource link. Capsules are retained in a bounded in-memory catalog and contain relative affected paths, root views, audit recommendations, and evidence summaries—but no source bodies or workspace-root path.
+
+### 7. `viewlens tui`
 Launches the interactive full-screen Terminal User Interface (TUI) or headless ASCII layout dashboard:
 
 ```bash
@@ -148,7 +169,7 @@ viewlens tui
 viewlens tui --headless --template LoginForm
 ```
 
-### 6. `viewlens hook` (Pre-Commit & CI Quality Gates)
+### 8. `viewlens hook` (Pre-Commit & CI Quality Gates)
 Executes automated quality gates enforcing Apple HIG, Touch Targets (≥44pt), Dynamic Type reflow, and Dark Mode:
 
 ```bash
@@ -165,7 +186,7 @@ viewlens install-hook --type pre-commit
 viewlens init-config
 ```
 
-### 7. `viewlens accessibility`
+### 9. `viewlens accessibility`
 Runs a level-aware WCAG 2.2 audit. Template audits evaluate programmatic semantics, 24pt AA or 44pt AAA target sizing, Light/Dark contrast, AX1/AX3/AX5 reflow, and portrait/landscape rendering. UIKit semantics come from live hierarchy introspection; headless SwiftUI templates use registered semantic snapshots. Screenshot-only and unregistered-template audits explicitly mark checks that cannot be established as not evaluated.
 
 ```bash
@@ -173,14 +194,14 @@ viewlens accessibility --template LoginForm --level AA
 viewlens accessibility --image ./screenshots/Login.png --level AAA --json
 ```
 
-### 8. `viewlens design-diff`
+### 10. `viewlens design-diff`
 Compares a rendered template with a Figma or baseline reference using SSIM and an optional visual heatmap, with accessibility verification enabled by default.
 
 ```bash
 viewlens design-diff --reference ./designs/Login.png --template LoginForm --heatmap ./reports/Login_diff.png
 ```
 
-### 9. `viewlens mcp`
+### 11. `viewlens mcp`
 Launches the 100% pure Swift Model Context Protocol (MCP) server over standard I/O (`stdio`):
 
 ```bash
@@ -297,12 +318,14 @@ Or run the automated setup script:
 
 ---
 
-## Exposed MCP Tools (21 Modern Tools)
+## Exposed MCP Tools (23 Modern Tools)
 
 | Tool Name | Scope & Parameters | Capability Description |
 |-----------|--------------------|------------------------|
 | `viewlens_doctor` | `model_path?: string` | Verifies CoreML model paths, Neural Engine latency, and platform capability health. |
 | `viewlens_audit_screenshot` | `image_path: string`, `overlay_path?: string` | Runs YOLO11n CoreML detection and HIG layout checks on screenshot artifacts. |
+| `viewlens_project_context_resolve` | `workspace_root: string`, `root_symbol?: string`, `source_file?: string`, `project_path?: string`, `scenario?: string`, `missing_resource_policy?: string`, `include_harness?: bool` | Resolves bounded local Swift source, resource, package-pin, and scenario context; optionally returns a baseline-ineligible preview harness when substitutions are required. |
+| `viewlens_change_impact` | `workspace_root: string`, `changed_files: string[]` | Maps changed Swift and resource files through a bounded reverse-dependency graph to affected root views and recommended audit permutations. |
 | `viewlens_audit_view` | `template: string`, `devices?: string[]`, `dynamic_type_sizes?: string[]` | Renders SwiftUI/UIKit view matrix across device dimensions, AX sizes, and color schemes in $<5\text{ms}$. |
 | `viewlens_accessibility_audit` | `template?: string`, `image_path?: string`, `wcag_level?: string` | Complete WCAG 2.2 mobile accessibility audit (Name/Role/Value 4.1.2, Touch Targets 2.5.8/2.5.5, Contrast 1.4.3). |
 | `viewlens_design_diff` | `reference_image: string`, `template: string`, `heatmap?: string` | Performs SSIM design verification against Figma reference exports with pixel delta heatmap generation. |

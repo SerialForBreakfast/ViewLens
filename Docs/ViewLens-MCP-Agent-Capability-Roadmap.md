@@ -235,9 +235,20 @@ M14A deliberately excludes runtime control and remote transport. It proves compa
 - [x] **MCP-19.3** Implement deterministic missing-resource policies (`fail`, `request`, `structural_mock`, `generated_mock`) and synthetic mock descriptors flagged as baseline-ineligible.
 - [x] **MCP-19.4** Add `viewlens context` CLI command with JSON formatting and `--strict` validation.
 - [x] **MCP-19.5** Add `viewlens_project_context_resolve` modern MCP tool with schema validation and read-only safety annotations.
-- [x] **MCP-19.6** Integrate project context resolution into preview harness generation, multi-tier rendering matrix, and synthetic preview fixture injection.
+- [x] **MCP-19.6** Generate opt-in preview harness descriptors and synthetic fixture registration with explicit baseline-ineligibility.
 
-**Acceptance:** For any local SwiftUI view in an Xcode workspace or Swift package, ViewLens discovers its transitive view dependencies, assets, package pins, and environment requirements, and reports an actionable manifest with zero network access and deterministic mock policies.
+### Compiler-backed rendering closure
+
+- [ ] **MCP-19.7** Confirm target membership, conditional compilation, overloads, and module ownership using compiler or Index Store evidence. *(Existing SwiftPM build descriptions and Xcode Swift file lists now confirm scoped target membership without launching a build; Index Store symbol ownership and conditional/overload resolution remain.)*
+- [ ] **MCP-19.8** Add an explicitly authorized isolated build path with scoped DerivedData, locked dependencies, build-script controls, and structured diagnostics.
+- [ ] **MCP-19.9** Define typed preview-scenario fixtures that supply real target-compatible initializers, bindings, environment values, and observable models.
+- [ ] **MCP-19.10** Materialize deterministic structural/generated resource substitutes with requested dimensions, visible synthetic labeling, provenance, cleanup, and baseline exclusion.
+- [ ] **MCP-19.11** Connect resolved context and approved fixtures directly to the render matrix, MCP review flow, and Mac Playground UI.
+- [ ] **MCP-19.12** Make `viewlens_verify_changes` rebuild and recapture affected context before classifying fixes and regressions.
+
+**Foundation acceptance (complete):** For a local SwiftUI source root, ViewLens performs bounded lexical discovery of transitive local view references, assets, package pins, and environment requirements; it reports an actionable manifest with zero network access and explicit mock policies.
+
+**Milestone acceptance:** For an arbitrary local SwiftUI view in an Xcode workspace or Swift package, ViewLens compiler-confirms the owning target, builds and renders it in an isolated approved environment, supplies typed scenarios and visibly synthetic resources when authorized, and never promotes synthetic output to fidelity or baseline evidence.
 
 ---
 
