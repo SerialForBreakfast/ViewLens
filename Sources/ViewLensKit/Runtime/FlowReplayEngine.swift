@@ -370,13 +370,13 @@ public enum FlowReplayEngine {
 
             var matchedRequired = true
             if let req = assertion.expectedValue, !req.isEmpty {
-                matchedRequired = candidateText.localizedCaseInsensitiveContains(req)
+                matchedRequired = matchesTextAnchor(req, in: candidateText)
             }
 
             var matchedForbidden = false
             if let forbiddens = assertion.forbiddenValues {
                 for forbidden in forbiddens where !forbidden.isEmpty {
-                    if candidateText.localizedCaseInsensitiveContains(forbidden) {
+                    if matchesTextAnchor(forbidden, in: candidateText) {
                         matchedForbidden = true
                         break
                     }
@@ -396,6 +396,31 @@ public enum FlowReplayEngine {
 
         default:
             return (true, "Assertion '\(assertion.kind)' passed")
+        }
+    }
+
+    /// Evaluates text anchor containment with OCR-style separator tolerance (matching NativeUIAuditKit's TextAnchorVerifier).
+    public static func matchesTextAnchor(_ anchor: String, in text: String) -> Bool {
+        guard !anchor.isEmpty else { return false }
+        if text.localizedCaseInsensitiveContains(anchor) { return true }
+        let words = anchor.split(whereSeparator: \.isWhitespace).map(String.init)
+        func letters(_ word: String) -> Bool {
+            !word.isEmpty && word.allSatisfy(\.isLetter)
+        }
+        guard words.count >= 2, words.allSatisfy(letters) else { return false }
+        let tokens = text.split(whereSeparator: \.isWhitespace).map(String.init)
+        let separators: Set<String> = ["'", "’", "•"]
+        var cleaned: [String] = []
+        for (index, token) in tokens.enumerated() {
+            if separators.contains(token), index > 0, index + 1 < tokens.count,
+               letters(tokens[index - 1]), letters(tokens[index + 1]) { continue }
+            cleaned.append(token)
+        }
+        guard cleaned.count >= words.count else { return false }
+        return (0...(cleaned.count - words.count)).contains { start in
+            zip(words, cleaned[start..<(start + words.count)]).allSatisfy {
+                $0.compare($1, options: .caseInsensitive) == .orderedSame
+            }
         }
     }
 }

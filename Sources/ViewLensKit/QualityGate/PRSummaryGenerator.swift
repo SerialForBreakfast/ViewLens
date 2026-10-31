@@ -83,7 +83,18 @@ public struct PRSummaryGenerator: Sendable {
             lines.append("| \u{26A0}\u{FE0F} Remaining | \(fixVerification.remainingIssues.count) |")
             lines.append("| \u{1F6A8} Introduced (regressions) | \(fixVerification.introducedIssues.count) |")
             lines.append("| \u{23ED}\u{FE0F} Not retested | \(fixVerification.notRetested.count) |")
+            if !fixVerification.uncertainFindings.isEmpty {
+                lines.append("| \u{2753} Uncertain / Ambiguous | \(fixVerification.uncertainFindings.count) |")
+            }
             lines.append("")
+
+            if !fixVerification.comparisons.isEmpty {
+                lines.append("**Finding Identity Comparisons:**")
+                for comparison in fixVerification.comparisons {
+                    lines.append("- `\(comparison.findingID)` (`\(comparison.outcome.rawValue)`, certainty: `\(comparison.certainty.rawValue)`): \(comparison.reason)")
+                }
+                lines.append("")
+            }
 
             if let sourceRecords = evaluation.sourceRecords, !sourceRecords.isEmpty {
                 let available = sourceRecords.filter { $0.confidence != .unavailable }

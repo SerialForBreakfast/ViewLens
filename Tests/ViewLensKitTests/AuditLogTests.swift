@@ -2,21 +2,16 @@ import Testing
 import Foundation
 @testable import ViewLensKit
 
-// Serialized: every test redirects the shared `AuditLogger.shared` singleton to a scratch
-// temp-directory logger to stay hermetic, which would race under Swift Testing's default
-// parallel execution since `.shared` is process-global mutable state.
+// Each server receives its own scratch logger so concurrent verification calls cannot
+// contaminate audit assertions or redirect production logging through mutable global state.
 @Suite("Audit Log Tests (MCP-15.15)", .serialized)
 struct AuditLogTests {
 
     private func withScratchLogger<T>(_ body: (AuditLogger, URL) async throws -> T) async rethrows -> T {
-        let original = AuditLogger.shared
-        defer { AuditLogger.shared = original }
-
         let scratchURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("viewlens-audit-tests-\(UUID().uuidString)")
             .appendingPathComponent("audit.jsonl")
         let logger = AuditLogger(fileURL: scratchURL)
-        AuditLogger.shared = logger
         defer { try? FileManager.default.removeItem(at: scratchURL.deletingLastPathComponent()) }
 
         return try await body(logger, scratchURL)
@@ -25,7 +20,7 @@ struct AuditLogTests {
     @Test("Audit logger never persists typed action text")
     func testAuditLoggerNeverPersistsTypedActionText() async throws {
         try await withScratchLogger { logger, _ in
-            let server = MCPServer()
+            let server = MCPServer(resourceStore: MCPResourceStore(), auditLogger: logger)
             let request = JSONRPCRequest(
                 id: .string("req-secret"),
                 method: "tools/call",
@@ -51,7 +46,7 @@ struct AuditLogTests {
     @Test("Only allowlisted runtime-mutating tools are audited")
     func testOnlyAllowlistedToolsAreAudited() async throws {
         try await withScratchLogger { logger, _ in
-            let server = MCPServer()
+            let server = MCPServer(resourceStore: MCPResourceStore(), auditLogger: logger)
 
             // Read-only query: must not be audited.
             let readOnlyRequest = JSONRPCRequest(

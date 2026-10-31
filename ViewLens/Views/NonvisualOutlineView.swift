@@ -34,31 +34,23 @@ public struct NonvisualOutlineView: View {
         .accessibilityLabel("Nonvisual Screen Outline")
         .accessibilityIdentifier("review.nonvisualOutline")
         .accessibilityRotor("Findings") {
-            if let findings = model.reviewStore.activeReview?.findings {
-                ForEach(findings) { finding in
-                    AccessibilityRotorEntry(finding.issue.displayTitle, id: finding.id)
-                }
+            ForEach(model.reviewStore.activeReview?.findings ?? []) { finding in
+                AccessibilityRotorEntry(finding.issue.displayTitle, id: finding.id)
             }
         }
         .accessibilityRotor("Interactive Controls") {
-            if let nonvisual = nonvisualModel {
-                ForEach(nonvisual.elements.filter(\.isInteractive), id: \.id) { el in
-                    AccessibilityRotorEntry(el.visibleLabel ?? el.type, id: el.id)
-                }
+            ForEach(nonvisualModel?.elements.filter(\.isInteractive) ?? [], id: \.id) { el in
+                AccessibilityRotorEntry(el.visibleLabel ?? el.type, id: el.id)
             }
         }
         .accessibilityRotor("Regions") {
-            if let nonvisual = nonvisualModel {
-                ForEach(nonvisual.regions, id: \.id) { reg in
-                    AccessibilityRotorEntry(reg.label, id: reg.id)
-                }
+            ForEach(nonvisualModel?.regions ?? [], id: \.id) { reg in
+                AccessibilityRotorEntry(reg.label, id: reg.id)
             }
         }
         .accessibilityRotor("Semantic Mismatches") {
-            if let nonvisual = nonvisualModel {
-                ForEach(nonvisual.mismatches, id: \.id) { mis in
-                    AccessibilityRotorEntry(mis.description, id: mis.id)
-                }
+            ForEach(nonvisualModel?.mismatches ?? [], id: \.id) { mis in
+                AccessibilityRotorEntry(mis.description, id: mis.id)
             }
         }
         .onAppear {

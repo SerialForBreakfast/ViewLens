@@ -14,7 +14,7 @@ public struct RegionMask: Codable, Sendable, Equatable {
     }
 }
 
-/// Report detailing perceptual visual drift, applied region masks, and match scores (MCP-17.9).
+/// Report detailing perceptual visual drift, applied region masks, and match scores (MCP-17.9, LEARN-02).
 public struct VisualDriftReport: Codable, Sendable, Equatable {
     public let templateName: String
     public let baselinePath: String
@@ -24,6 +24,7 @@ public struct VisualDriftReport: Codable, Sendable, Equatable {
     public let appliedMasks: [RegionMask]
     public let hasMaterialDrift: Bool
     public let driftThreshold: Double
+    public let eligibility: EvidenceEligibilityDecision
 
     public init(
         templateName: String,
@@ -32,7 +33,8 @@ public struct VisualDriftReport: Codable, Sendable, Equatable {
         overallSSIM: Double,
         maskedSSIM: Double,
         appliedMasks: [RegionMask],
-        driftThreshold: Double = 0.95
+        driftThreshold: Double = 0.95,
+        eligibility: EvidenceEligibilityDecision? = nil
     ) {
         self.templateName = templateName
         self.baselinePath = baselinePath
@@ -41,7 +43,14 @@ public struct VisualDriftReport: Codable, Sendable, Equatable {
         self.maskedSSIM = maskedSSIM
         self.appliedMasks = appliedMasks
         self.driftThreshold = driftThreshold
-        self.hasMaterialDrift = maskedSSIM < driftThreshold
+        let resolvedEligibility = eligibility ?? EvidenceEligibilityDecision(
+            consumer: .baselinePromotion,
+            status: .eligible,
+            isEligible: true,
+            canPass: true
+        )
+        self.eligibility = resolvedEligibility
+        self.hasMaterialDrift = (maskedSSIM < driftThreshold) || !resolvedEligibility.canPass
     }
 }
 
@@ -60,6 +69,7 @@ public struct BaselineApprovalRecord: Codable, Sendable, Equatable {
     public let approvedBy: String
     public let timestamp: Date
     public let message: String
+    public let eligibility: EvidenceEligibilityDecision
 
     public init(
         templateName: String,
@@ -67,7 +77,8 @@ public struct BaselineApprovalRecord: Codable, Sendable, Equatable {
         status: BaselineApprovalStatus,
         approvedBy: String = "developer",
         timestamp: Date = Date(),
-        message: String
+        message: String,
+        eligibility: EvidenceEligibilityDecision? = nil
     ) {
         self.templateName = templateName
         self.baselinePath = baselinePath
@@ -75,50 +86,88 @@ public struct BaselineApprovalRecord: Codable, Sendable, Equatable {
         self.approvedBy = approvedBy
         self.timestamp = timestamp
         self.message = message
+        self.eligibility = eligibility ?? EvidenceEligibilityDecision(
+            consumer: .baselinePromotion,
+            status: .eligible,
+            isEligible: true,
+            canPass: true
+        )
     }
 }
 
-/// Engine evaluating visual drift with region masking and managing human-approved baseline updates (MCP-17.9, MCP-17.10).
+/// Engine evaluating visual drift with region masking and managing human-approved baseline updates (MCP-17.9, MCP-17.10, LEARN-02).
 public enum BaselineVerifier {
 
-    /// Evaluates visual drift between baseline and current images, taking into account region masks.
+    /// Evaluates visual drift between baseline and current images, taking into account region masks and evidence eligibility.
     public static func evaluateDrift(
         templateName: String,
         baselinePath: String,
         currentPath: String,
         masks: [RegionMask] = [],
         rawSSIM: Double = 1.0,
-        threshold: Double = 0.95
+        threshold: Double = 0.95,
+        evidenceProvenance: EvidenceProvenance = EvidenceProvenance(kind: .measured, source: "visualDiffEngine", confidence: 1.0),
+        captureIdentity: CaptureIdentity? = nil,
+        expectedCaptureIdentity: CaptureIdentity? = nil
     ) -> VisualDriftReport {
-        // If masks are applied, increase effective similarity score for masked regions
+        let eligibility = EvidenceEligibilityPolicy.evaluate(
+            consumer: .baselinePromotion,
+            requiredEvidence: ["visualComparison": evidenceProvenance],
+            captureIdentity: captureIdentity,
+            expectedCaptureIdentity: expectedCaptureIdentity
+        )
+
         let maskBonus = masks.isEmpty ? 0.0 : min(0.05, Double(masks.count) * 0.02)
-        let maskedSSIM = min(1.0, rawSSIM + maskBonus)
+        let maskedSSIM = eligibility.canPass ? min(1.0, rawSSIM + maskBonus) : 0.0
 
         return VisualDriftReport(
             templateName: templateName,
             baselinePath: baselinePath,
             currentPath: currentPath,
-            overallSSIM: rawSSIM,
+            overallSSIM: eligibility.canPass ? rawSSIM : 0.0,
             maskedSSIM: maskedSSIM,
             appliedMasks: masks,
-            driftThreshold: threshold
+            driftThreshold: threshold,
+            eligibility: eligibility
         )
     }
 
-    /// Evaluates human approval to update or reject a reference visual baseline.
+    /// Evaluates human approval to update or reject a reference visual baseline, enforcing evidence eligibility.
     public static func processApproval(
         templateName: String,
         baselinePath: String,
         approved: Bool,
-        approvedBy: String = "user"
+        approvedBy: String = "user",
+        evidenceProvenance: EvidenceProvenance = EvidenceProvenance(kind: .measured, source: "baselineCapture", confidence: 1.0),
+        captureIdentity: CaptureIdentity? = nil,
+        expectedCaptureIdentity: CaptureIdentity? = nil
     ) -> BaselineApprovalRecord {
+        let eligibility = EvidenceEligibilityPolicy.evaluate(
+            consumer: .baselinePromotion,
+            requiredEvidence: ["baselineArtifact": evidenceProvenance],
+            captureIdentity: captureIdentity,
+            expectedCaptureIdentity: expectedCaptureIdentity
+        )
+
         if approved {
+            guard eligibility.canPass else {
+                let reason = eligibility.reasons.joined(separator: " ")
+                return BaselineApprovalRecord(
+                    templateName: templateName,
+                    baselinePath: baselinePath,
+                    status: .rejected,
+                    approvedBy: approvedBy,
+                    message: "Baseline update blocked by evidence eligibility policy (\(eligibility.status.rawValue)): \(reason)",
+                    eligibility: eligibility
+                )
+            }
             return BaselineApprovalRecord(
                 templateName: templateName,
                 baselinePath: baselinePath,
                 status: .approved,
                 approvedBy: approvedBy,
-                message: "Visual baseline for '\(templateName)' approved and recorded."
+                message: "Visual baseline for '\(templateName)' approved and recorded.",
+                eligibility: eligibility
             )
         } else {
             return BaselineApprovalRecord(
@@ -126,7 +175,8 @@ public enum BaselineVerifier {
                 baselinePath: baselinePath,
                 status: .rejected,
                 approvedBy: approvedBy,
-                message: "Baseline update rejected by \(approvedBy). Reference baseline preserved."
+                message: "Baseline update rejected by \(approvedBy). Reference baseline preserved.",
+                eligibility: eligibility
             )
         }
     }

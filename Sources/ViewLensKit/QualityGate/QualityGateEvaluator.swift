@@ -15,6 +15,8 @@ public struct GateEvaluationResult: Sendable, Codable {
     /// Source-linked evidence (MCP-17.1-17.4) for findings referenced by this evaluation.
     /// `nil` when not supplied — never fabricated to fill this in.
     public let sourceRecords: [SourceRecord]?
+    /// Shared evidence eligibility decision for this quality gate evaluation (LEARN-02).
+    public let eligibility: EvidenceEligibilityDecision
 
     public init(
         gateName: String,
@@ -25,7 +27,8 @@ public struct GateEvaluationResult: Sendable, Codable {
         errorCount: Int,
         warningCount: Int,
         fixVerification: FixVerificationReport? = nil,
-        sourceRecords: [SourceRecord]? = nil
+        sourceRecords: [SourceRecord]? = nil,
+        eligibility: EvidenceEligibilityDecision? = nil
     ) {
         self.gateName = gateName
         self.passed = passed
@@ -36,6 +39,12 @@ public struct GateEvaluationResult: Sendable, Codable {
         self.warningCount = warningCount
         self.fixVerification = fixVerification
         self.sourceRecords = sourceRecords
+        self.eligibility = eligibility ?? EvidenceEligibilityDecision(
+            consumer: .qualityGate,
+            status: passed ? .eligible : .incomplete,
+            isEligible: passed,
+            canPass: passed
+        )
     }
 }
 
@@ -46,7 +55,8 @@ public struct QualityGateEvaluator: Sendable {
         config: GateConfig,
         matrixReport: MatrixAuditReport,
         fixVerification: FixVerificationReport? = nil,
-        sourceRecords: [SourceRecord]? = nil
+        sourceRecords: [SourceRecord]? = nil,
+        eligibility: EvidenceEligibilityDecision? = nil
     ) -> GateEvaluationResult {
         var totalErrors = 0
         var totalWarnings = 0
@@ -90,6 +100,46 @@ public struct QualityGateEvaluator: Sendable {
             let regressionLine = "\(fixVerification.introducedIssues.count) introduced issue(s) detected by fix verification."
             failureReason = [failureReason, regressionLine].compactMap { $0 }.joined(separator: " ")
         }
+        if let fixVerification, !fixVerification.notRetested.isEmpty {
+            passed = false
+            failureReason = [failureReason, "Fix verification has unavailable retesting evidence."].compactMap { $0 }.joined(separator: " ")
+        }
+        if let fixVerification, !fixVerification.uncertainFindings.isEmpty {
+            passed = false
+            failureReason = [failureReason, "Fix verification has \(fixVerification.uncertainFindings.count) uncertain/ambiguous finding comparison(s)."].compactMap { $0 }.joined(separator: " ")
+        }
+        if let fixVerification, !fixVerification.eligibility.canPass {
+            passed = false
+            let eligReason = fixVerification.eligibility.reasons.isEmpty
+                ? "Fix verification evidence is \(fixVerification.eligibility.status.rawValue)."
+                : fixVerification.eligibility.reasons.joined(separator: " ")
+            failureReason = [failureReason, eligReason].compactMap { $0 }.joined(separator: " ")
+        }
+
+        var resolvedEligibility = eligibility
+        if matrixReport.permutations.isEmpty || matrixReport.permutations.count < matrixReport.summary.totalPermutations {
+            passed = false
+            failureReason = [failureReason, "Requested render evidence is incomplete."].compactMap { $0 }.joined(separator: " ")
+            if resolvedEligibility == nil {
+                resolvedEligibility = EvidenceEligibilityDecision(
+                    consumer: .qualityGate,
+                    status: .incomplete,
+                    isEligible: false,
+                    canPass: false,
+                    reasons: ["Requested render evidence is incomplete."]
+                )
+            }
+        }
+
+        if let resolvedEligibility, !resolvedEligibility.canPass {
+            passed = false
+            let eligReason = resolvedEligibility.reasons.isEmpty
+                ? "Quality gate evidence is \(resolvedEligibility.status.rawValue)."
+                : resolvedEligibility.reasons.joined(separator: " ")
+            if failureReason?.contains(eligReason) != true {
+                failureReason = [failureReason, eligReason].compactMap { $0 }.joined(separator: " ")
+            }
+        }
 
         return GateEvaluationResult(
             gateName: gateName,
@@ -100,7 +150,8 @@ public struct QualityGateEvaluator: Sendable {
             errorCount: totalErrors,
             warningCount: totalWarnings,
             fixVerification: fixVerification,
-            sourceRecords: sourceRecords
+            sourceRecords: sourceRecords,
+            eligibility: resolvedEligibility
         )
     }
 

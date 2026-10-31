@@ -159,6 +159,12 @@ Impact confidence is `lexical` by default and upgrades to `build_plan_confirmed`
 
 Modern MCP impact calls also return a private `viewlens://impact-capsules/{capsuleId}` resource link. Capsules are retained in a bounded in-memory catalog and contain relative affected paths, root views, audit recommendations, and evidence summaries—but no source bodies or workspace-root path.
 
+Git gates, MCP verification, and the Current Status dashboard share impact selection. `viewlens hook pre-commit --workspace .` analyzes staged source/resource dependencies. Pre-push compares against the branch's upstream by default. Set `VIEWLENS_BASE_REF` to override the base, supply a base for a new branch without an upstream, or select the comparison range in CI. Git errors are reported rather than treated as an empty diff. Partial impact or unregistered roots broadens selection to all registered templates and reports incomplete coverage. Explicit `--template` selects a registered template directly.
+
+Modern `viewlens_verify_changes` accepts `workspace_root` plus `changed_files` to select affected templates, or the existing explicit `template`. It supports durable tasks and renders three devices, large/AX3/AX5 text, and Light/Dark appearance. Missing renders or affected unregistered roots remain `notRetested`, cannot resolve baseline findings, and prevent a pass. Findings are compared by issue kind across the selected matrix; they are not element-specific proof. Registered templates come from the running binary; project source rebuild/recapture and the additional accommodation matrix remain pending.
+
+In Current Status, choose a workspace, supply changed paths (or leave empty for staged Git changes), and select Analyze changes. The panel shows affected roots, selection reasons, confidence, coverage gaps, and review actions using the recommended matrix.
+
 ### 7. `viewlens tui`
 Launches the interactive full-screen Terminal User Interface (TUI) or headless ASCII layout dashboard:
 

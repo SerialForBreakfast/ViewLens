@@ -31,19 +31,44 @@ public struct AccessibilityElementSnapshot: Codable, Sendable, Equatable, Hashab
     public let role: String?
     public let value: String?
     public let requiresValue: Bool
+    public let frame: BoundingBox?
+    public let frameProvenance: EvidenceProvenance?
+    public let origin: String
 
     public init(
         identifier: String? = nil,
         label: String?,
         role: String?,
         value: String? = nil,
-        requiresValue: Bool = false
+        requiresValue: Bool = false,
+        frame: BoundingBox? = nil,
+        frameProvenance: EvidenceProvenance? = nil,
+        origin: String = "authored_snapshot"
     ) {
         self.identifier = identifier
         self.label = label
         self.role = role
         self.value = value
         self.requiresValue = requiresValue
+        self.frame = frame
+        self.frameProvenance = frameProvenance
+        self.origin = origin
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case identifier, label, role, value, requiresValue, frame, frameProvenance, origin
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.identifier = try container.decodeIfPresent(String.self, forKey: .identifier)
+        self.label = try container.decodeIfPresent(String.self, forKey: .label)
+        self.role = try container.decodeIfPresent(String.self, forKey: .role)
+        self.value = try container.decodeIfPresent(String.self, forKey: .value)
+        self.requiresValue = try container.decodeIfPresent(Bool.self, forKey: .requiresValue) ?? false
+        self.frame = try container.decodeIfPresent(BoundingBox.self, forKey: .frame)
+        self.frameProvenance = try container.decodeIfPresent(EvidenceProvenance.self, forKey: .frameProvenance)
+        self.origin = try container.decodeIfPresent(String.self, forKey: .origin) ?? "authored_snapshot"
     }
 }
 
@@ -51,6 +76,10 @@ public struct AccessibilityElementSnapshot: Codable, Sendable, Equatable, Hashab
 public enum WCAGRules {
     public static let interactiveTypes = Set([
         "primaryButton", "secondaryButton", "button", "toggle", "textField", "tabBar"
+    ])
+
+    public static let indicatorTypes = Set([
+        "activityIndicator", "progressView", "badge", "pageControl", "scrollIndicator", "refreshControl"
     ])
 
     /// Evaluates WCAG 2.5.8 (24pt, Level AA, including spacing) or

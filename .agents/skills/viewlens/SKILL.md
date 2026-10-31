@@ -89,7 +89,7 @@ ViewLens exposes 5 legacy-compatible and 23 modern JSON-RPC tools over `stdio` (
 ### Durable long-running tasks
 
 - Modern discovery advertises the `io.modelcontextprotocol/tasks` extension. A client must opt in again on every task-aware request through `io.modelcontextprotocol/clientCapabilities.extensions`; task methods without that capability return JSON-RPC `-32021`.
-- Task-aware `tools/call` is available for `viewlens_audit_screenshot`, `viewlens_audit_view`, `viewlens_accessibility_audit`, and `viewlens_design_diff`. `viewlens_doctor` remains synchronous. The creation response has `resultType: "task"`, an opaque `taskId`, `status`, timestamps, `ttlMs`, and `pollIntervalMs`.
+- Task-aware `tools/call` is available for `viewlens_audit_screenshot`, `viewlens_audit_view`, `viewlens_accessibility_audit`, `viewlens_design_diff`, and `viewlens_verify_changes`. `viewlens_doctor` remains synchronous. The creation response has `resultType: "task"`, an opaque `taskId`, `status`, timestamps, `ttlMs`, and `pollIntervalMs`.
 - Poll with `tasks/get`. States are `working`, `input_required`, `completed`, `failed`, and `cancelled`; terminal states are immutable. A completed task contains the original tool result, including tool-level `isError: true` results. `failed` is reserved for JSON-RPC execution or persistence failures.
 - Send bounded form responses with `tasks/update` when a task exposes keyed `inputRequests`. Form-mode elicitation producers are introduced in MCP-14.16; input-response values are consumed in memory and are never persisted in the task record.
 - Cancel task execution with `tasks/cancel`, not `notifications/cancelled`. Task calls report progress through the polled `statusMessage` and do not emit `notifications/progress`.
@@ -159,6 +159,10 @@ Maps changed Swift and named-resource files through a bounded lexical reverse-de
 - **Modern result**: Affected source files and top-level views, dependency distance, deterministic audit recommendations, completeness, diagnostics, and evidence limitations.
 - **Evidence boundary**: Confidence upgrades from `lexical` to `build_plan_confirmed` when existing SwiftPM/Xcode build metadata proves target membership. `compiler_confirmed` remains reserved for Index Store symbol evidence.
 - **Context capsule**: Modern calls return a private `viewlens://impact-capsules/{capsuleId}` resource link containing bounded affected paths, roots, recommendations, and evidence summaries without source bodies or the workspace-root path.
+
+### Impact-selected verification
+
+`viewlens_verify_changes` accepts `workspace_root` and `changed_files` to select affected registered templates, or an explicit `template`. It supports durable tasks and a three-device, large/AX3/AX5, Light/Dark matrix. Unavailable renders, partial impact, and unregistered affected roots remain `notRetested` and prevent a pass. Compare issue kinds rather than claiming element-specific resolution. Registered templates use the running binary; source rebuild/recapture and additional accommodations remain pending. Only claim source fix verification after recapturing the actual changed target.
 
 ---
 

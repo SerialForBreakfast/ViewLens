@@ -25,6 +25,7 @@ public final class MCPServer: Sendable {
     private let taskStore: MCPTaskStore
     private let sessionStore: RuntimeSessionStore
     private let processController: any RuntimeBackend
+    private let auditLogger: AuditLogger
 
     public init() {
         self.resourceStore = MCPResourceStore()
@@ -32,6 +33,7 @@ public final class MCPServer: Sendable {
         self.taskStore = MCPTaskStore()
         self.sessionStore = RuntimeSessionStore()
         self.processController = ProcessController()
+        self.auditLogger = AuditLogger.shared
     }
 
     init(
@@ -39,13 +41,15 @@ public final class MCPServer: Sendable {
         protocolRuntime: MCPProtocolRuntime = MCPProtocolRuntime(),
         taskStore: MCPTaskStore = MCPTaskStore(),
         sessionStore: RuntimeSessionStore = RuntimeSessionStore(),
-        processController: any RuntimeBackend = ProcessController()
+        processController: any RuntimeBackend = ProcessController(),
+        auditLogger: AuditLogger = AuditLogger.shared
     ) {
         self.resourceStore = resourceStore
         self.protocolRuntime = protocolRuntime
         self.taskStore = taskStore
         self.sessionStore = sessionStore
         self.processController = processController
+        self.auditLogger = auditLogger
     }
 
     /// Starts the blocking stdio JSON-RPC request loop.
@@ -464,7 +468,8 @@ public final class MCPServer: Sendable {
             "viewlens_audit_screenshot",
             "viewlens_audit_view",
             "viewlens_accessibility_audit",
-            "viewlens_design_diff"
+            "viewlens_design_diff",
+            "viewlens_verify_changes"
         ].contains(name)
     }
 
@@ -998,11 +1003,16 @@ public final class MCPServer: Sendable {
         let verifyChangesSchema: JSONValue = .object([
             "type": .string("object"),
             "properties": .object([
+                "workspace_root": .object(["type": .string("string"), "description": .string("Select affected templates using the workspace dependency graph. Supply this or template.")]),
                 "template": .object(["type": .string("string"), "description": .string("Target registered template.")]),
                 "changed_files": .object(["type": .string("array"), "items": .object(["type": .string("string")]), "description": .string("Paths of modified source files.")]),
                 "baseline_issues": .object(["type": .string("array"), "items": .object(["type": .string("string")]), "description": .string("Issue identifiers before fix.")])
             ]),
-            "required": .array([.string("template"), .string("changed_files")])
+            "required": .array([.string("changed_files")]),
+            "anyOf": .array([
+                .object(["required": .array([.string("template")])]),
+                .object(["required": .array([.string("workspace_root")])])
+            ])
         ])
 
         let baselineApproveSchema: JSONValue = .object([
@@ -1478,7 +1488,7 @@ public final class MCPServer: Sendable {
         let started = DispatchTime.now()
         let data = await performToolCall(request, modern: modern, execution: execution)
 
-        await AuditLogger.shared.record(AuditLogEntry(
+        await auditLogger.record(AuditLogEntry(
             id: "audit_\(UUID().uuidString.prefix(12))",
             timestamp: Date(),
             operation: toolName,
@@ -2381,7 +2391,7 @@ public final class MCPServer: Sendable {
             }
 
             let app = arguments["appearance"]?.stringValue ?? "light"
-            let scale = arguments["scale"]?.doubleValue ?? 3.0
+            let scale = arguments["scale"]?.doubleValue
             let snapshots = await TemplateRegistry.shared.accessibilitySnapshots(named: template) ?? []
 
             let state = StateCaptureEngine.captureState(
@@ -2488,13 +2498,19 @@ public final class MCPServer: Sendable {
                     if role.localizedCaseInsensitiveContains("text") { traits.insert(.isStaticText) }
                 }
                 let yOffset = 0.1 * Double(index + 1)
+                let resolvedFrame = snap.frame ?? BoundingBox(x: 0.1, y: yOffset, width: 0.8, height: 0.08)
+                let frameProv = snap.frameProvenance ?? (snap.frame != nil
+                    ? EvidenceProvenance(kind: .measured, source: snap.origin, confidence: 1.0)
+                    : .synthetic(source: "flowReplay.placeholder", detail: "Synthetic layout box for unmeasured accessibility snapshot."))
                 return NativeAccessibilityNode(
                     id: NonvisualID("node_\(index)"),
                     label: snap.label,
                     value: snap.value,
                     traits: traits,
-                    frame: BoundingBox(x: 0.1, y: yOffset, width: 0.8, height: 0.08),
-                    provenance: EvidenceProvenance(kind: .measured, source: "flowReplay", confidence: 1.0)
+                    frame: resolvedFrame,
+                    provenance: EvidenceProvenance(kind: .derived, source: snap.origin, detail: "Supplied accessibility snapshot."),
+                    frameProvenance: frameProv,
+                    origin: snap.origin
                 )
             }
 
@@ -2534,13 +2550,19 @@ public final class MCPServer: Sendable {
                     if role.localizedCaseInsensitiveContains("text") { traits.insert(.isStaticText) }
                 }
                 let yOffset = 0.1 * Double(index + 1)
+                let resolvedFrame = snap.frame ?? BoundingBox(x: 0.1, y: yOffset, width: 0.8, height: 0.08)
+                let frameProv = snap.frameProvenance ?? (snap.frame != nil
+                    ? EvidenceProvenance(kind: .measured, source: snap.origin, confidence: 1.0)
+                    : .synthetic(source: "accessibilityGraph.placeholder", detail: "Synthetic layout box for unmeasured accessibility snapshot."))
                 return NativeAccessibilityNode(
                     id: NonvisualID("node_\(index)"),
                     label: snap.label,
                     value: snap.value,
                     traits: traits,
-                    frame: BoundingBox(x: 0.1, y: yOffset, width: 0.8, height: 0.08),
-                    provenance: EvidenceProvenance(kind: .measured, source: "accessibilityGraph", confidence: 1.0)
+                    frame: resolvedFrame,
+                    provenance: EvidenceProvenance(kind: .derived, source: snap.origin, detail: "Supplied accessibility snapshot."),
+                    frameProvenance: frameProv,
+                    origin: snap.origin
                 )
             }
 
@@ -2584,13 +2606,19 @@ public final class MCPServer: Sendable {
                     if role.localizedCaseInsensitiveContains("text") { traits.insert(.isStaticText) }
                 }
                 let yOffset = 0.1 * Double(index + 1)
+                let resolvedFrame = snap.frame ?? BoundingBox(x: 0.1, y: yOffset, width: 0.8, height: 0.08)
+                let frameProv = snap.frameProvenance ?? (snap.frame != nil
+                    ? EvidenceProvenance(kind: .measured, source: snap.origin, confidence: 1.0)
+                    : .synthetic(source: "flowCrawl.placeholder", detail: "Synthetic layout box for unmeasured accessibility snapshot."))
                 return NativeAccessibilityNode(
                     id: NonvisualID("node_\(index)"),
                     label: snap.label,
                     value: snap.value,
                     traits: traits,
-                    frame: BoundingBox(x: 0.1, y: yOffset, width: 0.8, height: 0.08),
-                    provenance: EvidenceProvenance(kind: .measured, source: "flowCrawl", confidence: 1.0)
+                    frame: resolvedFrame,
+                    provenance: EvidenceProvenance(kind: .derived, source: snap.origin, detail: "Supplied accessibility snapshot."),
+                    frameProvenance: frameProv,
+                    origin: snap.origin
                 )
             }
 
@@ -2636,8 +2664,10 @@ public final class MCPServer: Sendable {
             return try? JSONEncoder().encode(response)
 
         case "viewlens_verify_changes":
-            guard let template = arguments["template"]?.stringValue else {
-                let message = "Missing required 'template' parameter"
+            guard arguments["template"]?.stringValue != nil || arguments["workspace_root"]?.stringValue != nil,
+                  let changedPaths = arguments["changed_files"]?.arrayValue, !changedPaths.isEmpty,
+                  changedPaths.allSatisfy({ $0.stringValue != nil }) else {
+                let message = "Supply 'template' or 'workspace_root' and nonempty string 'changed_files' for verification"
                 let result = MCPToolCallResult(
                     text: JSONFormatter.errorJSON(message: message),
                     structuredContent: nil,
@@ -2658,20 +2688,96 @@ public final class MCPServer: Sendable {
                 baselineIssues = arr.compactMap(\.stringValue)
             }
 
-            let changeSet = ChangeSet(changedFiles: changedFiles, targetTemplate: template)
-            // Audit current state of the template
-            let auditResult = await runAuditView(
-                templateName: template,
-                deviceNames: ["iPhoneSE"],
-                dtSizes: ["large"],
-                schemes: ["light"],
-                execution: execution
+            let availableTemplates = await MainActor.run { TemplateRegistry.shared.availableTemplates }
+            let selection = arguments["workspace_root"]?.stringValue.map {
+                ImpactAuditSelection.select(workspaceRoot: $0, changedFiles: changedFiles, availableTemplates: availableTemplates)
+            }
+            let templates = selection?.templates ?? [arguments["template"]!.stringValue!]
+            let usesStructuredBaseline = baselineIssues.contains { $0.contains("|") }
+            var currentFindings: [IdentifiedFinding] = []
+            var retestedContexts = Set<String>()
+            var notRetested = selection?.unregisteredRoots ?? []
+            if let selection, !selection.coverageAvailable { notRetested.append("Incomplete source impact coverage") }
+            if templates.isEmpty { notRetested.append("No renderable templates selected") }
+            for template in templates {
+                guard await execution.checkpoint() else { return nil }
+                guard availableTemplates.contains(template) else {
+                    notRetested.append(template)
+                    continue
+                }
+                let auditResult = await runAuditView(
+                    templateName: template,
+                    deviceNames: ["iPhoneSE", "iPhone16Pro", "iPadPro11"],
+                    dtSizes: ["large", "accessibility3", "accessibility5"],
+                    schemes: ["light", "dark"],
+                    execution: execution
+                )
+                if let report = auditResult?.report, !report.permutations.isEmpty {
+                    retestedContexts.insert("default")
+                    for (permKey, permReport) in report.permutations.sorted(by: { $0.key < $1.key }) {
+                        retestedContexts.insert(permKey)
+                        retestedContexts.insert("\(template)|\(permKey)")
+                        for issue in permReport.issues {
+                            let anchor = issue.identifier ?? issue.elementIndex.map { "index:\($0)" }
+                            if usesStructuredBaseline {
+                                currentFindings.append(IdentifiedFinding(
+                                    ruleID: issue.kind.rawValue,
+                                    target: template,
+                                    elementAnchor: anchor,
+                                    matrixContext: permKey,
+                                    scenarioContext: "default"
+                                ))
+                            } else {
+                                currentFindings.append(IdentifiedFinding(
+                                    ruleID: issue.kind.rawValue,
+                                    target: template,
+                                    elementAnchor: nil,
+                                    matrixContext: "default",
+                                    scenarioContext: "default",
+                                    rawRepresentation: issue.kind.rawValue
+                                ))
+                            }
+                        }
+                    }
+                    if report.permutations.count < report.summary.totalPermutations { notRetested.append("\(template): unavailable matrix permutations") }
+                } else { notRetested.append(template) }
+            }
+            let targetTemplateLabel = templates.joined(separator: ", ")
+            let parsedBaseline = baselineIssues.map { IdentifiedFinding.parse($0, defaultTarget: targetTemplateLabel) }
+            let comparison = FixVerifier.verifyFindings(
+                changeSet: ChangeSet(changedFiles: changedFiles, targetTemplate: targetTemplateLabel),
+                baselineFindings: parsedBaseline,
+                currentFindings: currentFindings,
+                retestedContexts: retestedContexts.isEmpty ? nil : retestedContexts
             )
-            let currentIssues = auditResult?.report?.permutations.values.flatMap(\.issues).map { $0.kind.rawValue } ?? []
-
-            let fixReport = FixVerifier.verify(changeSet: changeSet, baselineIssues: baselineIssues, currentIssues: currentIssues)
-            let fixJSON = (try? JSONValue.fromEncodable(fixReport)) ?? .object([:])
-            let jsonText = (try? String(data: JSONEncoder().encode(fixReport), encoding: .utf8)) ?? "{}"
+            let mergedNotRetested = Array(Set(notRetested + comparison.notRetested + (notRetested.isEmpty ? [] : baselineIssues))).sorted()
+            let fixReport = FixVerificationReport(
+                template: comparison.template,
+                resolvedIssues: notRetested.isEmpty ? comparison.resolvedIssues : [],
+                remainingIssues: comparison.remainingIssues,
+                introducedIssues: comparison.introducedIssues,
+                notRetested: mergedNotRetested,
+                uncertainFindings: comparison.uncertainFindings,
+                comparisons: comparison.comparisons,
+                eligibility: notRetested.isEmpty ? comparison.eligibility : EvidenceEligibilityDecision(
+                    consumer: .fixVerification,
+                    status: .incomplete,
+                    isEligible: false,
+                    canPass: false,
+                    reasons: notRetested
+                )
+            )
+            var resultObject = ((try? JSONValue.fromEncodable(fixReport)) ?? .object([:])).objectValue ?? [:]
+            resultObject["verificationScope"] = .string("registered_template_matrix")
+            resultObject["sourceChangesVerified"] = .bool(false)
+            if let selection { resultObject["selection"] = try? JSONValue.fromEncodable(selection) }
+            resultObject["evidenceLimitations"] = .array([
+                .string("Registered templates are rendered from the running binary. Source changes are not rebuilt or recaptured from the target project; that requires MCP-19.12."),
+                .string("Accommodations beyond device, Dynamic Type, and appearance remain recommended and were not executed.")
+            ])
+            let fixJSON = JSONValue.object(resultObject)
+            let jsonText = (try? String(data: JSONEncoder().encode(fixJSON), encoding: .utf8)) ?? "{}"
+            guard await execution.report(progress: 100, message: "Template verification complete; source rebuild and recapture unavailable") else { return nil }
 
             let result = MCPToolCallResult(
                 text: jsonText,

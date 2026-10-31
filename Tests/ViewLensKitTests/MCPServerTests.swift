@@ -4,6 +4,53 @@ import Foundation
 
 @Suite("Pure Swift MCP Protocol Tests")
 struct MCPServerTests {
+    @Test("Workspace verification selects the affected registered root and reports its evidence scope")
+    func testImpactSelectedVerification() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try Data("struct LoginForm: View { var body: some View { Text(\"Fixture\") } }".utf8)
+            .write(to: directory.appendingPathComponent("LoginForm.swift"))
+        let arguments: JSONValue = .object([
+            "workspace_root": .string(directory.path),
+            "changed_files": .array([.string("LoginForm.swift")]),
+            "baseline_issues": .array([])
+        ])
+        let encoded = String(decoding: try JSONEncoder().encode(arguments), as: UTF8.self)
+        let response = try #require(await MCPServer().handleRequest(try modernResourceRequest(
+            id: 600, method: "tools/call", fields: "\"name\":\"viewlens_verify_changes\",\"arguments\":\(encoded)"
+        )))
+        let report = try structuredContent(response)
+        let selection = try #require(report["selection"] as? [String: Any])
+        #expect(selection["templates"] as? [String] == ["LoginForm"])
+        #expect(selection["usesFallback"] as? Bool == false)
+        #expect(report["verificationScope"] as? String == "registered_template_matrix")
+        #expect(report["sourceChangesVerified"] as? Bool == false)
+        #expect((report["notRetested"] as? [String])?.isEmpty == true)
+    }
+
+    @Test("Verification task resumes after reconnect and preserves unavailable baseline evidence")
+    func testVerificationTaskRecovery() async throws {
+        let fixture = temporaryTaskFixture()
+        defer { fixture.cleanup() }
+        let server = MCPServer(resourceStore: MCPResourceStore(), taskStore: fixture.store)
+        let created = try #require(await server.handleRequest(try modernTaskToolRequest(
+            id: 601, name: "viewlens_verify_changes",
+            arguments: "{\"template\":\"UnregisteredRoot\",\"changed_files\":[\"Root.swift\"],\"baseline_issues\":[\"missingAccessibilityLabel\"]}"
+        )))
+        let json = try #require(JSONSerialization.jsonObject(with: created) as? [String: Any])
+        let taskID = try #require((json["result"] as? [String: Any])?["taskId"] as? String)
+        let reconnected = MCPServer(resourceStore: MCPResourceStore(), taskStore: MCPTaskStore(directory: fixture.directory))
+        let terminal = try await pollTask(server: reconnected, taskID: taskID, startingID: 602)
+        #expect(terminal["status"] as? String == "completed")
+        let result = try #require(terminal["result"] as? [String: Any])
+        #expect(result["isError"] as? Bool == true)
+        let report = try #require(result["structuredContent"] as? [String: Any])
+        #expect(report["passed"] as? Bool == false)
+        #expect((report["resolvedIssues"] as? [String])?.isEmpty == true)
+        #expect((report["notRetested"] as? [String])?.contains("missingAccessibilityLabel") == true)
+    }
+
     @Test("Legacy initialize remains byte-shape compatible")
     func testLegacyInitializeGoldenFixture() async throws {
         let request = try decodeRequest(fixture: "legacy-initialize-request")
@@ -108,6 +155,10 @@ struct MCPServerTests {
         let legacyTools = try #require(JSONSerialization.jsonObject(with: legacyData) as? [[String: Any]])
         let doctor = try #require(modernTools.first { $0["name"] as? String == "viewlens_doctor" })
         let screenshot = try #require(modernTools.first { $0["name"] as? String == "viewlens_audit_screenshot" })
+        let verify = try #require(modernTools.first { $0["name"] as? String == "viewlens_verify_changes" })
+        let verifySchema = try #require(verify["inputSchema"] as? [String: Any])
+        #expect((verifySchema["properties"] as? [String: Any])?["workspace_root"] != nil)
+        #expect((verifySchema["required"] as? [String]) == ["changed_files"])
         let inputSchema = try #require(doctor["inputSchema"] as? [String: Any])
         let annotations = try #require(doctor["annotations"] as? [String: Any])
 
@@ -1180,9 +1231,11 @@ struct MCPServerTests {
         taskID: String,
         startingID: Int
     ) async throws -> [String: Any] {
-        // Full-suite visual and accessibility tests can saturate the shared runner for
-        // several seconds. Keep this bounded while allowing the real matrix audit to run.
-        for offset in 0..<3_000 {
+        // Full-suite rendering can occupy the shared UI executor for minutes on a busy
+        // host. Use a bounded wall-clock deadline and the advertised polling interval.
+        let deadline = ContinuousClock.now.advanced(by: .seconds(600))
+        var offset = 0
+        while ContinuousClock.now < deadline {
             let response = try #require(await server.handleRequest(try modernTaskRequest(
                 id: startingID + offset,
                 method: "tasks/get",
@@ -1193,7 +1246,8 @@ struct MCPServerTests {
             if ["completed", "failed", "cancelled"].contains(result["status"] as? String) {
                 return result
             }
-            try await Task.sleep(nanoseconds: 10_000_000)
+            offset += 1
+            try await Task.sleep(for: .milliseconds(250))
         }
         throw NSError(domain: "ViewLensTaskTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Task did not reach a terminal state"])
     }

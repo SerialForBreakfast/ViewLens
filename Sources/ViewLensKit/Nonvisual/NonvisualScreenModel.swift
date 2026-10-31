@@ -33,6 +33,10 @@ public enum EvidenceProvenanceKind: String, Codable, Sendable, Equatable, Hashab
     case derived
     /// Model-produced evidence that must retain confidence and must not become a semantic pass.
     case inferred
+    /// Placeholder, structural mock, or authored fixture substitute without runtime measurement.
+    case synthetic
+    /// Explicitly verified by a human assistive-technology or VoiceOver review.
+    case humanConfirmed = "human_confirmed"
     /// The requested evidence could not be obtained.
     case unavailable
 }
@@ -57,6 +61,14 @@ public struct EvidenceProvenance: Codable, Sendable, Equatable, Hashable {
 
     public static func unavailable(source: String, detail: String) -> Self {
         Self(kind: .unavailable, source: source, detail: detail)
+    }
+
+    public static func synthetic(source: String, detail: String? = nil) -> Self {
+        Self(kind: .synthetic, source: source, confidence: nil, detail: detail)
+    }
+
+    public static func humanConfirmed(source: String, detail: String? = nil) -> Self {
+        Self(kind: .humanConfirmed, source: source, confidence: 1.0, detail: detail)
     }
 }
 

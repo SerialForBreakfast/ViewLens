@@ -41,12 +41,16 @@ public actor YOLODetector {
     public let classNames: [String]
     public let inputWidth: Int = 640
     public let inputHeight: Int = 640
+    #if canImport(NativeUIAuditKit)
+    private var detectionSession: NativeUIDetectionSession?
+    #endif
 
     public static var defaultClassNames: [String] {
         #if canImport(NativeUIAuditKitModels)
         return NativeUIModelAsset.metadata.classLabels
         #else
         return [
+            "badge",
             "navigationBar",
             "primaryButton",
             "tabBar",
@@ -89,12 +93,19 @@ public actor YOLODetector {
         iouThreshold: Double = 0.30
     ) async throws -> [DetectedElement] {
         #if canImport(NativeUIAuditKit)
-        let config = NativeUIDetectionConfiguration(
-            minimumConfidence: Double(minConfidence),
-            includesTextRecognition: false
-        )
-        let request = NativeUIDetectionRequest(configuration: config)
-        let observations = try await request.perform(on: image)
+        let session: NativeUIDetectionSession
+        if let existing = detectionSession, await existing.configuration.minimumConfidence == Double(minConfidence) {
+            session = existing
+        } else {
+            let config = NativeUIDetectionConfiguration(
+                minimumConfidence: Double(minConfidence),
+                includesTextRecognition: false
+            )
+            let newSession = NativeUIDetectionSession(configuration: config)
+            self.detectionSession = newSession
+            session = newSession
+        }
+        let observations = try await session.perform(on: image)
         let imgW = Double(image.width)
         let imgH = Double(image.height)
 

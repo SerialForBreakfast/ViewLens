@@ -26,9 +26,13 @@ struct HookCommand: AsyncParsableCommand {
     @Option(name: .long, help: "Output path for markdown report")
     var outputMarkdown: String?
 
+    @Option(name: .long, help: "Workspace root for impact analysis and Git change discovery")
+    var workspace: String = FileManager.default.currentDirectoryPath
+
     @MainActor
     func run() async throws {
         let configURL = config.map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
+            ?? URL(fileURLWithPath: workspace).appendingPathComponent(".viewlens.json")
         let masterConfig = ViewLensConfig.load(from: configURL)
 
         var gateConfig = masterConfig.gates[gate] ?? GateConfig()
@@ -43,24 +47,31 @@ struct HookCommand: AsyncParsableCommand {
 
         // Determine target templates to audit
         var targetTemplates: [String] = []
+        var selection: ImpactAuditSelection?
         if let explicitTemplate = template {
             targetTemplates = [explicitTemplate]
         } else if gateConfig.autoDetectStagedViews {
-            let staged = GitDiffAnalyzer.getStagedFiles()
-            let available = TemplateRegistry.shared.availableTemplates
-            let matched = GitDiffAnalyzer.matchModifiedTemplates(stagedFiles: staged, availableTemplates: available)
-            if !matched.isEmpty {
-                targetTemplates = matched
-                print("🔍 Detected \(matched.count) modified template(s) in git staging: \(matched.joined(separator: ", "))")
+            let staged = try GitDiffAnalyzer.getChangedFiles(workspaceRoot: workspace, gate: gate)
+            if staged.isEmpty {
+                print("No changed files to audit for \(gate).")
+                return
             }
+            let available = TemplateRegistry.shared.availableTemplates
+            let selected = ImpactAuditSelection.select(workspaceRoot: workspace, changedFiles: staged, availableTemplates: available)
+            selection = selected
+            targetTemplates = selected.templates
+            print("Impact selection (\(selected.impact.confidence.rawValue)): \(selected.explanation)")
+            print("Selected: \(targetTemplates.joined(separator: ", "))")
+            if !selected.unregisteredRoots.isEmpty { print("Not retested: \(selected.unregisteredRoots.joined(separator: ", "))") }
         }
 
         if targetTemplates.isEmpty {
-            targetTemplates = ["LoginForm"] // Default baseline audit
+            targetTemplates = TemplateRegistry.shared.availableTemplates.sorted()
         }
 
-        var allPassed = true
+        var allPassed = !targetTemplates.isEmpty && (selection?.coverageAvailable ?? true)
         var combinedEvaluations: [GateEvaluationResult] = []
+        var markdownReports: [String] = []
 
         print("════════════════════════════════════════════════════════════════════════")
         print("🛡️  ViewLens Git Quality Gate: [\(gate.uppercased())]")
@@ -69,7 +80,8 @@ struct HookCommand: AsyncParsableCommand {
 
         for tmpl in targetTemplates {
             guard TemplateRegistry.shared.template(named: tmpl) != nil else {
-                print("⚠️ Template '\(tmpl)' not found in registry. Skipping.")
+                print("⚠️ Template '\(tmpl)' not found in registry. Not retested.")
+                allPassed = false
                 continue
             }
 
@@ -101,16 +113,14 @@ struct HookCommand: AsyncParsableCommand {
             }
 
             // Write markdown report if requested
-            if let outPath = gateConfig.outputMarkdown {
+            if gateConfig.outputMarkdown != nil {
                 let md = PRSummaryGenerator.generateMarkdown(
                     gateName: gate,
                     config: gateConfig,
                     matrixReport: matrixReport,
                     evaluation: eval
                 )
-                let outURL = URL(fileURLWithPath: (outPath as NSString).expandingTildeInPath)
-                try? md.write(to: outURL, atomically: true, encoding: .utf8)
-                print("      📝 Wrote PR Markdown Report to: \(outPath)")
+                markdownReports.append(md)
             }
 
             // Write to GitHub Step Summary if environment variable exists
@@ -136,10 +146,30 @@ struct HookCommand: AsyncParsableCommand {
             }
         }
 
+        if let outPath = gateConfig.outputMarkdown {
+            var introduction = "# Change impact selection\n\n"
+            if let selection {
+                introduction += "\(selection.explanation)\n\nConfidence: \(selection.impact.confidence.rawValue). Coverage: \(selection.impact.completeness.rawValue).\n\n"
+                introduction += "Not retested: \(selection.unregisteredRoots.joined(separator: ", "))\n\n"
+            }
+            introduction += "Overall gate: \(allPassed ? "passed" : "failed or incomplete").\n\n"
+            let outURL = URL(fileURLWithPath: (outPath as NSString).expandingTildeInPath)
+            try FileManager.default.createDirectory(at: outURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try (introduction + markdownReports.joined(separator: "\n\n")).write(to: outURL, atomically: true, encoding: .utf8)
+        }
+
         print("────────────────────────────────────────────────────────────────────────")
         let finalStatus = allPassed ? "✅ GATE PASSED (Commit Allowed)" : "❌ GATE FAILED (Commit Blocked)"
         print("Final Status: \(finalStatus)")
         print("════════════════════════════════════════════════════════════════════════")
+
+        if let summaryPath = ProcessInfo.processInfo.environment["GITHUB_STEP_SUMMARY"],
+           let handle = try? FileHandle(forWritingTo: URL(fileURLWithPath: summaryPath)) {
+            defer { try? handle.close() }
+            try handle.seekToEnd()
+            let summary = "\n\nOverall gate: \(allPassed ? "passed" : "failed or incomplete"). \(selection?.explanation ?? "Explicit template coverage.")\n"
+            try handle.write(contentsOf: Data(summary.utf8))
+        }
 
         if !allPassed && gateConfig.failOn != .none {
             Darwin.exit(1)

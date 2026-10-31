@@ -110,6 +110,8 @@ Maps changed Swift and named-resource files through a bounded lexical reverse-de
 - **Evidence boundary**: Confidence upgrades from `lexical` to `build_plan_confirmed` when existing SwiftPM/Xcode build metadata proves target membership. `compiler_confirmed` remains reserved for Index Store symbol evidence.
 - **Context capsule**: Modern calls return a private `viewlens://impact-capsules/{capsuleId}` resource link containing bounded affected paths, roots, recommendations, and evidence summaries without source bodies or the workspace-root path.
 
+`viewlens_verify_changes` accepts `workspace_root` and `changed_files` for shared impact selection, or an explicit registered `template`. Durable tasks support polling, cancellation, TTL, and reconnect recovery. Missing coverage remains `notRetested` and prevents a pass. Registered templates render from the running binary; source rebuild/recapture remains pending. Results compare issue kinds rather than individual elements.
+
 ---
 
 ## 3. CLI Command Suite Reference

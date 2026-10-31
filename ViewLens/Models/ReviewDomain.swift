@@ -178,6 +178,7 @@ public struct ReviewRecord: Identifiable, Sendable {
     public var elements: [DetectedElement]
     public var previewImage: CGImage?
     public var nonvisualScreenModel: NonvisualScreenModel?
+    public var migrationLimitations: [String]
     public let startedAt: Date
     public var finishedAt: Date?
     public var duration: TimeInterval?
@@ -192,6 +193,7 @@ public struct ReviewRecord: Identifiable, Sendable {
         elements: [DetectedElement] = [],
         previewImage: CGImage? = nil,
         nonvisualScreenModel: NonvisualScreenModel? = nil,
+        migrationLimitations: [String] = [],
         startedAt: Date = Date(),
         finishedAt: Date? = nil,
         duration: TimeInterval? = nil
@@ -205,6 +207,7 @@ public struct ReviewRecord: Identifiable, Sendable {
         self.elements = elements
         self.previewImage = previewImage
         self.nonvisualScreenModel = nonvisualScreenModel
+        self.migrationLimitations = migrationLimitations
         self.startedAt = startedAt
         self.finishedAt = finishedAt
         self.duration = duration

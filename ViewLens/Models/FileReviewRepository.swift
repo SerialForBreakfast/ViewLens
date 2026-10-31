@@ -113,7 +113,15 @@ public final class FileReviewRepository: ReviewRepository {
             }
             records = Dictionary(uniqueKeysWithValues: envelope.reviews.map { dto in
                 let previewURL = assetsURL.appendingPathComponent("\(dto.id.uuidString).png")
-                return (dto.id, dto.review(previewImage: Self.loadImage(at: previewURL)))
+                let limitations = envelope.schemaVersion < Self.currentSchemaVersion
+                    ? EvidenceEligibilityPolicy.assessLegacyReport(
+                        schemaVersion: envelope.schemaVersion,
+                        currentSchemaVersion: Self.currentSchemaVersion,
+                        hasProvenance: dto.nonvisualScreenModel != nil,
+                        hasCaptureIdentity: false
+                    )
+                    : (dto.migrationLimitations ?? [])
+                return (dto.id, dto.review(previewImage: Self.loadImage(at: previewURL), migrationLimitations: limitations))
             })
             if envelope.schemaVersion < Self.currentSchemaVersion {
                 persistenceState = .migrated(fromVersion: envelope.schemaVersion)
@@ -167,6 +175,7 @@ private struct PersistedReview: Codable {
     let findings: [PersistedFinding]
     let elements: [DetectedElement]
     let nonvisualScreenModel: NonvisualScreenModel?
+    let migrationLimitations: [String]?
     let startedAt: Date
     let finishedAt: Date?
     let duration: TimeInterval?
@@ -180,12 +189,13 @@ private struct PersistedReview: Codable {
         findings = review.findings.map { PersistedFinding(id: $0.id, issue: $0.issue) }
         elements = review.elements
         nonvisualScreenModel = review.nonvisualScreenModel
+        migrationLimitations = review.migrationLimitations.isEmpty ? nil : review.migrationLimitations
         startedAt = review.startedAt
         finishedAt = review.finishedAt
         duration = review.duration
     }
 
-    func review(previewImage: CGImage?) -> ReviewRecord {
+    func review(previewImage: CGImage?, migrationLimitations: [String] = []) -> ReviewRecord {
         ReviewRecord(
             id: id,
             source: source.value,
@@ -196,6 +206,7 @@ private struct PersistedReview: Codable {
             elements: elements,
             previewImage: previewImage,
             nonvisualScreenModel: nonvisualScreenModel,
+            migrationLimitations: migrationLimitations,
             startedAt: startedAt,
             finishedAt: finishedAt,
             duration: duration

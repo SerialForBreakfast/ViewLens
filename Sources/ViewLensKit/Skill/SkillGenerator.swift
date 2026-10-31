@@ -165,10 +165,10 @@ public struct SkillGenerator: Sendable {
         When asked to fix a ViewLens-reported defect:
 
         1. Make the source change yourself — ViewLens has no file-write tools for your application source and will never edit it for you. The one exception is its own generated test scaffolding (step 4 below), which is marker-scoped and never touches the fix itself.
-        2. Call `viewlens_verify_changes` with the target `template` and the `changed_files` you modified (plus `baseline_issues` if known). Treat its `resolvedIssues` / `remainingIssues` / `introducedIssues` / `notRetested` fields as the source of truth for whether the fix worked — not your own reading of the diff.
+        2. Call `viewlens_verify_changes` with `workspace_root` and `changed_files` for shared impact selection, or an explicit registered `template` (plus `baseline_issues` if known). Durable tasks support polling, cancellation, TTL, and reconnect recovery. Check `resolvedIssues`, `remainingIssues`, `introducedIssues`, and `notRetested`. Registered templates render from the running binary; project source rebuild/recapture remains pending. Results compare issue kinds, not individual elements.
         3. Call `viewlens_trace_to_source` for any issue you need to locate precisely; always report its `confidence` field (`exact` / `approximate` / `unavailable`) alongside any file or line you cite. Never state a location ViewLens did not return.
         4. Only once `remainingIssues` is empty and `hasRegressions` is false, optionally call `viewlens_generate_regression_test` to produce a reviewable `swift-testing` suite from the approved replay, and present its generated source to the user before writing it to disk via `output_path`.
-        5. Report the fix as complete only once `remainingIssues` is empty and `hasRegressions` is false — otherwise report exactly which issues remain or were introduced.
+        5. Report template verification as complete only when `passed` is true and `notRetested` is empty. Report source changes as verified only after rebuilding and recapturing the actual changed target; registered-template results alone cannot prove source fix effectiveness.
         """
     }
 }

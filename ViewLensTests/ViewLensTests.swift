@@ -278,6 +278,25 @@ struct ReviewStoreTests {
 
 @MainActor
 struct CurrentStatusStoreTests {
+    @Test func impactAnalysisExposesUnregisteredRoots() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try Data("struct UnregisteredScreen: View { var body: some View { Text(\"Hello\") } }".utf8)
+            .write(to: directory.appendingPathComponent("Screen.swift"))
+        let model = AppModel(reviewStore: ReviewStore(), canvasStore: CanvasStore(), healthStore: SystemHealthStore(), playgroundStore: PlaygroundStore(), loadsInitialSample: false, runsDoctorCheck: false)
+        model.currentStatusStore.impactWorkspace = directory.path
+        model.currentStatusStore.impactChangedFiles = "Screen.swift"
+        model.analyzeImpact()
+        for _ in 0..<500 where model.currentStatusStore.isAnalyzingImpact {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let selection = try #require(model.currentStatusStore.impactSelection)
+        #expect(selection.unregisteredRoots == ["UnregisteredScreen"])
+        #expect(!selection.coverageAvailable)
+        #expect(model.currentStatusStore.impactError == nil)
+    }
+
     @Test func filtersIncompleteAndSearchesSourceName() {
         let store = CurrentStatusStore()
         let complete = ReviewRecord(

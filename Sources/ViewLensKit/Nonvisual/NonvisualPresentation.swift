@@ -190,11 +190,29 @@ public enum NonvisualSummaryComposer {
         )
     }
 
+    public static func eligibility(for model: NonvisualScreenModel, captureIdentity: CaptureIdentity? = nil) -> EvidenceEligibilityDecision {
+        var required: [String: EvidenceProvenance] = [:]
+        if model.elements.isEmpty {
+            required["elements"] = .unavailable(source: "nonvisual.elements", detail: "Screen model contains no elements.")
+        } else {
+            for element in model.elements {
+                required["\(element.id.rawValue).visual"] = element.visualEvidence
+                required["\(element.id.rawValue).semantic"] = element.semanticEvidence
+            }
+        }
+        return EvidenceEligibilityPolicy.evaluate(
+            consumer: .nonvisualDescription,
+            requiredEvidence: required,
+            captureIdentity: captureIdentity
+        )
+    }
+
     private static func status(_ evidence: [EvidenceProvenance]) -> NonvisualEvidenceStatus {
         guard !evidence.isEmpty else { return .unavailable }
         let availableCount = evidence.filter { $0.kind != .unavailable }.count
         if availableCount == 0 { return .unavailable }
-        if availableCount == evidence.count { return .complete }
+        let completeCount = evidence.filter { $0.kind != .unavailable && $0.kind != .synthetic }.count
+        if completeCount == evidence.count { return .complete }
         return .partial
     }
 

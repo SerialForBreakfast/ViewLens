@@ -4,6 +4,30 @@ import Testing
 
 @Suite("Change Impact Graph Tests (INT-20.1 - INT-20.5)")
 struct ChangeImpactAnalyzerTests {
+    @Test("Shared impact selection follows transitive roots and broadens incomplete coverage")
+    func selectsImpactCoverage() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        let targeted = ImpactAuditSelection.select(workspaceRoot: fixture.path, changedFiles: ["Sources/AvatarView.swift"], availableTemplates: ["OtherView", "AppRootView"])
+        #expect(targeted.templates == ["AppRootView"])
+        #expect(targeted.coverageAvailable)
+        #expect(!targeted.usesFallback)
+        let missing = ImpactAuditSelection.select(workspaceRoot: fixture.path, changedFiles: ["Sources/AvatarView.swift"], availableTemplates: ["OtherView"])
+        #expect(missing.templates == ["OtherView"])
+        #expect(missing.unregisteredRoots == ["AppRootView"])
+        #expect(!missing.coverageAvailable)
+        let unresolved = ImpactAuditSelection.select(workspaceRoot: fixture.path, changedFiles: ["Deleted.swift"], availableTemplates: ["OtherView", "AppRootView"])
+        #expect(unresolved.usesFallback)
+        #expect(!unresolved.coverageAvailable)
+        #expect(unresolved.templates == ["AppRootView", "OtherView"])
+    }
+
+    @Test("Unavailable retesting cannot pass fix verification")
+    func incompleteVerificationCannotPass() {
+        let report = FixVerificationReport(template: "Unavailable", resolvedIssues: [], remainingIssues: [], introducedIssues: [], notRetested: ["Unavailable"])
+        #expect(!report.passed)
+    }
+
     @Test("Traces a changed leaf view to its top-level root")
     func tracesTransitiveViewImpact() throws {
         let fixture = try makeFixture()

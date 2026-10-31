@@ -69,26 +69,68 @@ struct InteractionAndCorrelationTests {
         #expect(report.matchRate > 0.6)
     }
 
-    @Test("StateCaptureEngine creates complete atomic snapshot")
+    @Test("StateCaptureEngine preserves snapshot provenance without fabricating geometry or visual observations")
     func testStateCaptureEngine() {
         let snapshots = [
-            AccessibilityElementSnapshot(identifier: "login_btn", label: "Log In", role: "button"),
-            AccessibilityElementSnapshot(identifier: "username_txt", label: "Username", role: "textField")
+            AccessibilityElementSnapshot(identifier: "login_btn", label: "Log In", role: "button", origin: "template_registry"),
+            AccessibilityElementSnapshot(identifier: "username_txt", label: "Username", role: "textField", origin: "template_registry")
         ]
 
-        let state = StateCaptureEngine.captureState(
+        let snapshotOnlyState = StateCaptureEngine.captureState(
             templateName: "LoginForm",
             appearance: "dark",
             scale: 3.0,
             snapshots: snapshots
         )
 
-        #expect(state.target == "LoginForm")
-        #expect(state.appearance == "dark")
-        #expect(state.scale == 3.0)
-        #expect(state.accessibilityHierarchy.count == 2)
-        #expect(state.visualElements.count == 2)
-        #expect(state.correlation.matchedPairs.count == 2)
+        #expect(snapshotOnlyState.target == "LoginForm")
+        #expect(snapshotOnlyState.appearance == "dark")
+        #expect(snapshotOnlyState.scale == 3.0)
+        #expect(snapshotOnlyState.accessibilityHierarchy.count == 2)
+        #expect(snapshotOnlyState.accessibilityHierarchy.allSatisfy { $0.frame == nil && $0.frameProvenance.kind == .unavailable })
+        #expect(snapshotOnlyState.visualElements.isEmpty)
+        #expect(!snapshotOnlyState.correlation.isAvailable)
+        #expect(snapshotOnlyState.correlation.status == .unavailable)
+        #expect(!snapshotOnlyState.conformanceEligible)
+
+        // When independent visual observations and measured native frames are provided, correlation is evaluated:
+        let measuredSnapshots = [
+            AccessibilityElementSnapshot(
+                identifier: "login_btn",
+                label: "Log In",
+                role: "button",
+                frame: BoundingBox(x: 0.1, y: 0.2, width: 0.8, height: 0.1),
+                origin: "native_ax_hierarchy"
+            ),
+            AccessibilityElementSnapshot(
+                identifier: "username_txt",
+                label: "Username",
+                role: "textField",
+                frame: BoundingBox(x: 0.1, y: 0.4, width: 0.8, height: 0.08),
+                origin: "native_ax_hierarchy"
+            )
+        ]
+        let independentVisuals = [
+            DetectedElement(type: "primaryButton", confidence: 0.95, boundingBox: BoundingBox(x: 0.1, y: 0.2, width: 0.8, height: 0.1)),
+            DetectedElement(type: "textField", confidence: 0.92, boundingBox: BoundingBox(x: 0.1, y: 0.4, width: 0.8, height: 0.08))
+        ]
+
+        let correlatedState = StateCaptureEngine.captureState(
+            templateName: "LoginForm",
+            appearance: "dark",
+            scale: 3.0,
+            safeAreaInsets: ["top": 59.0, "bottom": 34.0],
+            snapshots: measuredSnapshots,
+            visualElements: independentVisuals,
+            visualProvenance: EvidenceProvenance(kind: .measured, source: "yoloDetector", confidence: 0.93),
+            measuredTimestamp: Date(),
+            readingOrderEvidence: EvidenceProvenance(kind: .measured, source: "voiceOverOrder", confidence: 1.0)
+        )
+
+        #expect(correlatedState.visualElements.count == 2)
+        #expect(correlatedState.correlation.isAvailable)
+        #expect(correlatedState.correlation.matchedPairs.count == 2)
+        #expect(correlatedState.conformanceEligible)
     }
 
     @Test("InteractionEngine validates security and executes allowlisted UI actions")

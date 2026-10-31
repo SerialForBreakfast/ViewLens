@@ -25,6 +25,7 @@ struct CurrentStatusView: View {
                 header
                 lifecycleBanner
                 metrics
+                changeImpact
                 recentReviews
                 HStack(alignment: .top, spacing: ViewLensTheme.standardSpacing) {
                     qualityTrend.frame(maxWidth: .infinity)
@@ -37,6 +38,8 @@ struct CurrentStatusView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle("Current Status")
         .accessibilityIdentifier("screen.currentStatus")
+        .onChange(of: dashboard.impactWorkspace) { _, _ in dashboard.impactSelection = nil }
+        .onChange(of: dashboard.impactChangedFiles) { _, _ in dashboard.impactSelection = nil }
         .sheet(isPresented: $dashboard.showsDiagnostics) { DiagnosticsSheet(model: model) }
     }
 
@@ -70,6 +73,60 @@ struct CurrentStatusView: View {
         }
     }
 
+    private var changeImpact: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Review affected screens").font(.title2.bold())
+            HStack {
+                TextField("Workspace folder", text: $dashboard.impactWorkspace)
+                    .accessibilityLabel("Workspace folder")
+                    .accessibilityIdentifier("impact.workspace")
+                Button("Choose folder…") { model.chooseImpactWorkspace() }
+            }
+            TextField("Changed paths, one per line; leave empty to use staged changes", text: $dashboard.impactChangedFiles, axis: .vertical)
+                .lineLimit(2...5)
+                .accessibilityLabel("Changed file paths. Leave empty for staged Git changes.")
+                .accessibilityIdentifier("impact.changedFiles")
+            Button("Analyze changes") { model.analyzeImpact() }
+                .disabled(dashboard.impactWorkspace.isEmpty || dashboard.isAnalyzingImpact)
+                .accessibilityIdentifier("impact.analyze")
+            if dashboard.isAnalyzingImpact {
+                ProgressView("Finding affected screens…")
+            }
+            if let error = dashboard.impactError { Text(error).foregroundStyle(.red) }
+            if let selection = dashboard.impactSelection {
+                Text("Evidence: \(selection.impact.confidence.rawValue) · \(selection.impact.completeness.rawValue)")
+                    .font(.callout).foregroundStyle(.secondary)
+                Text(selection.explanation)
+                ForEach(selection.impact.affectedRootViews, id: \.symbol) { root in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(root.symbol).font(.headline)
+                        Text(root.sourcePath).font(.caption).textSelection(.enabled)
+                        Text(root.reasons.joined(separator: "; ")).font(.caption)
+                    }
+                }
+                if !selection.unregisteredRoots.isEmpty {
+                    Text("Not retested: \(selection.unregisteredRoots.joined(separator: ", ")). Register these views or use project rendering when available.")
+                        .foregroundStyle(.orange)
+                }
+                ForEach(Array(selection.impact.diagnostics.enumerated()), id: \.offset) { _, diagnostic in
+                    Text(diagnostic.message).font(.callout).foregroundStyle(.secondary)
+                }
+                ForEach(selection.templates, id: \.self) { name in
+                    Button("Review \(name)") {
+                        model.reviewImpactedTemplate(name)
+                        onOpenReview()
+                    }
+                    .help("Audit devices, accessibility text sizes, and Light/Dark appearance")
+                }
+                Text("Reviews render registered templates from the running app. Source rebuilds and additional accommodation checks are pending.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .padding(16)
+        .background(.background, in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityIdentifier("dashboard.changeImpact")
+    }
+
     @ViewBuilder private var lifecycleBanner: some View {
         if model.isRunningDoctor {
             DashboardBanner(title: "Checking system readiness", message: "ViewLens is probing the detector and model assets.", symbol: "stethoscope", color: ViewLensTheme.focus)
@@ -79,7 +136,15 @@ struct CurrentStatusView: View {
             case .stale(let reason): DashboardBanner(title: "Latest review is stale", message: reason, symbol: "clock.badge.exclamationmark", color: .orange)
             case .failed(let failure): DashboardBanner(title: failure.title, message: failure.message, symbol: "xmark.octagon.fill", color: .red)
             case .cancelled: DashboardBanner(title: "Review cancelled", message: "Previously completed reviews remain available below.", symbol: "stop.circle.fill", color: .secondary)
-            default: EmptyView()
+            default:
+                if !review.migrationLimitations.isEmpty {
+                    DashboardBanner(
+                        title: "Legacy report migration notice",
+                        message: review.migrationLimitations.joined(separator: " "),
+                        symbol: "exclamationmark.triangle.fill",
+                        color: .orange
+                    )
+                }
             }
         }
     }

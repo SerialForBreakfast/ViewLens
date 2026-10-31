@@ -2,6 +2,10 @@
 
 This document provides the master task breakdown, milestone roadmap, user stories, acceptance criteria, test specifications, and architectural considerations for the **ViewLens** project.
 
+### TVTestRig learning priorities
+
+The [TVTestRig improvement backlog](Docs/ViewLens-TVTestRig-Learning-Tasks.md) tracks 15 planned stories with acceptance criteria and dependencies, updated October 12, 2026. First tranche: **LEARN-01–03**, correcting capture provenance, enforcing evidence eligibility, and comparing fixes by stable finding identity. Then **LEARN-04–06** extend existing MCP-19 work with real-source build/capture receipts, read-only preflight, and reliable task lifecycle. Later stories cover compact agent workflows, real-client validation, storage/privacy, M21/M22 native scenarios and journeys, and nonvisual release review. Optional headless/model experiments remain P2. Existing milestone completion statuses are unchanged; this planning does not mark implementation complete.
+
 ---
 
 ## Roadmap & Milestones Summary
@@ -22,13 +26,13 @@ This document provides the master task breakdown, milestone roadmap, user storie
 | **M11: AI Review Workbench** | UI Sprint 3–4 | Review progress, inspection canvas, findings, activity, remediation, export | ✅ Complete |
 | **M12: Playground, History & Settings** | UI Sprint 4–5 | Manual/template audit setup, durable reviews, comparison, preferences and diagnostics | ✅ Complete |
 | **M13: Desktop Accessibility & Release Verification** | UI Sprint 6 | Keyboard/VoiceOver coverage, self-audits, visual baselines, UI/build tests | 🟨 In Progress — host XCTest runner session pending |
-| **M14: Modern MCP Protocol & Structured Evidence** | Agent Sprint 1–2 | Protocol negotiation, structured outputs, resources, prompts, tasks, cancellation, conformance | ✅ Complete |
+| **M14: Modern MCP Protocol & Structured Evidence** | Agent Sprint 1–2 | Protocol negotiation, structured outputs, resources, prompts, tasks, cancellation, conformance | 🟨 Core workflows complete; broader conformance, subscriptions, elicitation, and resource producers pending |
 | **M15: Live Native Review Sessions** | Agent Sprint 3–5 | Safe app launch, simulator/macOS capture, accessibility hierarchy, spatial queries, durable session handles | ✅ Complete |
-| **M16: Interaction & Accessibility Graph** | Agent Sprint 6–8 | Allowlisted UI actions, focus traversal, state crawling, accommodations, localization and replay | ✅ Complete |
-| **M17: Source Provenance & Fix Verification** | Agent Sprint 9–11 | Visual-to-source mapping, before/after verification, regression generation, CI evidence | ✅ Complete |
+| **M16: Interaction & Accessibility Graph** | Agent Sprint 6–8 | Allowlisted UI actions, focus traversal, state crawling, accommodations, localization and replay | 🟨 Core workflows complete; broader navigation evidence and accommodation flows pending |
+| **M17: Source Provenance & Fix Verification** | Agent Sprint 9–11 | Visual-to-source mapping, before/after verification, regression generation, CI evidence | 🟨 Core workflows complete; external source-map adapters and project rebuild/recapture pending |
 | **M18: Interactive MCP App & Remote Collaboration** | Agent Sprint 12–14 | Sandboxed review UI, approvals, streamable HTTP/SSE transport, scoped token authorization, AES-GCM encrypted storage, and threat model | 🟨 In Progress — MCP App, HTTP/SSE transport, auth, telemetry, and encrypted storage complete; packaging & skills next |
 | **M19: Project Context & Dependency Resolution** | Agent Sprint 15–16 | Bounded lexical closure, package pins, asset discovery, preview harness descriptors, compiler-backed isolated rendering, context CLI & MCP tool | 🟨 In Progress — lexical resolver, CLI/MCP, and opt-in harness plumbing complete; compiler-backed rendering closure pending |
-| **M20: Intelligent Change Targeting** | Agent Sprint 16–17 | Reverse source/resource impact graph, conservative audit selection, compiler confirmation, context capsules, Git/Mac integration | 🟨 In Progress — bounded lexical engine plus CLI and modern MCP vertical slice complete |
+| **M20: Intelligent Change Targeting** | Agent Sprint 16–17 | Reverse source/resource impact graph, conservative audit selection, compiler confirmation, context capsules, Git/Mac integration | 🟨 In Progress — shared Git/MCP/Mac impact selection and durable verification complete; Index Store confirmation pending |
 | **NV: Nonvisual Authoring Experience** | Cross-cutting M14–M19 | Text-first screen model, semantic/visual mismatch analysis, VoiceOver navigation intelligence, braille-efficient output, source-linked verification | 🟨 In Progress — NV-0 through NV-5 complete; NV-2.10 and NV-6 release verification pending |
 
 ---

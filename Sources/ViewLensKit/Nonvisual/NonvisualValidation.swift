@@ -104,6 +104,9 @@ public enum NonvisualModelValidator {
         if evidence.kind == .inferred, evidence.confidence == nil {
             issues.append(issue(.invalidEvidence, subjectID, "Inferred evidence requires confidence."))
         }
+        if evidence.kind == .synthetic, let confidence = evidence.confidence, confidence >= 1.0 {
+            issues.append(issue(.invalidEvidence, subjectID, "Synthetic evidence must not claim full confidence of 1.0."))
+        }
         if let confidence = evidence.confidence, !confidence.isFinite || !(0...1).contains(confidence) {
             issues.append(issue(.invalidEvidence, subjectID, "Evidence confidence must be finite and between zero and one."))
         }

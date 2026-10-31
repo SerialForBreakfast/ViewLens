@@ -112,10 +112,12 @@ struct ReviewExportDocument: FileDocument {
                     "criterion": jsonValue(issue.wcagCriterion),
                     "level": jsonValue(issue.wcagLevel),
                     "elementIndex": jsonValue(issue.elementIndex),
+                    "elementAnchor": jsonValue(issue.identifier ?? issue.elementIndex.map { "index:\($0)" }),
                     "remediation": jsonValue(issue.remediation?.description),
                     "codeSnippet": jsonValue(issue.remediation?.codeSnippet)
                 ] as [String: Any]
             },
+            "migrationLimitations": review.migrationLimitations,
             "events": events.map { ["timestamp": ISO8601DateFormatter().string(from: $0.timestamp), "phase": jsonValue($0.phase?.rawValue), "message": $0.message, "error": $0.isError] }
         ]
 
@@ -123,6 +125,11 @@ struct ReviewExportDocument: FileDocument {
            let nonvisualData = try? JSONEncoder().encode(nonvisual),
            let nonvisualObj = try? JSONSerialization.jsonObject(with: nonvisualData) {
             payload["nonvisualScreenModel"] = nonvisualObj
+            let eligibility = NonvisualSummaryComposer.eligibility(for: nonvisual)
+            if let eligData = try? JSONEncoder().encode(eligibility),
+               let eligObj = try? JSONSerialization.jsonObject(with: eligData) {
+                payload["evidenceEligibility"] = eligObj
+            }
         }
 
         return try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys])
@@ -172,12 +179,26 @@ struct ReviewExportDocument: FileDocument {
             }
         }
 
+        if !review.migrationLimitations.isEmpty {
+            lines += [
+                "",
+                "## Legacy Migration Limitations",
+                ""
+            ]
+            for limitation in review.migrationLimitations {
+                lines.append("- \(limitation)")
+            }
+            lines.append("")
+        }
+
         if let nonvisual = review.nonvisualScreenModel {
+            let eligibility = NonvisualSummaryComposer.eligibility(for: nonvisual)
             lines += [
                 "",
                 "## Nonvisual Screen Outline & Hierarchy",
                 "",
                 "- **Screen ID:** `\(nonvisual.id.rawValue)`",
+                "- **Evidence Eligibility:** `\(eligibility.status.rawValue)`",
                 "- **Source Mode:** \(nonvisual.sourceMode.rawValue)",
                 "- **Regions:** \(nonvisual.regions.count)",
                 "- **Elements:** \(nonvisual.elements.count)",

@@ -33,6 +33,57 @@ public final class AppModel {
 
     private var reviewTask: Task<Void, Never>?
     private var doctorTask: Task<Void, Never>?
+    private var impactTask: Task<Void, Never>?
+
+    func chooseImpactWorkspace() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url {
+            currentStatusStore.impactWorkspace = url.path
+            currentStatusStore.impactSelection = nil
+        }
+    }
+
+    func analyzeImpact() {
+        impactTask?.cancel()
+        let workspace = currentStatusStore.impactWorkspace
+        let supplied = currentStatusStore.impactChangedFiles.split(separator: "\n").map(String.init).filter { !$0.isEmpty }
+        let available = TemplateRegistry.shared.availableTemplates
+        currentStatusStore.isAnalyzingImpact = true
+        currentStatusStore.impactError = nil
+        currentStatusStore.impactSelection = nil
+        impactTask = Task {
+            do {
+                let selection = try await Task.detached {
+                    let changed = supplied.isEmpty ? try GitDiffAnalyzer.getChangedFiles(workspaceRoot: workspace, gate: "pre-commit") : supplied
+                    return ImpactAuditSelection.select(workspaceRoot: workspace, changedFiles: changed, availableTemplates: available)
+                }.value
+                guard !Task.isCancelled else { return }
+                guard currentStatusStore.impactWorkspace == workspace,
+                      currentStatusStore.impactChangedFiles.split(separator: "\n").map(String.init).filter({ !$0.isEmpty }) == supplied else {
+                    currentStatusStore.isAnalyzingImpact = false
+                    return
+                }
+                currentStatusStore.impactSelection = selection
+                currentStatusStore.isAnalyzingImpact = false
+                announceVoiceOverStatus("Impact analysis complete. \(selection.templates.count) registered templates selected. \(selection.explanation)")
+            } catch {
+                guard !Task.isCancelled else { return }
+                currentStatusStore.isAnalyzingImpact = false
+                currentStatusStore.impactError = error.localizedDescription
+            }
+        }
+    }
+
+    func reviewImpactedTemplate(_ name: String) {
+        selectedTemplateName = name
+        playgroundStore.selectedDeviceIDs = Set(["iPhoneSE", "iPhone16Pro", "iPadPro11"])
+        playgroundStore.selectedDynamicTypeNames = Set(["large", "accessibility3", "accessibility5"])
+        playgroundStore.selectedAppearanceNames = Set(["light", "dark"])
+        renderPlaygroundTemplate()
+    }
 
     public convenience init() {
         let environment = ProcessInfo.processInfo.environment

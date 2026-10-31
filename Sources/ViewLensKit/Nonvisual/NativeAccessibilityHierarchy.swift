@@ -31,6 +31,10 @@ public struct NativeAccessibilityNode: Codable, Sendable, Equatable, Hashable, I
     public let isAccessibilityElement: Bool
     public let children: [NonvisualID]
     public let provenance: EvidenceProvenance
+    /// Provenance specifically describing how `frame` was obtained (`unavailable` when `frame == nil`).
+    public let frameProvenance: EvidenceProvenance
+    /// Origin identifier of the supplied label/value/role attributes.
+    public let origin: String
     /// Explicit accessibility activation point (e.g. `accessibilityActivationPoint`), in the same
     /// normalized coordinate space as `frame`. Only set when instrumented from a real accessibility
     /// override; `nil` means no override was reported, not that one is absent, so callers must not
@@ -49,6 +53,8 @@ public struct NativeAccessibilityNode: Codable, Sendable, Equatable, Hashable, I
         isAccessibilityElement: Bool = true,
         children: [NonvisualID] = [],
         provenance: EvidenceProvenance,
+        frameProvenance: EvidenceProvenance? = nil,
+        origin: String? = nil,
         activationPoint: CGPoint? = nil
     ) {
         self.id = id
@@ -62,7 +68,54 @@ public struct NativeAccessibilityNode: Codable, Sendable, Equatable, Hashable, I
         self.isAccessibilityElement = isAccessibilityElement
         self.children = children.sorted()
         self.provenance = provenance
+        if let frameProvenance {
+            self.frameProvenance = frameProvenance
+        } else if frame != nil {
+            self.frameProvenance = provenance
+        } else {
+            self.frameProvenance = .unavailable(source: "accessibility.frame", detail: "Native frame was not measured.")
+        }
+        self.origin = origin ?? provenance.source
         self.activationPoint = activationPoint
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, label, value, hint, traits, customActions, frame, headingLevel
+        case isAccessibilityElement, children, provenance, frameProvenance, origin, activationPoint
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let id = try container.decode(NonvisualID.self, forKey: .id)
+        let label = try container.decodeIfPresent(String.self, forKey: .label)
+        let value = try container.decodeIfPresent(String.self, forKey: .value)
+        let hint = try container.decodeIfPresent(String.self, forKey: .hint)
+        let traits = try container.decodeIfPresent(Set<NativeAccessibilityTrait>.self, forKey: .traits) ?? []
+        let customActions = try container.decodeIfPresent([String].self, forKey: .customActions) ?? []
+        let frame = try container.decodeIfPresent(BoundingBox.self, forKey: .frame)
+        let headingLevel = try container.decodeIfPresent(Int.self, forKey: .headingLevel)
+        let isAccessibilityElement = try container.decodeIfPresent(Bool.self, forKey: .isAccessibilityElement) ?? true
+        let children = try container.decodeIfPresent([NonvisualID].self, forKey: .children) ?? []
+        let provenance = try container.decode(EvidenceProvenance.self, forKey: .provenance)
+        let frameProvenance = try container.decodeIfPresent(EvidenceProvenance.self, forKey: .frameProvenance)
+        let origin = try container.decodeIfPresent(String.self, forKey: .origin)
+        let activationPoint = try container.decodeIfPresent(CGPoint.self, forKey: .activationPoint)
+        self.init(
+            id: id,
+            label: label,
+            value: value,
+            hint: hint,
+            traits: traits,
+            customActions: customActions,
+            frame: frame,
+            headingLevel: headingLevel,
+            isAccessibilityElement: isAccessibilityElement,
+            children: children,
+            provenance: provenance,
+            frameProvenance: frameProvenance,
+            origin: origin,
+            activationPoint: activationPoint
+        )
     }
 }
 

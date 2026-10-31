@@ -175,6 +175,70 @@ struct FocusAlignmentAndPerceptionTests {
         #endif
     }
 
+    @Test("VisualSemanticCorrelator detects role mismatch when a visual badge lacks accessibility label and value")
+    func testBadgeMissingLabelOrValueConflict() {
+        let badge = DetectedElement(
+            type: "badge",
+            confidence: 0.92,
+            boundingBox: BoundingBox(x: 0.8, y: 0.1, width: 0.05, height: 0.05)
+        )
+
+        let prov = EvidenceProvenance(kind: .measured, source: "testFixture")
+        let a11yNode = NativeAccessibilityNode(
+            id: NonvisualID("notification_badge"),
+            label: nil,
+            value: nil,
+            traits: [.isStaticText],
+            frame: BoundingBox(x: 0.8, y: 0.1, width: 0.05, height: 0.05),
+            provenance: prov
+        )
+
+        let report = VisualSemanticCorrelator.correlate(
+            visualElements: [badge],
+            accessibilityNodes: [a11yNode]
+        )
+
+        #expect(report.matchedPairs.count == 1)
+        #expect(report.conflicts.contains { $0.kind == .roleMismatch && $0.reason.contains("badge") })
+    }
+
+    @Test("VisualSemanticCorrelator passes clean correlation when a visual badge provides label or value")
+    func testBadgeWithContentPasses() {
+        let badge = DetectedElement(
+            type: "badge",
+            confidence: 0.94,
+            boundingBox: BoundingBox(x: 0.8, y: 0.1, width: 0.05, height: 0.05)
+        )
+
+        let prov = EvidenceProvenance(kind: .measured, source: "testFixture")
+        let a11yNode = NativeAccessibilityNode(
+            id: NonvisualID("notification_badge"),
+            label: "5 unread notifications",
+            value: "5",
+            traits: [.isStaticText],
+            frame: BoundingBox(x: 0.8, y: 0.1, width: 0.05, height: 0.05),
+            provenance: prov
+        )
+
+        let report = VisualSemanticCorrelator.correlate(
+            visualElements: [badge],
+            accessibilityNodes: [a11yNode]
+        )
+
+        #expect(report.matchedPairs.count == 1)
+        #expect(report.conflicts.isEmpty)
+        #expect(report.matchRate == 1.0)
+    }
+
+    @Test("FlowReplayEngine matches text anchors with separator tolerance")
+    func testTextAnchorSeparatorTolerance() {
+        // Multiword anchor matching with bullet or apostrophe separator
+        #expect(FlowReplayEngine.matchesTextAnchor("System Settings", in: "System • Settings"))
+        #expect(FlowReplayEngine.matchesTextAnchor("General Settings", in: "› General Settings"))
+        #expect(FlowReplayEngine.matchesTextAnchor("User Profile", in: "User ' Profile"))
+        #expect(!FlowReplayEngine.matchesTextAnchor("Network Settings", in: "General • Settings"))
+    }
+
     // MARK: - Image Creation Helpers
 
     private func createSolidImage(width: Int, height: Int, grayValue: UInt8) -> CGImage {

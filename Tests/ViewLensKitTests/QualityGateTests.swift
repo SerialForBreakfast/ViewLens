@@ -4,6 +4,23 @@ import Foundation
 
 @Suite("QualityGateEvaluator and PR Summary Tests")
 struct QualityGateTests {
+    @Test("Missing renders cannot pass a gate with an empty issue list")
+    func missingRenderBlocksGate() {
+        let matrix = MatrixAuditReport(sourceMode: .rendered, template: "Unavailable", passed: false,
+            summary: MatrixSummary(totalPermutations: 1, passedCount: 0, failedCount: 1, worstIssue: "Rendering unavailable", failedPermutations: ["missing"]), permutations: [:])
+        let evaluation = QualityGateEvaluator.evaluate(gateName: "pre-commit", config: GateConfig(failOn: .none), matrixReport: matrix)
+        #expect(!evaluation.passed)
+        #expect(evaluation.failureReason?.contains("incomplete") == true)
+    }
+
+    @Test("Unavailable fix verification blocks a gate even when findings are clean")
+    func unavailableRetestingBlocksGate() {
+        let verification = FixVerificationReport(template: "Missing", resolvedIssues: [], remainingIssues: [], introducedIssues: [], notRetested: ["Missing"])
+        let evaluation = QualityGateEvaluator.evaluate(gateName: "pre-commit", config: GateConfig(failOn: .none), matrixReport: cleanMatrixReport(), fixVerification: verification)
+        #expect(!evaluation.passed)
+        #expect(evaluation.failureReason?.contains("unavailable") == true)
+    }
+
     @Test("Passes evaluation when no errors exist and policy is failOn: error")
     func testPassingQualityGate() {
         let gate = GateConfig(failOn: .error, purposes: [.touchTargets, .clipping])

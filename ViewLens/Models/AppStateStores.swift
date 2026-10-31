@@ -164,6 +164,11 @@ final class CurrentStatusStore {
     var selectedReviewID: UUID?
     var isDropTargeted = false
     var showsDiagnostics = false
+    var impactWorkspace = ""
+    var impactChangedFiles = ""
+    var impactSelection: ImpactAuditSelection?
+    var isAnalyzingImpact = false
+    var impactError: String?
 
     func visibleReviews(from reviews: [ReviewRecord]) -> [ReviewRecord] {
         reviews

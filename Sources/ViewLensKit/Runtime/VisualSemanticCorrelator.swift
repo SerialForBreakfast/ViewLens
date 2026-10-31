@@ -47,39 +47,238 @@ public struct CorrelationConflict: Codable, Sendable, Equatable {
     }
 }
 
+/// Availability and eligibility status of a visual-semantic correlation report.
+public enum CorrelationStatus: String, Codable, Sendable, Equatable, Hashable {
+    case evaluated
+    case unavailable
+    case ineligible
+}
+
 /// Comprehensive report of bi-directional correlation between visual detection and accessibility hierarchy.
 public struct CorrelationReport: Codable, Sendable, Equatable {
+    public let status: CorrelationStatus
+    public let isAvailable: Bool
     public let matchedPairs: [VisualSemanticPair]
     public let unmatchedVisualElements: [DetectedElement]
     public let unmatchedAccessibilityNodes: [NativeAccessibilityNode]
     public let conflicts: [CorrelationConflict]
     public let matchRate: Double
+    public let evaluatedMatchRate: Double?
+    public let unavailableReason: String?
+    public let provenance: EvidenceProvenance
+    public let eligibility: EvidenceEligibilityDecision
 
     public init(
+        status: CorrelationStatus = .evaluated,
         matchedPairs: [VisualSemanticPair],
         unmatchedVisualElements: [DetectedElement],
         unmatchedAccessibilityNodes: [NativeAccessibilityNode],
-        conflicts: [CorrelationConflict]
+        conflicts: [CorrelationConflict],
+        unavailableReason: String? = nil,
+        provenance: EvidenceProvenance? = nil,
+        eligibility: EvidenceEligibilityDecision? = nil
     ) {
+        self.status = status
+        self.isAvailable = (status == .evaluated)
         self.matchedPairs = matchedPairs
         self.unmatchedVisualElements = unmatchedVisualElements
         self.unmatchedAccessibilityNodes = unmatchedAccessibilityNodes
         self.conflicts = conflicts
+        self.unavailableReason = unavailableReason
 
         let total = matchedPairs.count + unmatchedVisualElements.count
-        self.matchRate = total > 0 ? Double(matchedPairs.count) / Double(total) : 1.0
+        if status == .evaluated && total > 0 {
+            let computed = Double(matchedPairs.count) / Double(total)
+            self.evaluatedMatchRate = computed
+            self.matchRate = computed
+        } else {
+            self.evaluatedMatchRate = nil
+            self.matchRate = 0.0
+        }
+
+        if let provenance {
+            self.provenance = provenance
+        } else if status == .evaluated {
+            self.provenance = EvidenceProvenance(kind: .derived, source: "visualSemanticCorrelator", detail: "Spatial IoU correlation across independent visual and accessibility observations.")
+        } else {
+            self.provenance = .unavailable(source: "visualSemanticCorrelator", detail: unavailableReason ?? "Independent visual and semantic observations are unavailable.")
+        }
+
+        if let eligibility {
+            self.eligibility = eligibility
+        } else {
+            self.eligibility = EvidenceEligibilityDecision(
+                consumer: .visualSemanticCorrelation,
+                status: status == .evaluated ? .eligible : (status == .ineligible ? .ineligible : .notEvaluated),
+                isEligible: status == .evaluated,
+                canPass: status == .evaluated && conflicts.isEmpty,
+                reasons: unavailableReason.map { [$0] } ?? []
+            )
+        }
     }
 }
 
 /// Engine correlating computer vision element detections with native accessibility hierarchy nodes.
 public enum VisualSemanticCorrelator {
 
-    /// Correlates vision detections with accessibility nodes based on bounding box IoU and role heuristics.
+    /// Correlates independently acquired vision detections with accessibility nodes based on bounding box IoU and role heuristics.
     public static func correlate(
         visualElements: [DetectedElement],
         accessibilityNodes: [NativeAccessibilityNode],
-        minIoUThreshold: Double = 0.20
+        minIoUThreshold: Double = 0.20,
+        visualProvenance: EvidenceProvenance? = nil,
+        captureIdentity: CaptureIdentity? = nil,
+        expectedCaptureIdentity: CaptureIdentity? = nil
     ) -> CorrelationReport {
+        let effectiveVisualProvenance: EvidenceProvenance
+        if let visualProvenance {
+            effectiveVisualProvenance = visualProvenance
+        } else if visualElements.isEmpty {
+            effectiveVisualProvenance = .unavailable(
+                source: "visualDetector",
+                detail: "No independent visual observations were provided."
+            )
+        } else {
+            effectiveVisualProvenance = EvidenceProvenance(
+                kind: .measured,
+                source: "visualDetector",
+                confidence: Double(visualElements.map(\.confidence).reduce(0, +)) / Double(visualElements.count),
+                detail: "Visual detector observations"
+            )
+        }
+
+        // Reject correlation if visual observations were derived from accessibility nodes rather than acquired independently.
+        let loweredSource = effectiveVisualProvenance.source.lowercased()
+        if loweredSource.contains("accessibility") || loweredSource.contains("synthetic_from_ax") {
+            let reason = "Correlation requires independently acquired visual observations; visual elements derived from accessibility nodes are ineligible."
+            let decision = EvidenceEligibilityDecision(
+                consumer: .visualSemanticCorrelation,
+                status: .ineligible,
+                isEligible: false,
+                canPass: false,
+                reasons: [reason],
+                captureIdentity: captureIdentity
+            )
+            return CorrelationReport(
+                status: .ineligible,
+                matchedPairs: [],
+                unmatchedVisualElements: visualElements,
+                unmatchedAccessibilityNodes: accessibilityNodes,
+                conflicts: [],
+                unavailableReason: reason,
+                provenance: .unavailable(source: "visualSemanticCorrelator", detail: reason),
+                eligibility: decision
+            )
+        }
+
+        if visualElements.isEmpty {
+            let reason = "Independent visual observations are unavailable; correlation cannot be evaluated."
+            let decision = EvidenceEligibilityPolicy.evaluate(
+                consumer: .visualSemanticCorrelation,
+                requiredEvidence: ["visualObservations": effectiveVisualProvenance],
+                captureIdentity: captureIdentity,
+                expectedCaptureIdentity: expectedCaptureIdentity
+            )
+            return CorrelationReport(
+                status: .unavailable,
+                matchedPairs: [],
+                unmatchedVisualElements: [],
+                unmatchedAccessibilityNodes: accessibilityNodes,
+                conflicts: [],
+                unavailableReason: reason,
+                provenance: .unavailable(source: "visualSemanticCorrelator", detail: reason),
+                eligibility: decision
+            )
+        }
+
+        if accessibilityNodes.isEmpty {
+            let reason = "Programmatic accessibility hierarchy observations are unavailable; correlation cannot be evaluated."
+            let decision = EvidenceEligibilityPolicy.evaluate(
+                consumer: .visualSemanticCorrelation,
+                requiredEvidence: [
+                    "visualObservations": effectiveVisualProvenance,
+                    "accessibilityNodes": .unavailable(source: "accessibilityHierarchy", detail: reason)
+                ],
+                captureIdentity: captureIdentity,
+                expectedCaptureIdentity: expectedCaptureIdentity
+            )
+            return CorrelationReport(
+                status: .unavailable,
+                matchedPairs: [],
+                unmatchedVisualElements: visualElements,
+                unmatchedAccessibilityNodes: [],
+                conflicts: [],
+                unavailableReason: reason,
+                provenance: .unavailable(source: "visualSemanticCorrelator", detail: reason),
+                eligibility: decision
+            )
+        }
+
+        let eligibleGeometryNodes = accessibilityNodes.filter { node in
+            guard node.frame != nil else { return false }
+            switch node.frameProvenance.kind {
+            case .measured, .derived, .humanConfirmed:
+                return node.provenance.kind != .synthetic && node.provenance.kind != .unavailable
+            case .inferred, .synthetic, .unavailable:
+                return false
+            }
+        }
+
+        if eligibleGeometryNodes.isEmpty {
+            let hasSyntheticFrames = accessibilityNodes.contains { $0.frameProvenance.kind == .synthetic || $0.provenance.kind == .synthetic }
+            let status: CorrelationStatus = hasSyntheticFrames ? .ineligible : .unavailable
+            let reason = hasSyntheticFrames
+                ? "Accessibility nodes only have synthetic placeholder geometry; spatial correlation is ineligible."
+                : "Accessibility nodes lack measured or derived native geometry frames; spatial correlation is unavailable."
+            let frameEv: EvidenceProvenance = hasSyntheticFrames
+                ? .synthetic(source: "accessibility.frame", detail: reason)
+                : .unavailable(source: "accessibility.frame", detail: reason)
+            let decision = EvidenceEligibilityPolicy.evaluate(
+                consumer: .visualSemanticCorrelation,
+                requiredEvidence: [
+                    "visualObservations": effectiveVisualProvenance,
+                    "accessibilityGeometry": frameEv
+                ],
+                captureIdentity: captureIdentity,
+                expectedCaptureIdentity: expectedCaptureIdentity
+            )
+            return CorrelationReport(
+                status: status,
+                matchedPairs: [],
+                unmatchedVisualElements: visualElements,
+                unmatchedAccessibilityNodes: accessibilityNodes,
+                conflicts: [],
+                unavailableReason: reason,
+                provenance: .unavailable(source: "visualSemanticCorrelator", detail: reason),
+                eligibility: decision
+            )
+        }
+
+        let eligibility = EvidenceEligibilityPolicy.evaluate(
+            consumer: .visualSemanticCorrelation,
+            requiredEvidence: [
+                "visualObservations": effectiveVisualProvenance,
+                "accessibilityGeometry": eligibleGeometryNodes[0].frameProvenance
+            ],
+            captureIdentity: captureIdentity,
+            expectedCaptureIdentity: expectedCaptureIdentity
+        )
+
+        if !eligibility.isEligible {
+            let status: CorrelationStatus = (eligibility.status == .ineligible) ? .ineligible : .unavailable
+            let reason = eligibility.reasons.joined(separator: " ")
+            return CorrelationReport(
+                status: status,
+                matchedPairs: [],
+                unmatchedVisualElements: visualElements,
+                unmatchedAccessibilityNodes: accessibilityNodes,
+                conflicts: [],
+                unavailableReason: reason,
+                provenance: .unavailable(source: "visualSemanticCorrelator", detail: reason),
+                eligibility: eligibility
+            )
+        }
+
         var matchedPairs: [VisualSemanticPair] = []
         var conflicts: [CorrelationConflict] = []
         var matchedVisualIndices = Set<Int>()
@@ -90,6 +289,12 @@ public enum VisualSemanticCorrelator {
 
             for (nIdx, node) in accessibilityNodes.enumerated() {
                 guard let nodeFrame = node.frame else { continue }
+                guard node.frameProvenance.kind == .measured || node.frameProvenance.kind == .derived || node.frameProvenance.kind == .humanConfirmed else {
+                    continue
+                }
+                guard node.provenance.kind != .synthetic && node.provenance.kind != .unavailable else {
+                    continue
+                }
                 let iou = visual.boundingBox.iou(with: nodeFrame)
 
                 if iou >= minIoUThreshold {
@@ -118,6 +323,16 @@ public enum VisualSemanticCorrelator {
                         visualElement: visual,
                         accessibilityNode: match.node,
                         reason: "Visual element appears to be a button, but accessibility node lacks .isButton trait",
+                        kind: .roleMismatch
+                    ))
+                }
+
+                // Check for unannounced or mislabeled badge indicators
+                if visual.type.lowercased() == "badge" && (match.node.label == nil || match.node.label?.isEmpty == true) && (match.node.value == nil || match.node.value?.isEmpty == true) {
+                    conflicts.append(CorrelationConflict(
+                        visualElement: visual,
+                        accessibilityNode: match.node,
+                        reason: "Visual element displays a badge indicator, but matched accessibility node has neither label nor value to announce badge content",
                         kind: .roleMismatch
                     ))
                 }
@@ -151,7 +366,7 @@ public enum VisualSemanticCorrelator {
             }
         }
 
-        let unmatchedVisual = visualElements.enumerated()
+        let unmatchedVisuals = visualElements.enumerated()
             .filter { !matchedVisualIndices.contains($0.offset) }
             .map(\.element)
 
@@ -160,10 +375,19 @@ public enum VisualSemanticCorrelator {
             .map(\.element)
 
         return CorrelationReport(
+            status: .evaluated,
             matchedPairs: matchedPairs,
-            unmatchedVisualElements: unmatchedVisual,
+            unmatchedVisualElements: unmatchedVisuals,
             unmatchedAccessibilityNodes: unmatchedNodes,
-            conflicts: conflicts
+            conflicts: conflicts,
+            unavailableReason: nil,
+            provenance: EvidenceProvenance(
+                kind: .derived,
+                source: "visualSemanticCorrelator",
+                confidence: matchedPairs.isEmpty ? nil : matchedPairs.map(\.confidence).reduce(0, +) / Double(matchedPairs.count),
+                detail: "Correlated \(matchedPairs.count) pair(s) from \(visualElements.count) visual and \(eligibleGeometryNodes.count) geometry-backed accessibility observations."
+            ),
+            eligibility: eligibility
         )
     }
 }
