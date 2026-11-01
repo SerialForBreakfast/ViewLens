@@ -146,19 +146,22 @@ struct MCPExecutionContext: Sendable {
     private let runtime: MCPProtocolRuntime?
     private let taskID: String?
     private let taskStore: MCPTaskStore?
+    private let generationID: UInt64?
 
     init(requestID: JSONRPCRequest.RequestID, runtime: MCPProtocolRuntime) {
         self.requestID = requestID
         self.runtime = runtime
         self.taskID = nil
         self.taskStore = nil
+        self.generationID = nil
     }
 
-    init(taskID: String, taskStore: MCPTaskStore) {
+    init(taskID: String, taskStore: MCPTaskStore, generationID: UInt64? = nil) {
         self.requestID = nil
         self.runtime = nil
         self.taskID = taskID
         self.taskStore = taskStore
+        self.generationID = generationID
     }
 
     func checkpoint() async -> Bool {
@@ -183,7 +186,12 @@ struct MCPExecutionContext: Sendable {
             )
         }
         if let taskID, let taskStore {
-            return await taskStore.report(taskID: taskID, progress: progress, message: message)
+            return await taskStore.report(
+                taskID: taskID,
+                generationID: generationID,
+                progress: progress,
+                message: message
+            )
         }
         return false
     }

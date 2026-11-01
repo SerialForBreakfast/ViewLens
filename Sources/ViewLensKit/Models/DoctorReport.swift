@@ -16,10 +16,17 @@ public struct DoctorReport: Codable, Sendable, Equatable, Hashable {
     public let status: String // "ready" or "not_ready"
     public let checks: [DiagnosticCheck]
     public let recommendedNextCommand: String
+    public let capabilityPreflight: CapabilityPreflightReport?
 
-    public init(status: String, checks: [DiagnosticCheck], recommendedNextCommand: String) {
+    public init(
+        status: String,
+        checks: [DiagnosticCheck],
+        recommendedNextCommand: String,
+        capabilityPreflight: CapabilityPreflightReport? = nil
+    ) {
         self.status = status
         self.checks = checks
         self.recommendedNextCommand = recommendedNextCommand
+        self.capabilityPreflight = capabilityPreflight
     }
 }

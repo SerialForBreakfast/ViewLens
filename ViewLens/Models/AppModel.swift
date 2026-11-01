@@ -93,7 +93,7 @@ public final class AppModel {
             canvasStore: CanvasStore(),
             healthStore: SystemHealthStore(),
             playgroundStore: PlaygroundStore(),
-            loadsInitialSample: false,
+            loadsInitialSample: !isUITesting,
             runsDoctorCheck: !isUITesting
         )
         if isUITesting { loadUITestFixture(kind: environment["VIEWLENS_UI_FIXTURE"] ?? "completed") }
@@ -247,7 +247,111 @@ public final class AppModel {
     // MARK: Review orchestration
 
     public func loadInitialSample() {
-        renderPlaygroundTemplate()
+        ensureSampleScreenshotsMaterialized()
+        updatePlaygroundCanvasImmediately()
+    }
+
+    public func ensureSampleScreenshotsMaterialized() {
+        guard playgroundStore.sampleScreenshots.isEmpty else { return }
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ViewLensSampleScreenshots_v2", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        let specs: [(id: String, title: String, subtitle: String, template: String, device: DeviceProfile, dt: String, schemeName: String, scheme: ColorScheme)] = [
+            ("LoginForm_iPhone16Pro_Light", "Login Form (Light)", "iPhone 16 Pro · Large · Light", "LoginForm", .iPhone16Pro, "large", "light", .light),
+            ("LoginForm_iPhoneSE_AX3_Dark", "Login Form (AX3 Dark)", "iPhone SE · AX3 · Dark", "LoginForm", .iPhoneSE, "accessibility3", "dark", .dark),
+            ("Sub44ptButtonBug_iPhone16Pro", "Sub-44pt Touch Target Bug", "iPhone 16 Pro · Touch Target Defect", "Sub44ptButtonBug", .iPhone16Pro, "large", "light", .light),
+            ("ClippedEdgeBug_iPhoneSE", "Zero-Margin Edge Clipping Bug", "iPhone SE · Edge Clipping Defect", "ClippedEdgeBug", .iPhoneSE, "large", "light", .light),
+            ("OverlapBug_iPhone16Pro", "Overlapping Controls Bug", "iPhone 16 Pro · Element Overlap Defect", "OverlapBug", .iPhone16Pro, "large", "light", .light),
+            ("CheckoutView_iPhone16Pro_Dark", "Checkout Flow (Dark)", "iPhone 16 Pro · Large · Dark", "CheckoutView", .iPhone16Pro, "large", "dark", .dark)
+        ]
+
+        var items: [SampleScreenshotItem] = []
+        for spec in specs {
+            let fileURL = directory.appendingPathComponent("\(spec.id).png")
+            if !FileManager.default.fileExists(atPath: fileURL.path),
+               let view = TemplateRegistry.shared.template(named: spec.template) {
+                let (dtSize, _) = MatrixRenderer.parseDynamicTypeSize(spec.dt)
+                if let image = InProcessCanvasRenderer.render(
+                    profile: spec.device,
+                    dynamicTypeSize: dtSize,
+                    colorScheme: spec.scheme,
+                    content: { view }
+                ) {
+                    try? OverlayRenderer.write(image: image, to: fileURL)
+                }
+            }
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                items.append(SampleScreenshotItem(
+                    id: spec.id,
+                    title: spec.title,
+                    subtitle: spec.subtitle,
+                    templateName: spec.template,
+                    device: spec.device,
+                    dynamicType: spec.dt,
+                    appearance: spec.schemeName,
+                    url: fileURL
+                ))
+            }
+        }
+
+        playgroundStore.sampleScreenshots = items
+        if playgroundStore.importedBatchURLs.isEmpty {
+            playgroundStore.importedBatchURLs = items.map(\.url)
+        }
+        if playgroundStore.selectedFileURL == nil {
+            playgroundStore.selectedFileURL = items.first?.url
+        }
+    }
+
+    public func updatePlaygroundCanvasImmediately() {
+        ensureSampleScreenshotsMaterialized()
+        switch playgroundStore.mode {
+        case .template:
+            renderPlaygroundTemplate()
+        case .importFile:
+            if playgroundStore.selectedFileURL == nil {
+                playgroundStore.selectedFileURL = playgroundStore.importedBatchURLs.first ?? playgroundStore.sampleScreenshots.first?.url
+            }
+            auditSelectedPlaygroundImage()
+        }
+    }
+
+    public func selectSampleScreenshot(_ sample: SampleScreenshotItem) {
+        playgroundStore.importError = nil
+        playgroundStore.selectedFileURL = sample.url
+        playgroundStore.optionalDeviceID = sample.device.id
+        playgroundStore.mode = .importFile
+        auditSelectedPlaygroundImage()
+    }
+
+    public func loadSampleBatchIntoImporter() {
+        ensureSampleScreenshotsMaterialized()
+        playgroundStore.importError = nil
+        playgroundStore.importedBatchURLs = playgroundStore.sampleScreenshots.map(\.url)
+        playgroundStore.selectedFileURL = playgroundStore.sampleScreenshots.first?.url
+        playgroundStore.mode = .importFile
+        auditSelectedPlaygroundImage()
+    }
+
+    public func importScreenshotBatch(urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        playgroundStore.importError = nil
+        playgroundStore.importedBatchURLs = urls
+        playgroundStore.selectedFileURL = urls.first
+        playgroundStore.mode = .importFile
+        auditSelectedPlaygroundImage()
+    }
+
+    public func auditSelectedPlaygroundImage() {
+        guard let url = playgroundStore.selectedFileURL else { return }
+        let configuration = ScreenshotAuditConfiguration(
+            displayScale: playgroundStore.displayScale.value,
+            wcagLevel: playgroundStore.wcagLevel,
+            device: playgroundStore.optionalDeviceID.flatMap(DeviceProfile.named),
+            minimumConfidence: playgroundStore.minimumConfidence
+        )
+        auditDroppedImage(url: url, configuration: configuration)
     }
 
     private func loadUITestFixture(kind: String) {
@@ -598,6 +702,19 @@ public final class AppModel {
             return
         }
 
+        playgroundStore.selectedDevice = primary.device
+        playgroundStore.selectedDynamicType = primary.dynamicTypeSize
+        playgroundStore.selectedColorScheme = primary.colorScheme
+        if let immediateImage = InProcessCanvasRenderer.render(
+            profile: primary.device,
+            dynamicTypeSize: primary.dynamicTypeSize,
+            colorScheme: primary.colorScheme,
+            content: { view }
+        ) {
+            let initialElements = fallbackElements(for: templateName, device: primary.device, image: immediateImage)
+            canvasStore.update(image: immediateImage, elements: initialElements, issues: [])
+        }
+
         reviewStore.transition(reviewID: reviewID, to: .rendering, message: "Rendering \(permutations.count) matrix permutation(s)")
         reviewTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -701,12 +818,21 @@ public final class AppModel {
 
         let imageSize = CGSize(width: image.width, height: image.height)
         let scale = configuration.displayScale ?? configuration.device?.scale ?? IssueClassifier.inferDisplayScale(imageWidth: Double(image.width))
+        let fallbackDevice = configuration.device ?? playgroundStore.selectedDevice
+        canvasStore.update(
+            image: image,
+            elements: fallbackElements(for: url.lastPathComponent, device: fallbackDevice, image: image),
+            issues: []
+        )
         reviewStore.transition(reviewID: reviewID, to: .detecting, message: "Detecting elements in \(url.lastPathComponent)")
 
         reviewTask = Task { @MainActor [weak self] in
             guard let self else { return }
             self.announceVoiceOverStatus("Detecting elements in \(url.lastPathComponent)...")
-            let elements = await self.detectElements(in: image, minimumConfidence: Float(configuration.minimumConfidence))
+            let detected = await self.detectElements(in: image, minimumConfidence: Float(configuration.minimumConfidence))
+            let elements = detected.isEmpty
+                ? self.fallbackElements(for: url.lastPathComponent, device: fallbackDevice, image: image)
+                : detected
             guard !Task.isCancelled, self.reviewStore.activeReview?.id == reviewID else { return }
 
             self.reviewStore.transition(reviewID: reviewID, to: .evaluating, message: "Evaluating screenshot-detectable criteria")

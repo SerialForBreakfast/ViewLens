@@ -59,6 +59,25 @@ public struct ViewLensProgressBar: View {
     }
 }
 
+/// Pure SwiftUI scroll-viewport container without NSScrollView/PlatformViewRepresentableAdaptor
+/// dependencies so `ImageRenderer` rasterizes the entire visible viewport on macOS.
+public struct ViewLensScrollContainer<Content: View>: View {
+    public let content: Content
+
+    public init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    public var body: some View {
+        VStack(spacing: 0) {
+            content
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .clipped()
+    }
+}
+
 /// Registry storing known SwiftUI view templates for headless rendering, Mac App playground, and agent iteration.
 @MainActor
 public final class TemplateRegistry {

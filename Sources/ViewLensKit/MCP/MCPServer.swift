@@ -37,7 +37,7 @@ public final class MCPServer: Sendable {
     }
 
     init(
-        resourceStore: MCPResourceStore,
+        resourceStore: MCPResourceStore = MCPResourceStore(),
         protocolRuntime: MCPProtocolRuntime = MCPProtocolRuntime(),
         taskStore: MCPTaskStore = MCPTaskStore(),
         sessionStore: RuntimeSessionStore = RuntimeSessionStore(),
@@ -545,13 +545,14 @@ public final class MCPServer: Sendable {
                 "arguments": .object(descriptor.arguments)
             ])
         )
-        let execution = MCPExecutionContext(taskID: taskID, taskStore: taskStore)
+        let execution = MCPExecutionContext(taskID: taskID, taskStore: taskStore, generationID: descriptor.generationID)
         guard let responseData = await handleToolCall(request, modern: true, execution: execution) else {
             if await taskStore.isCancellationRequested(taskID: taskID) {
                 try? await taskStore.cancel(taskID: taskID)
             } else {
                 try? await taskStore.fail(
                     taskID: taskID,
+                    generationID: descriptor.generationID,
                     error: JSONRPCError(code: -32603, message: "Task execution ended without a result")
                 )
             }
@@ -565,23 +566,25 @@ public final class MCPServer: Sendable {
             }
             if let result = object["result"] {
                 do {
-                    try await taskStore.complete(taskID: taskID, result: result)
+                    try await taskStore.complete(taskID: taskID, generationID: descriptor.generationID, result: result)
                 } catch MCPTaskStore.PersistenceError.resultTooLarge {
                     try await taskStore.fail(
                         taskID: taskID,
+                        generationID: descriptor.generationID,
                         error: JSONRPCError(code: -32603, message: "Task result exceeds the 5 MB storage limit")
                     )
                 }
             } else if let errorValue = object["error"] {
                 let errorData = try JSONEncoder().encode(errorValue)
                 let error = try JSONDecoder().decode(JSONRPCError.self, from: errorData)
-                try await taskStore.fail(taskID: taskID, error: error)
+                try await taskStore.fail(taskID: taskID, generationID: descriptor.generationID, error: error)
             } else {
                 throw NSError(domain: "ViewLensMCPTask", code: 2)
             }
         } catch {
             try? await taskStore.fail(
                 taskID: taskID,
+                generationID: descriptor.generationID,
                 error: JSONRPCError(code: -32603, message: "Unable to persist task result")
             )
         }
@@ -1419,7 +1422,7 @@ public final class MCPServer: Sendable {
     private func doctorOutputDataSchema() -> JSONValue {
         .object([
             "type": .string("object"),
-            "additionalProperties": .bool(false),
+            "additionalProperties": .bool(true),
             "properties": .object([
                 "status": .object(["type": .string("string"), "enum": .array([.string("ready"), .string("not_ready")])]),
                 "checks": .object([
@@ -1435,7 +1438,8 @@ public final class MCPServer: Sendable {
                         "required": .array([.string("name"), .string("status"), .string("detail")])
                     ])
                 ]),
-                "recommendedNextCommand": .object(["type": .string("string")])
+                "recommendedNextCommand": .object(["type": .string("string")]),
+                "capabilityPreflight": .object(["type": .string("object")])
             ]),
             "required": .array([.string("status"), .string("checks"), .string("recommendedNextCommand")])
         ])
@@ -1540,7 +1544,29 @@ public final class MCPServer: Sendable {
         case "viewlens_doctor":
             let started = DispatchTime.now()
             let modelPath = arguments["model_path"]?.stringValue
-            let report = await runDoctor(customPath: modelPath)
+            let workflowStr = arguments["workflow"]?.stringValue
+            let requestedTarget = arguments["target"]?.stringValue
+            let workspaceRoot = arguments["workspace_root"]?.stringValue
+            let baseReport = await runDoctor(customPath: modelPath)
+            let report: DoctorReport
+            if let workflowStr, let workflowKind = PreflightWorkflowKind(rawValue: workflowStr) {
+                let preflight = await DoctorEngine.preflight(
+                    workflow: workflowKind,
+                    workspaceRoot: workspaceRoot,
+                    requestedTarget: requestedTarget,
+                    customModelPath: modelPath
+                )
+                let effectiveStatus = (preflight.overallStatus == .ready) ? "ready" : "not_ready"
+                let effectiveCommand = preflight.repairs.first?.suggestedCommand ?? baseReport.recommendedNextCommand
+                report = DoctorReport(
+                    status: effectiveStatus,
+                    checks: baseReport.checks,
+                    recommendedNextCommand: effectiveCommand,
+                    capabilityPreflight: preflight
+                )
+            } else {
+                report = baseReport
+            }
             let jsonText = JSONFormatter.encode(report)
             let unavailableChecks = report.checks.filter { $0.status != "confirmed" }
             let evidence = MCPEvidenceEnvelope(
@@ -2744,40 +2770,103 @@ public final class MCPServer: Sendable {
             }
             let targetTemplateLabel = templates.joined(separator: ", ")
             let parsedBaseline = baselineIssues.map { IdentifiedFinding.parse($0, defaultTarget: targetTemplateLabel) }
-            let comparison = FixVerifier.verifyFindings(
-                changeSet: ChangeSet(changedFiles: changedFiles, targetTemplate: targetTemplateLabel),
-                baselineFindings: parsedBaseline,
-                currentFindings: currentFindings,
-                retestedContexts: retestedContexts.isEmpty ? nil : retestedContexts
-            )
-            let mergedNotRetested = Array(Set(notRetested + comparison.notRetested + (notRetested.isEmpty ? [] : baselineIssues))).sorted()
-            let fixReport = FixVerificationReport(
-                template: comparison.template,
-                resolvedIssues: notRetested.isEmpty ? comparison.resolvedIssues : [],
-                remainingIssues: comparison.remainingIssues,
-                introducedIssues: comparison.introducedIssues,
-                notRetested: mergedNotRetested,
-                uncertainFindings: comparison.uncertainFindings,
-                comparisons: comparison.comparisons,
-                eligibility: notRetested.isEmpty ? comparison.eligibility : EvidenceEligibilityDecision(
-                    consumer: .fixVerification,
-                    status: .incomplete,
-                    isEligible: false,
-                    canPass: false,
-                    reasons: notRetested
+
+            let decoder = JSONDecoder()
+            let buildReceipt: BuildArtifactReceipt? = arguments["build_receipt"].flatMap {
+                guard let data = try? JSONEncoder().encode($0) else { return nil }
+                return try? decoder.decode(BuildArtifactReceipt.self, from: data)
+            }
+            let captureReceipt: BoundCaptureReceipt? = arguments["capture_receipt"].flatMap {
+                guard let data = try? JSONEncoder().encode($0) else { return nil }
+                return try? decoder.decode(BoundCaptureReceipt.self, from: data)
+            }
+            let currentSourceDigest = arguments["current_source_digest"]?.stringValue
+            let missingDependencies = arguments["missing_dependencies"]?.arrayValue?.compactMap(\.stringValue) ?? []
+            let verifySourceChain = arguments["verify_source_chain"]?.boolValue ?? (buildReceipt != nil || captureReceipt != nil)
+
+            let fixReport: FixVerificationReport
+            if verifySourceChain {
+                let expectedTarget = arguments["expected_target"]?.stringValue ?? targetTemplateLabel
+                let workspaceRoot = arguments["workspace_root"]?.stringValue ?? FileManager.default.currentDirectoryPath
+                let chainVerifiedReport = FixVerifier.verifyWithReceiptChain(
+                    changeSet: ChangeSet(changedFiles: changedFiles, targetTemplate: targetTemplateLabel),
+                    expectedWorkspaceRoot: workspaceRoot,
+                    expectedTarget: expectedTarget,
+                    buildReceipt: buildReceipt,
+                    captureReceipt: captureReceipt,
+                    currentSourceDigest: currentSourceDigest,
+                    missingDependencies: missingDependencies,
+                    baselineFindings: parsedBaseline,
+                    currentFindings: currentFindings,
+                    retestedContexts: retestedContexts.isEmpty ? nil : retestedContexts
                 )
-            )
+                let mergedNotRetested = Array(Set(notRetested + chainVerifiedReport.notRetested + (notRetested.isEmpty ? [] : baselineIssues))).sorted()
+                let isVerified = notRetested.isEmpty && chainVerifiedReport.sourceChangesVerified
+                fixReport = FixVerificationReport(
+                    template: chainVerifiedReport.template,
+                    resolvedIssues: notRetested.isEmpty ? chainVerifiedReport.resolvedIssues : [],
+                    remainingIssues: chainVerifiedReport.remainingIssues,
+                    introducedIssues: chainVerifiedReport.introducedIssues,
+                    notRetested: mergedNotRetested,
+                    uncertainFindings: chainVerifiedReport.uncertainFindings,
+                    comparisons: chainVerifiedReport.comparisons,
+                    eligibility: notRetested.isEmpty ? chainVerifiedReport.eligibility : EvidenceEligibilityDecision(
+                        consumer: .fixVerification,
+                        status: .incomplete,
+                        isEligible: false,
+                        canPass: false,
+                        reasons: notRetested
+                    ),
+                    sourceChangesVerified: isVerified,
+                    chainReceipt: chainVerifiedReport.chainReceipt
+                )
+            } else {
+                let comparison = FixVerifier.verifyFindings(
+                    changeSet: ChangeSet(changedFiles: changedFiles, targetTemplate: targetTemplateLabel),
+                    baselineFindings: parsedBaseline,
+                    currentFindings: currentFindings,
+                    retestedContexts: retestedContexts.isEmpty ? nil : retestedContexts
+                )
+                let mergedNotRetested = Array(Set(notRetested + comparison.notRetested + (notRetested.isEmpty ? [] : baselineIssues))).sorted()
+                fixReport = FixVerificationReport(
+                    template: comparison.template,
+                    resolvedIssues: notRetested.isEmpty ? comparison.resolvedIssues : [],
+                    remainingIssues: comparison.remainingIssues,
+                    introducedIssues: comparison.introducedIssues,
+                    notRetested: mergedNotRetested,
+                    uncertainFindings: comparison.uncertainFindings,
+                    comparisons: comparison.comparisons,
+                    eligibility: notRetested.isEmpty ? comparison.eligibility : EvidenceEligibilityDecision(
+                        consumer: .fixVerification,
+                        status: .incomplete,
+                        isEligible: false,
+                        canPass: false,
+                        reasons: notRetested
+                    ),
+                    sourceChangesVerified: false,
+                    chainReceipt: nil
+                )
+            }
             var resultObject = ((try? JSONValue.fromEncodable(fixReport)) ?? .object([:])).objectValue ?? [:]
-            resultObject["verificationScope"] = .string("registered_template_matrix")
-            resultObject["sourceChangesVerified"] = .bool(false)
+            resultObject["verificationScope"] = .string(fixReport.sourceChangesVerified ? "bound_build_capture_chain" : "registered_template_matrix")
+            resultObject["sourceChangesVerified"] = .bool(fixReport.sourceChangesVerified)
             if let selection { resultObject["selection"] = try? JSONValue.fromEncodable(selection) }
-            resultObject["evidenceLimitations"] = .array([
-                .string("Registered templates are rendered from the running binary. Source changes are not rebuilt or recaptured from the target project; that requires MCP-19.12."),
-                .string("Accommodations beyond device, Dynamic Type, and appearance remain recommended and were not executed.")
-            ])
+            if fixReport.sourceChangesVerified {
+                resultObject["evidenceLimitations"] = .array([
+                    .string("Verified against bound source tree, build artifact receipt, and fresh capture receipts.")
+                ])
+            } else {
+                resultObject["evidenceLimitations"] = .array([
+                    .string("Registered templates are rendered from the running binary. Source changes are not rebuilt or recaptured from the target project; that requires MCP-19.12."),
+                    .string("Accommodations beyond device, Dynamic Type, and appearance remain recommended and were not executed.")
+                ])
+            }
             let fixJSON = JSONValue.object(resultObject)
             let jsonText = (try? String(data: JSONEncoder().encode(fixJSON), encoding: .utf8)) ?? "{}"
-            guard await execution.report(progress: 100, message: "Template verification complete; source rebuild and recapture unavailable") else { return nil }
+            let progressMsg = fixReport.sourceChangesVerified
+                ? "Bound build and capture verification complete"
+                : "Template verification complete; source rebuild and recapture unavailable"
+            guard await execution.report(progress: 100, message: progressMsg) else { return nil }
 
             let result = MCPToolCallResult(
                 text: jsonText,

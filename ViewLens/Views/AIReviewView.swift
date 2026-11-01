@@ -47,19 +47,19 @@ struct AIReviewView: View {
             if hasResult {
                 HSplitView {
                     workbenchMainView
-                        .frame(minWidth: 480, maxWidth: .infinity, maxHeight: .infinity)
+                        .frame(minWidth: 480, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
                     if showsInspector {
                         AIReviewInspector(model: model)
-                            .frame(minWidth: 320, idealWidth: 360, maxWidth: 480, maxHeight: .infinity)
+                            .frame(minWidth: 320, idealWidth: 360, maxWidth: 480, minHeight: 0, maxHeight: .infinity)
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
             } else {
                 emptyState
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle("AI Review")
         .accessibilityIdentifier("screen.aiReview")
@@ -177,18 +177,18 @@ struct AIReviewView: View {
         switch displayMode {
         case .canvas:
             VisualInspectorView(model: model)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
         case .outline:
             NonvisualOutlineView(model: model)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
         case .split:
             HSplitView {
                 VisualInspectorView(model: model)
-                    .frame(minWidth: 340, maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(minWidth: 340, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
                 NonvisualOutlineView(model: model)
-                    .frame(minWidth: 260, maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(minWidth: 260, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
         }
     }
 

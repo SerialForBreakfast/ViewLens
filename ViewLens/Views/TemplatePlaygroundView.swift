@@ -33,13 +33,17 @@ public struct TemplatePlaygroundView: View {
             }
             Section("Run Behavior") {
                 Toggle("Auto-run when configuration changes", isOn: $preferences.autoRunPlayground)
-                Text("The matrix contains \(permutationCount) permutation\(permutationCount == 1 ? "" : "s"). Auto-run is off by default.")
+                Text("The matrix contains \(permutationCount) permutation\(permutationCount == 1 ? "" : "s"). Canvas updates immediately on any change.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
+        .onAppear {
+            if model.currentImage == nil {
+                model.renderPlaygroundTemplate()
+            }
+        }
         .onChange(of: configurationSignature) { _, _ in
-            guard preferences.autoRunPlayground, !model.isRenderingPlayground else { return }
             model.renderPlaygroundTemplate()
         }
     }
@@ -48,7 +52,14 @@ public struct TemplatePlaygroundView: View {
         max(1, playground.selectedDeviceIDs.count) * max(1, playground.selectedDynamicTypeNames.count) * max(1, playground.selectedAppearanceNames.count)
     }
     private var configurationSignature: String {
-        [model.selectedTemplateName, playground.selectedDeviceIDs.sorted().joined(), playground.selectedDynamicTypeNames.sorted().joined(), playground.selectedAppearanceNames.sorted().joined(), playground.wcagLevel].joined(separator: "|")
+        [
+            model.selectedTemplateName,
+            playground.selectedDeviceIDs.sorted().joined(separator: ","),
+            playground.selectedDynamicTypeNames.sorted().joined(separator: ","),
+            playground.selectedAppearanceNames.sorted().joined(separator: ","),
+            playground.wcagLevel,
+            String(format: "%.2f", playground.minimumConfidence)
+        ].joined(separator: "|")
     }
 
     private func matrixMenu(title: String, summary: String, choices: [(String, String)], selection: Binding<Set<String>>) -> some View {

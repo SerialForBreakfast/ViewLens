@@ -163,7 +163,7 @@ public struct FindingComparisonRecord: Codable, Sendable, Equatable, Hashable {
     }
 }
 
-/// Comprehensive report comparing before/after findings to prove fix effectiveness without regressions (MCP-17.7, MCP-17.8, LEARN-02, LEARN-03).
+/// Comprehensive report comparing before/after findings to prove fix effectiveness without regressions (MCP-17.7, MCP-17.8, LEARN-02, LEARN-03, LEARN-04).
 public struct FixVerificationReport: Codable, Sendable, Equatable {
     public let template: String
     public let resolvedIssues: [String]
@@ -173,6 +173,8 @@ public struct FixVerificationReport: Codable, Sendable, Equatable {
     public let uncertainFindings: [String]
     public let comparisons: [FindingComparisonRecord]
     public let eligibility: EvidenceEligibilityDecision
+    public let sourceChangesVerified: Bool
+    public let chainReceipt: SourceVerificationChainReceipt?
     public let hasRegressions: Bool
     public let passed: Bool
 
@@ -184,7 +186,9 @@ public struct FixVerificationReport: Codable, Sendable, Equatable {
         notRetested: [String] = [],
         uncertainFindings: [String] = [],
         comparisons: [FindingComparisonRecord] = [],
-        eligibility: EvidenceEligibilityDecision? = nil
+        eligibility: EvidenceEligibilityDecision? = nil,
+        sourceChangesVerified: Bool = false,
+        chainReceipt: SourceVerificationChainReceipt? = nil
     ) {
         self.template = template
         self.resolvedIssues = resolvedIssues
@@ -201,6 +205,8 @@ public struct FixVerificationReport: Codable, Sendable, Equatable {
             canPass: true
         )
         self.eligibility = resolvedEligibility
+        self.chainReceipt = chainReceipt
+        self.sourceChangesVerified = chainReceipt?.sourceChangesVerified ?? sourceChangesVerified
         self.hasRegressions = !introducedIssues.isEmpty
         self.passed = remainingIssues.isEmpty
             && introducedIssues.isEmpty
@@ -531,6 +537,72 @@ public enum FixVerifier {
             currentFindings: currentFindings,
             retestedContexts: retestedContexts,
             eligibility: eligibility
+        )
+    }
+
+    /// Binds fix verification to a build and capture receipt chain (LEARN-04).
+    /// Sets `sourceChangesVerified = true` only when the source -> build -> capture chain and finding comparison are complete.
+    public static func verifyWithReceiptChain(
+        changeSet: ChangeSet,
+        expectedWorkspaceRoot: String,
+        expectedTarget: String,
+        buildReceipt: BuildArtifactReceipt?,
+        captureReceipt: BoundCaptureReceipt?,
+        currentSourceDigest: String? = nil,
+        missingDependencies: [String] = [],
+        baselineFindings: [IdentifiedFinding],
+        currentFindings: [IdentifiedFinding],
+        retestedContexts: Set<String>? = nil
+    ) -> FixVerificationReport {
+        let resolvedContexts = retestedContexts ?? captureReceipt.map { Set($0.capturedPermutations) }
+        let initialComparison = verifyFindings(
+            changeSet: changeSet,
+            baselineFindings: baselineFindings,
+            currentFindings: currentFindings,
+            retestedContexts: resolvedContexts
+        )
+
+        let findingComparisonCompleted = initialComparison.notRetested.isEmpty
+            && initialComparison.uncertainFindings.isEmpty
+            && initialComparison.eligibility.canPass
+
+        let chainReceipt = BuildCaptureChainValidator.validateChain(
+            expectedWorkspaceRoot: expectedWorkspaceRoot,
+            expectedTarget: expectedTarget,
+            buildReceipt: buildReceipt,
+            captureReceipt: captureReceipt,
+            currentSourceDigest: currentSourceDigest,
+            missingDependencies: missingDependencies,
+            findingComparisonCompleted: findingComparisonCompleted
+        )
+
+        guard chainReceipt.sourceChangesVerified else {
+            let unverifiedNotRetested = Array(Set(initialComparison.notRetested + baselineFindings.map(\.displayKey) + chainReceipt.failureReasons)).sorted()
+            return FixVerificationReport(
+                template: changeSet.targetTemplate,
+                resolvedIssues: [],
+                remainingIssues: initialComparison.remainingIssues,
+                introducedIssues: initialComparison.introducedIssues,
+                notRetested: unverifiedNotRetested,
+                uncertainFindings: initialComparison.uncertainFindings,
+                comparisons: initialComparison.comparisons,
+                eligibility: chainReceipt.eligibility,
+                sourceChangesVerified: false,
+                chainReceipt: chainReceipt
+            )
+        }
+
+        return FixVerificationReport(
+            template: changeSet.targetTemplate,
+            resolvedIssues: initialComparison.resolvedIssues,
+            remainingIssues: initialComparison.remainingIssues,
+            introducedIssues: initialComparison.introducedIssues,
+            notRetested: initialComparison.notRetested,
+            uncertainFindings: initialComparison.uncertainFindings,
+            comparisons: initialComparison.comparisons,
+            eligibility: chainReceipt.eligibility,
+            sourceChangesVerified: true,
+            chainReceipt: chainReceipt
         )
     }
 }

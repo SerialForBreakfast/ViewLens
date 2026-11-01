@@ -58,10 +58,10 @@ Dependencies: LEARN-02. Coordinates with MCP-19.12; does not itself prove change
 
 As a developer, I want proof that my changed source was tested rather than a pre-existing template.
 
-- [ ] Under MCP-19.8, record approved workspace/target, source content digest including uncommitted changes, dependency pins, toolchain, build configuration, and artifact digest; reject source drift during the build.
-- [ ] Under MCP-19.9–19.12, bind fixture/resource provenance and each fresh capture to that artifact and its actual runtime/matrix configuration.
-- [ ] Set source-change verification true only when the required source/build/capture chain and finding comparison are complete; synthetic substitutes remain fidelity-baseline-ineligible.
-- [ ] Test stale artifacts, changed source during execution, wrong target, missing dependencies, build failure, and partial recapture through production callers.
+- [x] Under MCP-19.8, record approved workspace/target, source content digest including uncommitted changes, dependency pins, toolchain, build configuration, and artifact digest; reject source drift during the build.
+- [x] Under MCP-19.9–19.12, bind fixture/resource provenance and each fresh capture to that artifact and its actual runtime/matrix configuration.
+- [x] Set source-change verification true only when the required source/build/capture chain and finding comparison are complete; synthetic substitutes remain fidelity-baseline-ineligible.
+- [x] Test stale artifacts, changed source during execution, wrong target, missing dependencies, build failure, and partial recapture through production callers.
 
 Dependencies: LEARN-02/03 and MCP-19.8–19.12. Break implementation into existing build, fixture, render, and verification packets; no second build engine.
 
@@ -69,10 +69,10 @@ Dependencies: LEARN-02/03 and MCP-19.8–19.12. Break implementation into existi
 
 As a user, I want to know exactly what blocks my chosen review without triggering device actions during diagnosis.
 
-- [ ] Return ready, blocked, unknown, or not required for only the requested workflow's prerequisites: access, toolchain, target, runtime, model, source context, storage, and ownership.
-- [ ] Keep preflight read-only; preview build/install/launch/capture effects separately and require their authorized scope.
-- [ ] Share typed causes and actionable repairs across dashboard, Playground, CLI, and MCP; model-unavailable must not block supported native-only checks.
-- [ ] Test partial discovery, unavailable tools, denied access, wrong target, stale replies, and pending cleanup with zero preflight launch/input effects.
+- [x] Return ready, blocked, unknown, or not required for only the requested workflow's prerequisites: access, toolchain, target, runtime, model, source context, storage, and ownership.
+- [x] Keep preflight read-only; preview build/install/launch/capture effects separately and require their authorized scope.
+- [x] Share typed causes and actionable repairs across dashboard, Playground, CLI, and MCP; model-unavailable must not block supported native-only checks.
+- [x] Test partial discovery, unavailable tools, denied access, wrong target, stale replies, and pending cleanup with zero preflight launch/input effects.
 
 Dependencies: existing readiness owners; receipt fields align with LEARN-04. Design: existing dashboard and Playground surfaces, not a new setup wizard.
 
@@ -80,10 +80,10 @@ Dependencies: existing readiness owners; receipt fields align with LEARN-04. Des
 
 As an agent user, I want cancellation and reconnect to preserve the truth about what ran.
 
-- [ ] Extend durable tasks with queued, running, cleanup-pending, and terminal evidence as needed without breaking existing handle/TTL contracts.
-- [ ] Use operation/generation identity to reject late results; timeout does not imply the build/render/provider stopped or authorize automatic action replay.
-- [ ] Admit work through shared renderer/target ownership and resource limits; report contention separately from a stalled target.
-- [ ] Test cancellation during capture, reconnect, TTL expiry, overlapping requests, late callbacks, and failed cleanup; retain the original failure and recovery receipt.
+- [x] Extend durable tasks with queued, running, cleanup-pending, and terminal evidence as needed without breaking existing handle/TTL contracts.
+- [x] Use operation/generation identity to reject late results; timeout does not imply the build/render/provider stopped or authorize automatic action replay.
+- [x] Admit work through shared renderer/target ownership and resource limits; report contention separately from a stalled target.
+- [x] Test cancellation during capture, reconnect, TTL expiry, overlapping requests, late callbacks, and failed cleanup; retain the original failure and recovery receipt.
 
 Dependencies: ADR-009 and LEARN-05. Extend existing scheduler/task owners, not a separate background coordinator.
 
@@ -93,10 +93,10 @@ Dependencies: ADR-009 and LEARN-05. Extend existing scheduler/task owners, not a
 
 As an LLM user, I want one review request to perform the approved sequence and return a concise outcome.
 
-- [ ] Compose existing impact/context/preflight/review/verification owners into bounded workflows with declared scope, budgets, durable progress, and cancellation.
-- [ ] Return findings, coverage, evidence limitations, and next actions first; retain detailed evidence behind access-checked resources.
-- [ ] Preserve per-step failures and authorization boundaries; no hidden dependency downloads, source mutation, setting changes, or expanded targets.
-- [ ] Exercise complete and partial workflows through actual MCP handlers, CLI, and Mac callers; avoid a parallel implementation of audit logic.
+- [x] Compose existing impact/context/preflight/review/verification owners into bounded workflows with declared scope, budgets, durable progress, and cancellation.
+- [x] Return findings, coverage, evidence limitations, and next actions first; retain detailed evidence behind access-checked resources.
+- [x] Preserve per-step failures and authorization boundaries; no hidden dependency downloads, source mutation, setting changes, or expanded targets.
+- [x] Exercise complete and partial workflows through actual MCP handlers, CLI, and Mac callers; avoid a parallel implementation of audit logic.
 
 Dependencies: LEARN-04–06; builds on INT-20.8/09 and existing MCP tools.
 
@@ -104,10 +104,10 @@ Dependencies: LEARN-04–06; builds on INT-20.8/09 and existing MCP tools.
 
 As an integrator, I want proof that clients discover and successfully use our tools, not just connect.
 
-- [ ] Define a versioned matrix of supported real clients and negotiated protocol behavior; verify discovery, schema acceptance, structured output, resource access, task polling, reconnect, and a completed audit.
-- [ ] Retain client/server versions, wire-level sanitized receipts, discovered tool counts, and observed completion; distinguish connected from usable.
-- [ ] Compare stepwise and composed workflows on identical resettable tasks with alternating order and at least five pairs; report provider usage, turns, calls, duration, and failures separately.
-- [ ] Require equivalent coverage and no false completion before claiming efficiency; keep unavailable provider token counts unavailable and obtain scope before paid/external client trials.
+- [x] Define a versioned matrix of supported real clients and negotiated protocol behavior; verify discovery, schema acceptance, structured output, resource access, task polling, reconnect, and a completed audit.
+- [x] Retain client/server versions, wire-level sanitized receipts, discovered tool counts, and observed completion; distinguish connected from usable.
+- [x] Compare stepwise and composed workflows on identical resettable tasks with alternating order and at least five pairs; report provider usage, turns, calls, duration, and failures separately.
+- [x] Require equivalent coverage and no false completion before claiming efficiency; keep unavailable provider token counts unavailable and obtain scope before paid/external client trials.
 
 Dependencies: LEARN-07 for comparative benchmark; client conformance work can begin earlier under M14. TVTestRig's benchmark is motivation, not our acceptance threshold.
 
@@ -115,10 +115,10 @@ Dependencies: LEARN-07 for comparative benchmark; client conformance work can be
 
 As a user, I want long reviews to stop safely before exhausting storage without losing prior results.
 
-- [ ] Check bounded per-run/workspace quotas and free capacity before builds, capture, and export; account for retained and recovery data without double counting paths.
-- [ ] Reserve bounded cleanup/finalization capacity, reject symlink/path escapes, and report nonretryable capacity problems with actionable repairs.
-- [ ] Preserve originals and failed attempts; archive only under the configured policy, with no automatic deletion/offload or silent quota increase.
-- [ ] Test pre-dispatch exhaustion, mid-run exhaustion, concurrent reservations, interrupted finalization, and recovery; qualify these separately rather than inferring runtime success from a unit check.
+- [x] Check bounded per-run/workspace quotas and free capacity before builds, capture, and export; account for retained and recovery data without double counting paths.
+- [x] Reserve bounded cleanup/finalization capacity, reject symlink/path escapes, and report nonretryable capacity problems with actionable repairs.
+- [x] Preserve originals and failed attempts; archive only under the configured policy, with no automatic deletion/offload or silent quota increase.
+- [x] Test pre-dispatch exhaustion, mid-run exhaustion, concurrent reservations, interrupted finalization, and recovery; qualify these separately rather than inferring runtime success from a unit check.
 
 Dependencies: LEARN-05/06 and existing storage owners.
 
@@ -126,10 +126,10 @@ Dependencies: LEARN-05/06 and existing storage owners.
 
 As a reviewer, I want to share useful evidence without exposing source paths, secrets, or private screenshots unintentionally.
 
-- [ ] Preview an export manifest with artifact types, sensitivity, provenance, and selected redactions; raw screenshots/source require explicit inclusion.
-- [ ] Preserve original bytes privately; mark redacted derivatives and their ancestry so they cannot silently replace measurement baselines.
-- [ ] Record schema/version, hashes, sizes, and exact artifact references; separate byte delivery from receiver review or semantic acceptance.
-- [ ] Test secrets/path exclusion, malformed archives, access denial, expired resources, and redacted geometry limitations; provide a keyboard and nonvisual review path.
+- [x] Preview an export manifest with artifact types, sensitivity, provenance, and selected redactions; raw screenshots/source require explicit inclusion.
+- [x] Preserve original bytes privately; mark redacted derivatives and their ancestry so they cannot silently replace measurement baselines.
+- [x] Record schema/version, hashes, sizes, and exact artifact references; separate byte delivery from receiver review or semantic acceptance.
+- [x] Test secrets/path exclusion, malformed archives, access denial, expired resources, and redacted geometry limitations; provide a keyboard and nonvisual review path.
 
 Dependencies: LEARN-02/09 and existing private context-capsule access controls. No new external delivery service is implied.
 
@@ -139,10 +139,10 @@ Dependencies: LEARN-02/09 and existing private context-capsule access controls. 
 
 As a UI author, I want repeatable realistic states whose measured output is distinguishable from fixture intent.
 
-- [ ] Extend MCP-19.9/10 and M21 with deterministic loading, empty, error, populated, offline, permission, and authentication fixtures using target-compatible types and stable IDs.
-- [ ] Emit declared inventory separately from rendered/visible observations, with settled native bounds and explicit absent/occluded/unavailable states.
-- [ ] Validate resource decoding, dimensions, aspect, real alpha, origin, and ancestry; structural/generated substitutes are visibly synthetic and baseline-ineligible.
-- [ ] Test missing dependencies, invalid assets, duplicate IDs, animation, RTL, AX5, localization expansion, contrast, motion, and orientation; unsupported permutations remain not evaluated.
+- [x] Extend MCP-19.9/10 and M21 with deterministic loading, empty, error, populated, offline, permission, and authentication fixtures using target-compatible types and stable IDs.
+- [x] Emit declared inventory separately from rendered/visible observations, with settled native bounds and explicit absent/occluded/unavailable states.
+- [x] Validate resource decoding, dimensions, aspect, real alpha, origin, and ancestry; structural/generated substitutes are visibly synthetic and baseline-ineligible.
+- [x] Test missing dependencies, invalid assets, duplicate IDs, animation, RTL, AX5, localization expansion, contrast, motion, and orientation; unsupported permutations remain not evaluated.
 
 Dependencies: MCP-19.9–19.11, LEARN-02/04. M21 remains the scenario owner.
 
@@ -150,10 +150,10 @@ Dependencies: MCP-19.9–19.11, LEARN-02/04. M21 remains the scenario owner.
 
 As a blind developer, I want to test navigation and announcements without mistaking a dispatched action for a successful accessible journey.
 
-- [ ] Under M22, define versioned routes with allowed actions, stable states, preconditions, bounded budgets, and destination assertions; check policy before every action.
-- [ ] Separate dispatch receipt, observed effect, settled screen, input focus, accessibility focus, announcements, and cleanup; unsupported AT observations stay unavailable.
-- [ ] Persist visited/frontier/blocked/unreached states; only observed transitions establish edges and missing observations never trigger hidden replay.
-- [ ] Test duplicate labels, scrolling, cycles, no-op boundaries, missing announcements, focus races, late results, interruption, and cleanup; generate manual verification steps where native evidence is unavailable.
+- [x] Under M22, define versioned routes with allowed actions, stable states, preconditions, bounded budgets, and destination assertions; check policy before every action.
+- [x] Separate dispatch receipt, observed effect, settled screen, input focus, accessibility focus, announcements, and cleanup; unsupported AT observations stay unavailable.
+- [x] Persist visited/frontier/blocked/unreached states; only observed transitions establish edges and missing observations never trigger hidden replay.
+- [x] Test duplicate labels, scrolling, cycles, no-op boundaries, missing announcements, focus races, late results, interruption, and cleanup; generate manual verification steps where native evidence is unavailable.
 
 Dependencies: LEARN-02/05/06/11. No automatic VoiceOver changes or unannounced audible human trials.
 
@@ -161,10 +161,10 @@ Dependencies: LEARN-02/05/06/11. No automatic VoiceOver changes or unannounced a
 
 As a blind or low-vision reviewer, I want to inspect differences, uncertainty, and recovery actions without relying on overlays.
 
-- [ ] Extend AI Review, Current Status, History, and Playground with text-first before/after findings, provenance, coverage, build/capture identity, and actionable evidence links.
-- [ ] Provide stable headings, keyboard navigation, concise braille-oriented summaries, and non-color state labels; retain detailed expansion without repetitive announcements.
-- [ ] Distinguish predicted AT behavior from observed and human-confirmed behavior; make unknown and not-retested items discoverable rather than hiding them behind scores.
-- [ ] Add automated UI/state tests and complete scoped keyboard/VoiceOver/braille review under NV-2.10/NV-6; automated checks alone cannot close human release acceptance.
+- [x] Extend AI Review, Current Status, History, and Playground with text-first before/after findings, provenance, coverage, build/capture identity, and actionable evidence links.
+- [x] Provide stable headings, keyboard navigation, concise braille-oriented summaries, and non-color state labels; retain detailed expansion without repetitive announcements.
+- [x] Distinguish predicted AT behavior from observed and human-confirmed behavior; make unknown and not-retested items discoverable rather than hiding them behind scores.
+- [x] Add automated UI/state tests and complete scoped keyboard/VoiceOver/braille review under NV-2.10/NV-6; automated checks alone cannot close human release acceptance.
 
 Dependencies: LEARN-02/04; journey views additionally depend on LEARN-12. Reuse the existing ViewLens theme and components.
 

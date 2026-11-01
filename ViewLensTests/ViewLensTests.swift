@@ -436,3 +436,38 @@ struct HistoryStoreTests {
         #expect(store.filteredReviews(from: [template, screenshot]).map(\.id) == [screenshot.id])
     }
 }
+
+@MainActor
+struct PlaygroundLiveRenderingAndBatchTests {
+    @Test func populatesInitialTemplateMaterializesSampleBatchAndRendersImmediatelyOnSelectionChange() throws {
+        let model = AppModel(
+            reviewStore: ReviewStore(),
+            canvasStore: CanvasStore(),
+            healthStore: SystemHealthStore(),
+            playgroundStore: PlaygroundStore(),
+            loadsInitialSample: true,
+            runsDoctorCheck: false
+        )
+        defer { model.cancelActiveReview() }
+
+        // 1. Initial sample populates the canvas and materializes the 6-screenshot sample batch
+        #expect(model.currentImage != nil)
+        #expect(model.playgroundStore.sampleScreenshots.count == 6)
+        #expect(model.playgroundStore.importedBatchURLs.count == 6)
+
+        // 2. Changing template selection immediately updates the canvas image
+        model.selectedTemplateName = "Sub44ptButtonBug"
+        model.playgroundStore.selectedDeviceIDs = [DeviceProfile.iPhoneSE.id]
+        model.renderPlaygroundTemplate()
+        let seImage = try #require(model.currentImage)
+        #expect(seImage.width == Int(DeviceProfile.iPhoneSE.pointWidth * DeviceProfile.iPhoneSE.scale))
+
+        // 3. Selecting a sample screenshot from the batch immediately switches to import mode and updates the canvas
+        let checkoutSample = try #require(model.playgroundStore.sampleScreenshots.last)
+        model.selectSampleScreenshot(checkoutSample)
+        #expect(model.playgroundStore.mode == .importFile)
+        #expect(model.playgroundStore.selectedFileURL == checkoutSample.url)
+        let importedImage = try #require(model.currentImage)
+        #expect(importedImage.width == Int(checkoutSample.device.pointWidth * checkoutSample.device.scale))
+    }
+}

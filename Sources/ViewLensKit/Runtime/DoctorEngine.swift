@@ -97,6 +97,51 @@ public enum DoctorEngine {
         return DoctorReport(status: overallStatus, checks: checks, recommendedNextCommand: recommendedNextCommand)
     }
 
+    /// Runs read-only capability preflight for a specific workflow without triggering any build, install, launch, or input side effects (LEARN-05).
+    public static func preflight(
+        workflow: PreflightWorkflowKind,
+        workspaceRoot: String? = nil,
+        requestedTarget: String? = nil,
+        customModelPath: String? = nil,
+        activeOwnerForTarget: String? = nil,
+        hasPendingCleanup: Bool = false,
+        hasStaleReply: Bool = false
+    ) async -> CapabilityPreflightReport {
+        let availableTargets = await MainActor.run { TemplateRegistry.shared.availableTemplates }
+        let modelChecksResult = modelChecks(customPath: customModelPath)
+        let modelOK = modelChecksResult.contains(where: { $0.name == "model_loads" && $0.status == "confirmed" })
+
+        let xcodeOK: Bool?
+        let simOK: Bool?
+        if workflow == .sourceBuildAndVerify || workflow == .liveSimulatorCapture {
+            let xc = xcodeChecks()
+            xcodeOK = xc.allSatisfy { $0.status == "confirmed" }
+            if workflow == .liveSimulatorCapture {
+                let sc = simulatorChecks()
+                simOK = sc.allSatisfy { $0.status == "confirmed" }
+            } else {
+                simOK = nil
+            }
+        } else {
+            xcodeOK = nil
+            simOK = nil
+        }
+
+        let context = PreflightEnvironmentContext(
+            workspaceRoot: workspaceRoot,
+            requestedTarget: requestedTarget,
+            availableTargets: availableTargets,
+            customModelPath: customModelPath,
+            modelAvailableOverride: modelOK,
+            xcodeAvailableOverride: xcodeOK,
+            simulatorAvailableOverride: simOK,
+            activeOwnerForTarget: activeOwnerForTarget,
+            hasPendingCleanup: hasPendingCleanup,
+            hasStaleReply: hasStaleReply
+        )
+        return CapabilityPreflightEngine.evaluate(workflow: workflow, context: context)
+    }
+
     // MARK: - Model
 
     static func modelChecks(customPath: String?) -> [DiagnosticCheck] {

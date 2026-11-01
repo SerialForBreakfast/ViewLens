@@ -57,6 +57,37 @@ public final class SystemHealthStore {
     public init() {}
 }
 
+public struct SampleScreenshotItem: Identifiable, Equatable, Sendable {
+    public let id: String
+    public let title: String
+    public let subtitle: String
+    public let templateName: String
+    public let device: DeviceProfile
+    public let dynamicType: String
+    public let appearance: String
+    public let url: URL
+
+    public init(
+        id: String,
+        title: String,
+        subtitle: String,
+        templateName: String,
+        device: DeviceProfile,
+        dynamicType: String,
+        appearance: String,
+        url: URL
+    ) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.templateName = templateName
+        self.device = device
+        self.dynamicType = dynamicType
+        self.appearance = appearance
+        self.url = url
+    }
+}
+
 @MainActor
 @Observable
 public final class PlaygroundStore {
@@ -75,8 +106,10 @@ public final class PlaygroundStore {
         public var value: Double? { switch self { case .automatic: nil; case .one: 1; case .two: 2; case .three: 3 } }
     }
 
-    public var mode: Mode = .importFile
+    public var mode: Mode = .template
     public var selectedFileURL: URL?
+    public var importedBatchURLs: [URL] = []
+    public var sampleScreenshots: [SampleScreenshotItem] = []
     public var importError: String?
     public var displayScale: DisplayScale = .automatic
     public var wcagLevel = "AA"
@@ -263,7 +296,7 @@ public final class PreferenceStore {
         appearance = defaults.string(forKey: Key.appearance) ?? "System"
         wcagLevel = defaults.string(forKey: Key.wcagLevel) ?? "AA"
         confirmCancellation = defaults.object(forKey: Key.confirmCancellation) as? Bool ?? true
-        autoRunPlayground = defaults.object(forKey: Key.autoRunPlayground) as? Bool ?? false
+        autoRunPlayground = defaults.object(forKey: Key.autoRunPlayground) as? Bool ?? true
         historyRetention = defaults.string(forKey: Key.historyRetention) ?? "30 days"
         launchDestination = defaults.string(forKey: Key.launchDestination) ?? AppDestination.currentStatus.rawValue
         showMenuBarItem = defaults.object(forKey: Key.showMenuBarItem) as? Bool ?? false
